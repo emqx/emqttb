@@ -1,0 +1,5 @@
+%% -*- mode:erlang -*-
+[{emqttb,
+  [{bootstrap_node, 'emqttb@${BOOTSTRAP_NODE}'}
+  ]}
+].
