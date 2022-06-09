@@ -13,18 +13,18 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(emqttb_http_sighup).
+-module(emqttb_http_scenario_conf).
 
 -export([ init/2
         , init/3
         , descr/0
         , handle_request/2
-        , allowed_methods/2
-        , content_types_accepted/2
+        , content_types_provided/2
+        , resource_exists/2
         ]).
 
 descr() ->
-  "Reload configuration in runtime.".
+  "Get or set a configuration parameter for a scenario while it's running.".
 
 init(Req, Opts) ->
   {cowboy_rest, Req, Opts}.
@@ -33,10 +33,16 @@ init(_Transport, _Req, []) ->
   {upgrade, protocol, cowboy_rest}.
 
 allowed_methods(Req , State) ->
-  {[<<"POST">>], Req, State}.
+  {[<<"GET">>, <<"PUT">>], Req, State}.
 
-content_types_accepted(Req, State) ->
-  {[{'*', handle_request}], Req, State}.
+resource_exists(Req = #{bindings := #{scenario := Scenario, key := Key}}, State) ->
+  Enabled = [atom_to_binary(I:name()) || I <- emqttb_scenario:list_enabled_scenarios()],
+  Exists = lists:member(Scenario, Enabled),
+  {Exists, Req, State}.
 
-handle_request(Req, State) ->
-  {emqttb_conf:reload(), Req, State}.
+content_types_provided(Req, State) ->
+  {[{<<"text/plain">>, handle_request}], Req, State}.
+
+handle_request(Req = #{bindings := #{scenario := Scenario}}, State) ->
+  Stage = atom_to_binary(emqttb_scenario:stage(binary_to_atom(Scenario))),
+  {Stage, Req, State}.

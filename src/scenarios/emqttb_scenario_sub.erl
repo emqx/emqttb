@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%%Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(emqttb_scenario_pub).
+-module(emqttb_scenario_sub).
 
 -behavior(emqttb_scenario).
 
@@ -41,12 +41,12 @@
 %%================================================================================
 
 name() ->
-  pub.
+  sub.
 
 model() ->
   #{ topic =>
        {[value, cli_param],
-        #{ oneliner => "Topic where the clients shall publish messages"
+        #{ oneliner => "Topic that the clients shall subscribe to"
          , type => binary()
          , cli_operand => "topic"
          , cli_short => $t
@@ -59,15 +59,7 @@ model() ->
          , cli_operand => "connrate"
          , cli_short => $r
          }}
-   , pubrate =>
-       {[value, cli_param],
-        #{ oneliner => "Message publishing rate"
-         , type => emqttb:rate()
-         , default_ref => [rate]
-         , cli_operand => "pubrate"
-         , cli_short => $R
-         }}
-   , n_publishers =>
+   , n_subs =>
        {[value, cli_param],
         #{ oneliner => "Number of clients"
          , type => non_neg_integer()

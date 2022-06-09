@@ -20,10 +20,8 @@
 %% API:
 -export([start_link/1, ramp_up/1, ramp_down/1, foreach_children/2]).
 
-%% behavior callbacks:
-%% gen_server callbacks
-%% -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-%%          terminate/2]).
+%% gen_server callbacks:
+-export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
 -export_type([]).
 
@@ -39,7 +37,6 @@
 start_link(GroupId) ->
   gen_server:start_link({local, GroupId}, ?MODULE, [GroupId], []).
 
-
 %% Add a child to the group
 -spec ramp_up(emqttb:group()) -> ok.
 ramp_up(_Id) ->
@@ -53,6 +50,27 @@ ramp_down(_Id) ->
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
+
+-record(s,
+        { behavior :: module()
+        , pids :: queue:queue(pid())
+        }).
+
+init([Name, Scenario, Behavior]) ->
+  process_flag(trap_exits, true),
+  logger:info("Starting group ~p", [Name]),
+  {ok, #s{ behavior = Behavior
+         , pids = queue:new()
+         }}.
+
+handle_call(_, _, S) ->
+  {reply, {error, unknown_call}, S}.
+
+handle_cast(_, S) ->
+  {notrepy, S}.
+
+terminate(_Reason, State) ->
+  ok.
 
 %%================================================================================
 %% Internal exports

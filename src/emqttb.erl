@@ -16,7 +16,7 @@
 -module(emqttb).
 
 %% API:
--export([main/1, setfail/0, linger/0]).
+-export([main/1, setfail/0]).
 
 %% behavior callbacks:
 -export([]).
@@ -50,7 +50,7 @@
 
 %% Escript entrypoint
 main(Args) ->
-  application:set_env(emqttb, cli_opts, Args),
+  application:set_env(emqttb, cli_args, Args),
   {ok, _} = application:ensure_all_started(?APP, permanent),
   %% Wait for completion of the scenarios:
   MRef = monitor(process, whereis(emqttb_scenario_sup)),
@@ -61,13 +61,6 @@ main(Args) ->
 
 setfail() ->
   application:set_env(emqttb, is_fail, true).
-
-linger() ->
-  T = case ?CFG([convenience, linger]) of
-        infinity -> infinity;
-        T0       -> timer:seconds(T0)
-      end,
-  receive after T -> ok end.
 
 %%================================================================================
 %% Internal exports
@@ -81,7 +74,6 @@ terminate() ->
   timer:sleep(100), %% Ugly: give logger time to flush events...
   case application:get_env(emqttb, is_fail, false) of
     false ->
-      emqttb_conf:maybe_dump_conf(),
       halt(0);
     true ->
       halt(1)

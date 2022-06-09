@@ -16,7 +16,7 @@
 -module(emqttb_conf).
 
 %% API:
--export([load_conf/1, maybe_dump_conf/0, get/1, list_keys/1, reload/0, patch/1]).
+-export([load_conf/0, get/1, list_keys/1, reload/0, patch/1]).
 
 -export_type([]).
 
@@ -33,26 +33,17 @@
 %% API funcions
 %%================================================================================
 
-load_conf(CLIArgs) ->
+load_conf() ->
   Storage = lee_storage:new(lee_persistent_term_storage),
-  MTs = [ lee:base_metamodel()
-        , lee_metatype:create(lee_os_env, #{prefix => "EMQTTB_", priority => 0})
-        , lee_metatype:create(lee_app_env)
-        , lee_metatype:create(lee_logger)
-        , lee_metatype:create(lee_cli, #{cli_opts => CLIArgs, priority => 10})
-        , lee_metatype:create(lee_config_file, #{ tag => global_conf
-                                                , priority => -100
-                                                , file => "~/.config/emqttb.eterm"
-                                                })
-        , lee_metatype:create(emqttb_scenario)
-        ],
+  MTs = metamodel(),
   {ok, Model} = lee_model:compile(MTs, [model()]),
-  lee_doc:make_docs(Model, #{metatypes => [cli_param, os_env, global_conf, value], run_pandoc => true}),
+  persistent_term:put(?CONF_STORE, Storage),
+  persistent_term:put(?MODEL_STORE, Model),
   case lee:init_config(Model, Storage) of
     {ok, _Data, _Warnings} ->
-      persistent_term:put(?CONF_STORE, Storage),
-      persistent_term:put(?MODEL_STORE, Model),
       maybe_load_repeat(),
+      maybe_load_conf_file(),
+      maybe_dump_conf(),
       ok;
     {error, Errors, _Warnings} ->
       [logger:critical(E) || E <- Errors],
@@ -61,28 +52,16 @@ load_conf(CLIArgs) ->
 
 reload() ->
   logger:notice("Reloading configuration"),
-  case lee:init_config(persistent_term:get(?MODEL_STORE), persistent_term:get(?CONF_STORE)) of
+  case lee:init_config(?MYMODEL, ?MYCONF) of
     {ok, _, _} -> true;
     _          -> false
   end.
 
 patch(Patch) ->
   logger:notice("Patching configuration: ~p", [Patch]),
-  case lee:patch(persistent_term:get(?MODEL_STORE), persistent_term:get(?CONF_STORE), Patch) of
+  case lee:patch(?MYMODEL, ?MYCONF, Patch) of
     {ok, _, _} -> true;
     _          -> false
-  end.
-
-
-maybe_dump_conf() ->
-  case {?CFG([convenience, dump_conf]), ?CFG([convenience, again])} of
-    {Filename, false} when is_list(Filename) ->
-      Dump = lee_storage:dump(persistent_term:get(?CONF_STORE)),
-      {ok, FD} = file:open(Filename, [write]),
-      [ok = io:format(FD, "~p.~n", [I]) || I <- Dump],
-      ok = file:close(FD);
-    _ ->
-      ok
   end.
 
 -spec get(lee:key()) -> term().
@@ -97,15 +76,23 @@ list_keys(Key) ->
 %% Internal functions
 %%================================================================================
 
+maybe_dump_conf() ->
+  case {?CFG([convenience, conf_dump]), ?CFG([convenience, again])} of
+    {Filename, false} when is_list(Filename) ->
+      Dump = lee_storage:dump(?MYCONF),
+      {ok, FD} = file:open(Filename, [write]),
+      [ok = io:format(FD, "~p.~n", [I]) || I <- Dump],
+      ok = file:close(FD);
+    _ ->
+      ok
+  end.
+
 maybe_load_repeat() ->
-  case {?CFG([convenience, dump_conf]), ?CFG([convenience, again])} of
+  case {?CFG([convenience, conf_dump]), ?CFG([convenience, again])} of
     {Filename, true} when is_list(Filename) ->
       case file:consult(Filename) of
         {ok, Patch} ->
-          lee:patch( persistent_term:get(?MODEL_STORE)
-                   , persistent_term:get(?CONF_STORE)
-                   , Patch
-                   );
+          lee:patch(?MYMODEL, ?MYCONF, Patch);
         _ ->
           ok
       end;
@@ -113,12 +100,20 @@ maybe_load_repeat() ->
       ok
   end.
 
+maybe_load_conf_file() ->
+  case ?CFG([convenience, conf_file]) of
+    undefined ->
+      ok;
+    File ->
+      {ok, _, _} = lee_config_file:read_to(?MYMODEL, ?MYCONF, File)
+  end.
+
 model() ->
   #{ '$doc_root' =>
        {[doc_root],
-        #{ oneliner => "A scriptable load generator for MQTT"
-         , app_name => "EMQTT bench daemon"
-         , doc => intro()
+        #{ oneliner  => "A scriptable load generator for MQTT"
+         , app_name  => "EMQTT bench daemon"
+         , doc       => intro()
          , prog_name => "emqttb"
          }}
    %% , bootstrap_node =>
@@ -147,18 +142,65 @@ model() ->
          , cli_param => "max-clients"
          , cli_short => $N
          }}
-   , broker =>
+     %% Default clients' connection settings:
+   , client =>
        #{ host =>
-            {[value, cli_param],
-             #{ oneliner    => "Hostname of the target"
-              , doc         => "<para>Note, this parameter can be overriden per group</para>"
-              , type        => nonempty_list(typerefl:listen_port_ip4())
-              , default     => [{{127, 0, 0, 1}, 1883}]
+            {[value, os_env, cli_param],
+             #{ oneliner    => "Hostname of the target broker"
+              , type        => nonempty_string()
+              , default     => "localhost"
               , cli_operand => "host"
               , cli_short   => $h
               }}
+        , port =>
+            {[value, os_env, cli_param],
+             #{ oneliner    => "Hostname of the target broker"
+              , type        => range(1, 1 bsl 16 - 1)
+              , default     => 1883
+              , cli_operand => "port"
+              , cli_short   => $p
+              }}
+        , version =>
+            {[value, os_env, cli_param],
+             #{ oneliner    => "MQTT protocol version"
+              , type        => range(1, 5)
+              , default     => 5
+              , cli_operand => "version"
+              , cli_short   => $V
+              }}
+        , username =>
+            {[value, os_env, cli_param],
+             #{ oneliner    => "Username of the client"
+              , type        => union(string(), undefined)
+              , default     => undefined
+              , cli_operand => "username"
+              , cli_short   => $u
+              }}
+        , password =>
+            {[value, os_env, cli_param],
+             #{ oneliner    => "Password for connecting to the broker"
+              , type        => union(string(), undefined)
+              , default     => undefined
+              , cli_operand => "password"
+              , cli_short   => $P
+              }}
+        , session_expiry =>
+            {[value, os_env, cli_param],
+             #{ oneliner    => "Session expiry"
+              , type        => non_neg_integer()
+              , default     => 0
+              , cli_operand => "session-expiry"
+              , cli_short   => $x
+              }}
+        , ifaddr =>
+            {[value, cli_param],
+             #{ oneliner    => "Local IP addresses"
+              , type        => nonempty_list(typerefl:ip_address())
+              , default     => [{0, 0, 0, 0}]
+              , cli_operand => "ifaddr"
+              }}
         }
-   , rest =>
+   , restapi =>
        #{ listen_port =>
             {[value, os_env, cli_param],
              #{ oneliner    => "REST API listening interface/port"
@@ -200,21 +242,22 @@ model() ->
        #{ pushgateway =>
             #{ address =>
                  {[value, os_env],
-                  #{ oneliner => "URL of pushgateway server"
-                   , type => string()
-                   , default => "http://localhost:9091"
+                  #{ oneliner    => "URL of pushgateway server"
+                   , type        => string()
+                   , default     => "http://localhost:9091"
                    }}
-             , enabled =>
-                 {[value, os_env],
-                  #{ oneliner => "Enable sending metrics to pushgateway"
-                   , type => boolean()
-                   , default => false
+             , enabled           =>
+                 {[value, cli_param, os_env],
+                  #{ oneliner    => "Enable sending metrics to pushgateway"
+                   , type        => boolean()
+                   , default     => false
+                   , cli_operand => "pushgw"
                    }}
-             , interval =>
+             , interval          =>
                  {[value, os_env],
-                  #{ oneliner => "Push interval (ms)"
-                   , type => non_neg_integer()
-                   , default => timer:seconds(1)
+                  #{ oneliner    => "Push interval (ms)"
+                   , type        => non_neg_integer()
+                   , default     => timer:seconds(1)
                    }}
              }
         }
@@ -231,7 +274,7 @@ model() ->
               , default     => false
               , cli_operand => "again"
               }}
-        , dump_conf =>
+        , conf_dump =>
             {[value, os_env, cli_param],
              #{ oneliner    => "Name of the repeat file or `undefined`"
               , doc         => "<para>
@@ -245,12 +288,36 @@ model() ->
               , default     => ".emqttb.repeat"
               , cli_operand => "conf-dump-file"
               }}
+        , conf_file =>
+            {[value, cli_param, undocumented], %% Currently scuffed
+             #{ oneliner    => "Read configuration from a file"
+              , type        => union(string(), undefined)
+              , default     => undefined
+              , cli_operand => "conf"
+              }}
         , linger =>
-            {[value, cli_param],
-             #{ oneliner    => "Keep running after completing the scenario"
+            {[value, os_env, cli_param],
+             #{ oneliner    => "Default linger time for the scenarios (sec)"
               , type        => timeout()
               , default     => infinity
               , cli_operand => "linger"
+              }}
+        , keep_running =>
+            {[value, os_env, cli_param],
+             #{ oneliner => "Keep the process running after completing all the scenarios"
+              , doc => "<para>
+                          By default, when started without REST API, emqttb script terminates
+                          after completing all the scenarios, which is useful for scripting.
+                          However, when running with REST API, such behavior is undesirable.
+                          So when REST is enabled, the default behavior is different: the
+                          process keeps running waiting for commands.
+                        </para>
+                        <para>
+                          This flag can be used to explicitly override this behavior.
+                        </para>"
+              , type => boolean()
+              , default_ref => [restapi, enabled]
+              , cli_operand => "keep-running"
               }}
         }
    , scenarios => emqttb_scenario:model()
@@ -258,7 +325,9 @@ model() ->
 
 intro() ->
   [ sect("intro-running", "Invokation",
-         [ p("Basic usage: emqttb <gloabal parameters> @<scenario1> <scenario parameters> [@<scenario2> <scenario parameters> ...]")
+         [ p("Generally speaking, this script can work in either script mode or in deamon mode.
+              The mode is determined by whether REST API is enabled or not.")
+         , p("Basic usage: emqttb <gloabal parameters> @<scenario1> <scenario parameters> [@<scenario2> <scenario parameters> ...]")
          , p("Repeat the last run: emqttb --again")
          ])
   , sect("concepts", "Core concepts",
@@ -282,6 +351,30 @@ intro() ->
                 ["a function that scales the size of the group up or down."])
            ]}])
   , sect("rest", "REST API endpoints",
-         [{itemlist,
-           emqttb_http:doc()}])
+         [ p("By default, REST API is disabled and emqttb runs in script mode.
+              To enable it, run the script with --restapi flag.")
+         , sect("rest-methods", "Methods",
+                [{itemlist,
+                  emqttb_http:doc()}])
+         ])
   ].
+
+metamodel() ->
+  [ lee:base_metamodel()
+  , lee_metatype:create(lee_os_env, #{prefix => "EMQTTB_", priority => 0})
+  , lee_metatype:create(lee_app_env)
+  , lee_metatype:create(lee_logger)
+  , lee_metatype:create(lee_cli,
+                        #{ cli_opts => fun cli_args_getter/0
+                         , priority => 10
+                         })
+  , lee_metatype:create(lee_config_file,
+                        #{ tag => system_wide_conf
+                         , priority => -110
+                         , file => "/etc/emqttb/emqttb.conf"
+                         })
+  , lee_metatype:create(emqttb_scenario)
+  ].
+
+cli_args_getter() ->
+  application:get_env(emqttb, cli_args, []).

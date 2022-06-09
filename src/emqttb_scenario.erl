@@ -18,7 +18,7 @@
 -behavior(lee_metatype).
 
 %% API:
--export([set_stage/3, set_stage/2, stage/1, complete/2,
+-export([set_stage/3, set_stage/2, stage/1, complete/2, linger/1,
          model/0, list_enabled_scenarios/0, run/1, stop/1]).
 
 %% gen_server callbacks:
@@ -30,6 +30,7 @@
 %% internal exports:
 -export([start_link/1]).
 
+-include_lib("typerefl/include/types.hrl").
 -include("emqttb.hrl").
 
 %%================================================================================
@@ -54,27 +55,11 @@
 
 -spec run(module()) -> ok.
 run(Module) ->
-  case emqttb_scenario_sup:start_child(Module) of
-    {ok, _} ->
-      ok;
-    {error, {already_started, _}} ->
-      ok
-  end.
+  emqttb_scenario_sup:run(Module).
 
 -spec stop(module()) -> ok.
 stop(Module) ->
   emqttb_scenario_sup:stop_child(Module).
-
-%% -spec run() -> ok.
-%% run() ->
-%%   case list_enabled_scenarios() of
-%%     [Scenario] ->
-%%       %logger:update_process_metadata(#{domain => [emqttb, scenario]}),
-%%       Scenario:run();
-%%     Given ->
-%%       logger:critical("Exactly one scenario should be started, ~p given", [length(Given)]),
-%%       emqttb:terminate(nok)
-%%   end.
 
 -spec stage(emqttb:scenario()) -> emqttb:stage().
 stage(Scenario) ->
@@ -99,16 +84,21 @@ set_stage(Scenario, Stage, {error, Err}) ->
                                 )),
   set_stage(Scenario, Stage).
 
+-spec linger(module()) -> ok.
+linger(Module) ->
+  T = case ?CFG([?SK(Module), linger]) of
+        infinity -> infinity;
+        T0       -> timer:seconds(T0)
+      end,
+  receive after T -> ok end.
+
 -spec complete(emqttb:scenario(), result()) -> no_return().
 complete(Scenario, PrevStageResult) ->
   set_stage(Scenario, complete, PrevStageResult),
   case PrevStageResult of
-    ok ->
-      emqttb:linger();
-    {ok, _} ->
-      emqttb:linger();
-    {error, _} ->
-      emqttb:setfail()
+    ok         -> ok;
+    {ok, _}    -> ok;
+    {error, _} -> emqttb:setfail()
   end.
 
 -spec model() -> lee_model:lee_module().
@@ -167,9 +157,9 @@ create(_) ->
   [].
 
 %% This will start/stop scenario automatically when the config changes:
-post_patch(scenario, _, _, _, {set, [?SK(Scenario)|_], _}) ->
+post_patch(scenario, _, _, _, {set, [?SK(Scenario)], _}) ->
   run(Scenario);
-post_patch(scenario, _, _, _, {rm, [?SK(Scenario)|_]}) ->
+post_patch(scenario, _, _, _, {rm, [?SK(Scenario)]}) ->
   stop(Scenario).
 
 %%================================================================================
@@ -183,4 +173,13 @@ make_model(M) ->
     , key_elements => []
     , oneliner => "Run scenario " ++ Name
     },
-   M:model()}.
+   maps:merge(
+     #{ linger =>
+          {[value, cli_param],
+           #{ oneliner    => "Keep running scenario stages for this period of time (sec)"
+            , type        => timeout()
+            , default_ref => [convenience, linger]
+            , cli_operand => "linger"
+            }}
+      },
+     M:model())}.

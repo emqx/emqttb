@@ -18,22 +18,32 @@ start_link() ->
   supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 init([]) ->
-  SupFlags = #{ strategy => one_for_one
-              , intensity => 0
-              , period => 1
+  SupFlags = #{ strategy      => one_for_one
+              , intensity     => 0
+              , period        => 1
+              , auto_shutdown => any_significant
               },
-  ChildSpecs = [ sup(emqttb_scenario_sup, [])
-               , sup(emqttb_misc_sup, []) %% Allows restarts
+  ChildSpecs = [ scenario_sup()
+               , misc_sup() %% Allows restarts
                ],
   {ok, {SupFlags, ChildSpecs}}.
 
 %% internal functions
 
-sup(Module, Args) ->
-   #{ id => Module
-    , start => {Module, start_link, Args}
-    , type => supervisor
-    , shutdown => infinity
+scenario_sup() ->
+   #{ id          => emqttb_scenario_sup
+    , start       => {emqttb_scenario_sup, start_link, []}
+    , type        => supervisor
+    , shutdown    => infinity
+    , significant => true
+    , restart     => transient
+    }.
+
+misc_sup() ->
+   #{ id          => emqttb_misc_sup
+    , start       => {emqttb_misc_sup, start_link, []}
+    , type        => supervisor
+    , shutdown    => infinity
     }.
 
 %% cluster_discovery() ->

@@ -38,14 +38,14 @@
 
 -spec start_link() -> {ok, pid()} | {error, _}.
 start_link() ->
-  {IP, Port} = ?CFG([rest, listen_port]),
+  {IP, Port} = ?CFG([restapi, listen_port]),
   logger:info("Starting REST API at ~p:~p", [IP, Port]),
   TransportOpts = #{ port => Port
                    , ip => IP
                    },
   Env = #{dispatch => dispatch()},
   ProtocolOpts = #{env => Env},
-  StartFun = case ?CFG([rest, tls]) of
+  StartFun = case ?CFG([restapi, tls]) of
                true ->
                  ?LOG_INFO("Starting HTTPS listener with parameters ~p", [ProtocolOpts]),
                  fun cowboy:start_tls/3;

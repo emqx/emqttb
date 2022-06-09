@@ -13,17 +13,18 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(emqttb_http_healthcheck).
+-module(emqttb_http_sighup).
 
 -export([ init/2
         , init/3
         , descr/0
         , handle_request/2
-        , content_types_provided/2
+        , allowed_methods/2
+        , content_types_accepted/2
         ]).
 
 descr() ->
-  "Healthcheck endpoint.".
+  "Reload configuration in the runtime.".
 
 init(Req, Opts) ->
   {cowboy_rest, Req, Opts}.
@@ -31,9 +32,11 @@ init(Req, Opts) ->
 init(_Transport, _Req, []) ->
   {upgrade, protocol, cowboy_rest}.
 
-content_types_provided(Req, State) ->
-  {[{<<"application/json">>, handle_request}], Req, State}.
+allowed_methods(Req , State) ->
+  {[<<"POST">>], Req, State}.
+
+content_types_accepted(Req, State) ->
+  {[{'*', handle_request}], Req, State}.
 
 handle_request(Req, State) ->
-  Status = #{},
-  {jsone:encode(Status), Req, State}.
+  {emqttb_conf:reload(), Req, State}.

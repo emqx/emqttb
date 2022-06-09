@@ -13,18 +13,17 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(emqttb_http_stage).
+-module(emqttb_http_healthcheck).
 
 -export([ init/2
         , init/3
         , descr/0
         , handle_request/2
         , content_types_provided/2
-        , resource_exists/2
         ]).
 
 descr() ->
-  "Returns the currently running stage of a scenario.".
+  "Healthcheck endpoint. Just returns 200 all the time.".
 
 init(Req, Opts) ->
   {cowboy_rest, Req, Opts}.
@@ -32,14 +31,8 @@ init(Req, Opts) ->
 init(_Transport, _Req, []) ->
   {upgrade, protocol, cowboy_rest}.
 
-resource_exists(Req = #{bindings := #{scenario := Scenario}}, State) ->
-  Enabled = [atom_to_binary(I:name()) || I <- emqttb_scenario:list_enabled_scenarios()],
-  Exists = lists:member(Scenario, Enabled),
-  {Exists, Req, State}.
-
 content_types_provided(Req, State) ->
   {[{<<"text/plain">>, handle_request}], Req, State}.
 
-handle_request(Req = #{bindings := #{scenario := Scenario}}, State) ->
-  Stage = atom_to_binary(emqttb_scenario:stage(binary_to_atom(Scenario))),
-  {Stage, Req, State}.
+handle_request(Req, State) ->
+  {<<"">>, Req, State}.

@@ -21,19 +21,29 @@
 -define(CONF_STORE, lee_conf_store).
 -define(MODEL_STORE, lee_model).
 
+-define(MYCONF, persistent_term:get(?CONF_STORE)).
+-define(MYMODEL, persistent_term:get(?MODEL_STORE)).
+
 -define(DEFAULT_PORT, 8017).
 
--define(CFG(Key), lee:get( persistent_term:get(?MODEL_STORE)
-                         , persistent_term:get(?CONF_STORE)
+-define(CFG(Key), lee:get( ?MYMODEL
+                         , ?MYCONF
                          , Key
                          )).
 
--define(CFG_LIST(Key), lee:list( persistent_term:get(?MODEL_STORE)
-                               , persistent_term:get(?CONF_STORE)
+-define(CFG_LIST(Key), lee:list( ?MYMODEL
+                               , ?MYCONF
                                , Key
                                )).
 
--define(SK(SCENARIO), scenarios, SCENARIO).
+-define(SK(SCENARIO), scenarios, SCENARIO, {}).
 -define(SK, ?SK(?MODULE)).
+
+-define(LINGER(), emqttb_scenario:linger(?MODULE)).
+
+-define(STAGE(S, RESULT), emqttb_scenario:set_stage(?MODULE:name(), S, RESULT)).
+-define(STAGE(S), emqttb_scenario:set_stage(?MODULE:name(), S)).
+
+-define(COMPLETE(RESULT), emqttb_scenario:complete(?MODULE:name(), RESULT)).
 
 -endif.

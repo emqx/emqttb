@@ -15,9 +15,10 @@
 start(_StartType, _StartArgs) ->
   declare_metrics(),
   Sup = emqttb_sup:start_link(),
-  emqttb_conf:load_conf(application:get_env(emqttb, cli_opts, [])),
+  emqttb_conf:load_conf(),
+  ?CFG([convenience, keep_running]) orelse
+    emqttb_scenario_sup:enable_autostop(),
   post_init(),
-  %emqttb_http:start(),
   Sup.
 
 stop(_State) ->
@@ -26,13 +27,13 @@ stop(_State) ->
 %% internal functions
 
 declare_metrics() ->
-  prometheus_gauge:declare([{name, bench_clients},
-                            {help, <<"Number of clients in a group">>},
+  prometheus_gauge:declare([{name, num_clients},
+                            {help, <<"Number of connected clients in the group">>},
                             {labels, [group]}]).
 
 %% Start misc. processes that depend on configuration
 post_init() ->
-  ?CFG([rest, enabled]) andalso
+  ?CFG([restapi, enabled]) andalso
     emqttb_misc_sup:start_worker( emqttb_http
                                 , {emqttb_http, start_link, []}
                                 ),
