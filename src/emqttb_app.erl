@@ -37,4 +37,8 @@ post_init() ->
     emqttb_misc_sup:start_worker( emqttb_http
                                 , {emqttb_http, start_link, []}
                                 ),
+  ?CFG([metrics, pushgateway, enabled]) andalso
+    emqttb_misc_sup:start_worker( emqttb_pushgw
+                                , {emqttb_pushgw, start_link, []}
+                                ),
   ok.

@@ -240,7 +240,7 @@ model() ->
         }
    , metrics =>
        #{ pushgateway =>
-            #{ address =>
+            #{ url =>
                  {[value, os_env],
                   #{ oneliner    => "URL of pushgateway server"
                    , type        => string()

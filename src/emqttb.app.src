@@ -7,7 +7,7 @@
    [kernel,
     stdlib,
     cowboy,
-    quantile_estimator,
+    hackney,
     prometheus,
     jsone,
     lee,
