@@ -16,6 +16,8 @@
 -ifndef(EMQTTB_INTERNAL_HRL).
 -define(EMQTTB_INTERNAL_HRL, true).
 
+-include("emqttb.hrl").
+
 %% Persistent term keys:
 -define(GROUP_LEADER_TO_GROUP_ID(GL), {emqttb_group_leader_to_group_id, GL}).
 -define(GROUP_CONF_PREFIX(GL), {emqttb_group_client_conf_prefix, GL}).

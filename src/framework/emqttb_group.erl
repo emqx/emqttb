@@ -55,6 +55,7 @@
         , interval     :: emqttb:interval()
         , scale_timer  :: reference() | undefined
         , tick_timer   :: reference()
+        , next_id = 0  :: non_neg_integer()
         }).
 
 -define(TICK_TIME, 1000).
@@ -73,6 +74,7 @@ ensure(Conf) ->
 %%
 %% Note: this implementation is optimized for scaling up very fast,
 %% not scaling down. Scaling down is rather memory-expensive.
+%% Order of workers' removal during ramping down is not specified.
 -spec set_target(emqttb:group(), NClients, emqttb:interval()) ->
              {ok, NClients} | {error, new_target | {ratelimited, atom(), NClients}}
           when NClients :: non_neg_integer().
@@ -172,7 +174,6 @@ do_scale(S0) ->
   N = n_clients(S0),
   logger:debug("Scaling ~p; ~p -> ~p.", [ID, N, Target]),
   S = maybe_notify(N, S0),
-  %prometheus_gauge:set(group_num_workers, [ID], N),
   if N < Target ->
       S1 = set_scale_timer(S),
       scale_up(N, S1);
@@ -183,10 +184,10 @@ do_scale(S0) ->
       S
   end.
 
-scale_up(N, S = #s{behavior = Behavior, id = Id}) ->
-  {_Pid, _MRef} = emqttb_worker:start(Behavior, self(), N + 1),
+scale_up(N, S = #s{behavior = Behavior, id = Id, next_id = WorkerId}) ->
+  {_Pid, _MRef} = emqttb_worker:start(Behavior, self(), WorkerId),
   ?tp(start_worker, #{group => Id, pid => _Pid, mref => _MRef}),
-  S.
+  S#s{next_id = WorkerId + 1}.
 
 scale_down(N, S0) ->
   S0.

@@ -16,17 +16,20 @@
 -module(emqttb_worker).
 
 %% API:
--export([start/3, my_group/0]).
+-export([start/3,
+         my_group/0, my_id/0, my_clientid/0, conf_prefix/0]).
 
 %% behavior callbacks:
 -export([]).
 
 %% internal exports:
--export([entrypoint/3, loop/2]).
+-export([entrypoint/3, loop/1]).
 
 -export_type([]).
 
 -include("emqttb_internal.hrl").
+
+-define(MY_ID, emqttb_my_id).
 
 %%================================================================================
 %% Type declarations
@@ -44,6 +47,23 @@ start(Behavior, Group, Number) ->
 my_group() ->
   persistent_term:get(?GROUP_LEADER_TO_GROUP_ID(group_leader())).
 
+-spec my_id() -> integer().
+my_id() ->
+  get(?MY_ID).
+
+-spec conf_prefix() -> lee:key().
+conf_prefix() ->
+  persistent_term:get(?GROUP_CONF_PREFIX(group_leader())).
+
+-spec my_clientid() -> binary().
+my_clientid() ->
+  Group = my_group(),
+  ID = my_id(),
+  Pattern = ?CFG(conf_prefix() ++ [clientid]),
+  Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
+  Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
+  Id1.
+
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
@@ -56,15 +76,20 @@ entrypoint(Behavior, Group, Number) ->
   try
     process_flag(trap_exit, true),
     group_leader(Group, self()),
+    put(?MY_ID, Number),
+    %% Note: everything up to this point must be lightweight, since
+    %% group leader relies on the counter to stop scaling. If the
+    %% above part takes too long, it will overshoot by large margin.
     emqttb_metrics:counter_inc(?GROUP_N_WORKERS(my_group()), 1),
-    loop(Behavior, Number)
+    loop(Behavior)
   catch
     EC:Err:Stack ->
       emqttb_metrics:counter_dec(?GROUP_N_WORKERS(my_group()), 1),
-      logger:debug("[~p:~p] ~p:~p:~p", [my_group(), Number, EC, Err, Stack])
+      logger:error("[~p:~p] ~p:~p:~p", [my_group(), Number, EC, Err, Stack])
   end.
 
-loop(Behavior, Number) ->
+loop(Behavior) ->
+  ClientId = my_clientid(),
   receive after infinity -> ok end.
 
 %%================================================================================

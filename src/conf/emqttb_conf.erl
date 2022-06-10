@@ -85,44 +85,6 @@ list_keys(Key) ->
 %% Internal functions
 %%================================================================================
 
-maybe_dump_conf() ->
-  case {?CFG([convenience, conf_dump]), ?CFG([convenience, again])} of
-    {Filename, false} when is_list(Filename) ->
-      Dump = lee_storage:dump(?MYCONF),
-      {ok, FD} = file:open(Filename, [write]),
-      [ok = io:format(FD, "~p.~n", [I]) || I <- Dump],
-      ok = file:close(FD);
-    _ ->
-      ok
-  end.
-
-maybe_load_repeat() ->
-  case {?CFG([convenience, conf_dump]), ?CFG([convenience, again])} of
-    {Filename, true} when is_list(Filename) ->
-      case file:consult(Filename) of
-        {ok, Patch} ->
-          lee:patch(?MYMODEL, ?MYCONF, Patch);
-        _ ->
-          ok
-      end;
-    _ ->
-      ok
-  end.
-
-maybe_load_conf_file() ->
-  case ?CFG([convenience, conf_file]) of
-    undefined ->
-      ok;
-    File ->
-      {ok, _, _} = lee_config_file:read_to(?MYMODEL, ?MYCONF, File)
-  end.
-
-%% maybe_show_help_and_exit() ->
-%%   ?CFG([help])
-%%     andalso open_port({spawn, "man -l docs/EMQTT\\ bench\\ daemon.man"}, [nouse_stdio, out]),
-%%   emqttb:setfail(),
-%%   emqttb:terminate().
-
 model() ->
   #{ '$doc_root' =>
        {[doc_root],
@@ -312,6 +274,44 @@ group_model() ->
     client_model()
    ).
 
+maybe_dump_conf() ->
+  case {?CFG([convenience, conf_dump]), ?CFG([convenience, again])} of
+    {Filename, false} when is_list(Filename) ->
+      Dump = lee_storage:dump(?MYCONF),
+      {ok, FD} = file:open(Filename, [write]),
+      [ok = io:format(FD, "~p.~n", [I]) || I <- Dump],
+      ok = file:close(FD);
+    _ ->
+      ok
+  end.
+
+maybe_load_repeat() ->
+  case {?CFG([convenience, conf_dump]), ?CFG([convenience, again])} of
+    {Filename, true} when is_list(Filename) ->
+      case file:consult(Filename) of
+        {ok, Patch} ->
+          lee:patch(?MYMODEL, ?MYCONF, Patch);
+        _ ->
+          ok
+      end;
+    _ ->
+      ok
+  end.
+
+maybe_load_conf_file() ->
+  case ?CFG([convenience, conf_file]) of
+    undefined ->
+      ok;
+    File ->
+      {ok, _, _} = lee_config_file:read_to(?MYMODEL, ?MYCONF, File)
+  end.
+
+%% maybe_show_help_and_exit() ->
+%%   ?CFG([help])
+%%     andalso open_port({spawn, "man -l docs/EMQTT\\ bench\\ daemon.man"}, [nouse_stdio, out]),
+%%   emqttb:setfail(),
+%%   emqttb:terminate().
+
 client_model() ->
   Fun = fun(Key, MNode = {MTs, MPs}) ->
             { MTs -- [os_env]
@@ -375,6 +375,22 @@ default_client_model() ->
          , type        => nonempty_list(typerefl:ip_address())
          , default     => [{0, 0, 0, 0}]
          , cli_operand => "ifaddr"
+         }}
+   , clientid =>
+       {[value, cli_param],
+        #{ oneliner    => "Clientid pattern"
+         , doc         => [ p("A pattern used to generate clientids.
+                              The following substitutions are supported:")
+                          , {itemlist,
+                             [ li("%h", ["hostname of emqttb"])
+                             , li("%g", ["Group ID"])
+                             , li("%n", ["Worker number"])
+                             ]}
+                          ]
+         , type        => binary()
+         , default     => <<"%h-%g-%n">>
+         , cli_operand => "clientid"
+         , cli_short   => $i
          }}
    }.
 
