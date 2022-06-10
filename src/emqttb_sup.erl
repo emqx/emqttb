@@ -24,7 +24,9 @@ init([]) ->
               , auto_shutdown => any_significant
               },
   ChildSpecs = [ scenario_sup()
-               , misc_sup() %% Allows restarts
+               , sup(emqttb_autorate_sup)
+               , sup(emqttb_group_sup)
+               , sup(emqttb_misc_sup) %% Allows restarts
                ],
   {ok, {SupFlags, ChildSpecs}}.
 
@@ -39,9 +41,9 @@ scenario_sup() ->
     , restart     => transient
     }.
 
-misc_sup() ->
-   #{ id          => emqttb_misc_sup
-    , start       => {emqttb_misc_sup, start_link, []}
+sup(Module) ->
+   #{ id          => Module
+    , start       => {Module, start_link, []}
     , type        => supervisor
     , shutdown    => infinity
     }.

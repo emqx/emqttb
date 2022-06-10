@@ -67,19 +67,32 @@ model() ->
          , cli_operand => "pubrate"
          , cli_short => $R
          }}
-   , n_publishers =>
+   , n_clients =>
        {[value, cli_param],
         #{ oneliner => "Number of clients"
-         , type => non_neg_integer()
+         , type => emqttb:n_clients()
          , default_ref => [n_clients]
-         , cli_operand => "max-clients"
+         , cli_operand => "num-clients"
          , cli_short => $N
+         }}
+   , group =>
+       {[value, cli_param],
+        #{ oneliner => "ID of the client group"
+         , type => atom()
+         , default => default
+         , cli_operand => "group"
+         , cli_short => $g
          }}
    }.
 
 run() ->
+  emqttb_group:ensure(#{ id => pub_group
+                       , client_config => ?CFG([?SK, group])
+                       , behavior => emqttb_behavior_pub
+                       , max_size => ?CFG([?SK, n_clients])
+                       }),
   ?STAGE(ramp_up),
-  ?STAGE(run_traffic),
+  ok = emqttb_group:ramp_up(pub_group, ?CFG([?SK, n_clients]), 1),
   ?LINGER(),
   ?COMPLETE(ok).
 

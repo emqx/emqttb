@@ -18,56 +18,103 @@
 -behavior(gen_server).
 
 %% API:
--export([start_link/1, ramp_up/1, ramp_down/1, foreach_children/2]).
+-export([ensure/1, ramp_up/3, ramp_down/3, foreach_children/2]).
 
 %% gen_server callbacks:
--export([init/1, handle_call/3, handle_cast/2, terminate/2]).
+-export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
 
--export_type([]).
+%% Internal exports
+-export([start_link/1]).
+
+-export_type([group_config/0]).
 
 %%================================================================================
 %% Type declarations
 %%================================================================================
 
+-type group_config() ::
+        #{ id            := atom()
+         , client_config := atom()
+         , behavior      := module()
+         }.
+
+-record(r,
+        { direction   :: up | down
+        , target      :: non_neg_integer()
+        , rate        :: emqttb:rate_key() | non_neg_integer()
+        , on_complete :: fun(() -> _)
+        }).
+
+-record(s,
+        { id            :: atom()
+        , behavior      :: module()
+        , pids          :: queue:queue(pid())
+        , conf_prefix   :: lee:key()
+        , scaling       :: #r{} | undefined
+        , n_clients = 0 :: integer()
+        }).
+
 %%================================================================================
 %% API funcions
 %%================================================================================
 
--spec start_link(emqttb:group()) -> {ok, pid()}.
-start_link(GroupId) ->
-  gen_server:start_link({local, GroupId}, ?MODULE, [GroupId], []).
+-spec ensure(group_config()) -> ok.
+ensure(Conf) ->
+  emqttb_group_sup:ensure(Conf).
 
-%% Add a child to the group
--spec ramp_up(emqttb:group()) -> ok.
-ramp_up(_Id) ->
-  ok.
+%% Autoscale the group up
+-spec ramp_up(emqttb:group(), non_neg_integer(), emqttb:rate_key() | non_neg_integer()) -> ok.
+ramp_up(Id, Target, Rate) ->
+  gen_server:call(Id, {up, Target, Rate}, infinity).
 
-%% Remove a child from the group
--spec ramp_down(emqttb:group()) -> ok.
-ramp_down(_Id) ->
-  ok.
+%% Autoscale the group down
+-spec ramp_down(emqttb:group(), non_neg_integer(), emqttb:rate_key() | non_neg_integer()) -> ok.
+ramp_down(Id, Target, Rate) ->
+  gen_server:call(Id, {down, Target, Rate}, infinity).
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
 
--record(s,
-        { behavior :: module()
-        , pids :: queue:queue(pid())
-        }).
+init([Conf]) ->
+  process_flag(trap_exit, true),
+  #{ id := ID
+   , client_config := ConfID
+   , behavior := Behavior
+   } = Conf,
+  ConfPrefix = case ConfID of
+                 default -> [client];
+                 _       -> [groups, {ConfID}]
+               end,
+  logger:info("Starting group ~p with client configuration ~p", [ID, ConfID]),
+  S = #s{ id = ID
+        , behavior = Behavior
+        , pids = queue:new()
+        , conf_prefix = ConfPrefix
+        },
+  {ok, S}.
 
-init([Name, Scenario, Behavior]) ->
-  process_flag(trap_exits, true),
-  logger:info("Starting group ~p", [Name]),
-  {ok, #s{ behavior = Behavior
-         , pids = queue:new()
-         }}.
-
+handle_call({Direction, Target, Rate}, From, S0) when Direction =:= up;
+                                                      Direction =:= down ->
+  case S0#s.scaling of
+    undefined ->
+      S = start_scale( S0, Direction, Target, Rate
+                     , fun() -> gen_server:reply(From, ok) end
+                     ),
+      {noreply, S};
+    _ ->
+      {reply, {error, already_scaling}, S0}
+  end;
 handle_call(_, _, S) ->
   {reply, {error, unknown_call}, S}.
 
 handle_cast(_, S) ->
-  {notrepy, S}.
+  {noreply, S}.
+
+handle_info(do_scale, S)->
+  {noreply, do_scale(S)};
+handle_info(_, S) ->
+  {noreply, S}.
 
 terminate(_Reason, State) ->
   ok.
@@ -76,9 +123,39 @@ terminate(_Reason, State) ->
 %% Internal exports
 %%================================================================================
 
+-spec start_link(group_config()) -> {ok, pid()}.
+start_link(Conf = #{id := ID}) ->
+  gen_server:start_link({local, ID}, ?MODULE, [Conf], []).
+
 %%================================================================================
 %% Internal functions
 %%================================================================================
+
+start_scale(S0, Direction, Target, Rate, OnComplete) ->
+  Scaling = #r{ direction   = Direction
+              , target      = Target
+              , rate        = Rate
+              , on_complete = OnComplete
+              },
+  self() ! do_scale,
+  logger:info("Group ~p is scaling ~p...", [S0#s.id, Direction]),
+  S0#s{scaling = Scaling}.
+
+do_scale(S = #s{n_clients = N, scaling = Scaling}) ->
+  logger:debug("Scaling ~p.", [S#s.id]),
+  #r{ direction   = Direction
+    , target      = Target
+    , rate        = Rate
+    , on_complete = OnComplete
+    } = Scaling,
+  if Direction =:= up   andalso N >= Target;
+     Direction =:= down andalso N =< Target ->
+      OnComplete(),
+      S#s{scaling = undefined};
+     true ->
+      erlang:send_after(10, self(), do_scale),
+      S
+  end.
 
 -spec foreach_children(fun((pid()) -> _), pid() | atom()) -> ok.
 foreach_children(Fun, Id) when is_atom(Id) ->

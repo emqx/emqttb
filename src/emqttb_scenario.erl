@@ -122,7 +122,7 @@ list_enabled_scenarios() ->
 
 -spec start_link(module()) -> {ok, pid()}.
 start_link(Module) ->
-  gen_server:start_link({local, Module:name()}, ?MODULE, [Module], []).
+  gen_server:start_link({local, Module}, ?MODULE, [Module], []).
 
 %%================================================================================
 %% gen_server callbacks

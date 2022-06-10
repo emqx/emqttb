@@ -16,7 +16,7 @@
 -module(emqttb).
 
 %% API:
--export([main/1, setfail/0]).
+-export([main/1, terminate/0, setfail/0]).
 
 %% behavior callbacks:
 -export([]).
@@ -40,9 +40,13 @@
 -type group() :: atom().
 
 %% Events per second:
--type rate() :: float() | unlimited.
+-type rate() :: non_neg_integer() | unlimited.
 
--reflect_type([scenario/0, stage/0, group/0, rate/0]).
+-type n_clients() :: non_neg_integer() | unlimited.
+
+-type rate_key() :: atom().
+
+-reflect_type([scenario/0, stage/0, group/0, rate/0, n_clients/0, rate_key/0]).
 
 %%================================================================================
 %% API funcions
@@ -55,9 +59,8 @@ main(Args) ->
   %% Wait for completion of the scenarios:
   MRef = monitor(process, whereis(emqttb_scenario_sup)),
   receive
-    {'DOWN', MRef, _, _, _} -> ok
-  end,
-  terminate().
+    {'DOWN', MRef, _, _, _} -> terminate()
+  end.
 
 setfail() ->
   application:set_env(emqttb, is_fail, true).

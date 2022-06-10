@@ -54,14 +54,6 @@ start_link() ->
                  fun cowboy:start_clear/3
              end,
   StartFun(rest_api, maps:to_list(TransportOpts), ProtocolOpts).
-  %% case StartFun(rest_api, maps:to_list(TransportOpts), ProtocolOpts) of
-  %%   {ok, _Pid} ->
-  %%     ok;
-  %%   {error, {already_started, _Pid}} ->
-  %%     ok;
-  %%   Other ->
-  %%     {error, Other}
-  %% end.
 
 doc() ->
   [{listitem,

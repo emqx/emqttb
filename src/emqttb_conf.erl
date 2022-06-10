@@ -21,6 +21,7 @@
 -export_type([]).
 
 -include("emqttb.hrl").
+-include_lib("lee/include/lee.hrl").
 -include_lib("typerefl/include/types.hrl").
 
 -import(lee_doc, [sect/3, p/1, li/2]).
@@ -47,7 +48,8 @@ load_conf() ->
       ok;
     {error, Errors, _Warnings} ->
       [logger:critical(E) || E <- Errors],
-      emqttb:terminate(nok)
+      emqttb:setfail(),
+      emqttb:terminate()
   end.
 
 reload() ->
@@ -108,6 +110,12 @@ maybe_load_conf_file() ->
       {ok, _, _} = lee_config_file:read_to(?MYMODEL, ?MYCONF, File)
   end.
 
+%% maybe_show_help_and_exit() ->
+%%   ?CFG([help])
+%%     andalso open_port({spawn, "man -l docs/EMQTT\\ bench\\ daemon.man"}, [nouse_stdio, out]),
+%%   emqttb:setfail(),
+%%   emqttb:terminate().
+
 model() ->
   #{ '$doc_root' =>
        {[doc_root],
@@ -116,6 +124,13 @@ model() ->
          , doc       => intro()
          , prog_name => "emqttb"
          }}
+   %% , help =>
+   %%     {[value, cli_param, undocumented],
+   %%      #{ oneliner    => "Show help and exit"
+   %%       , type        => boolean()
+   %%       , default     => false
+   %%       , cli_operand => "help"
+   %%       }}
    %% , bootstrap_node =>
    %%     {[value, os_env, cli_param],
    %%      #{ oneliner    => "Connect to this node to form the cluster"
@@ -130,76 +145,20 @@ model() ->
        {[value, cli_param],
         #{ oneliner  => "Default max rate used by all groups (events/sec)"
          , type      => emqttb:rate()
-         , default   => 10.0
+         , default   => 10
          , cli_param => "max-rate"
          , cli_short => $R
          }}
    , n_clients =>
        {[value, cli_param],
         #{ oneliner  => "Default maximum number of clients used by all groups"
-         , type      => non_neg_integer()
+         , type      => emqttb:n_clients()
          , default   => 1000
          , cli_param => "max-clients"
          , cli_short => $N
          }}
      %% Default clients' connection settings:
-   , client =>
-       #{ host =>
-            {[value, os_env, cli_param],
-             #{ oneliner    => "Hostname of the target broker"
-              , type        => nonempty_string()
-              , default     => "localhost"
-              , cli_operand => "host"
-              , cli_short   => $h
-              }}
-        , port =>
-            {[value, os_env, cli_param],
-             #{ oneliner    => "Hostname of the target broker"
-              , type        => range(1, 1 bsl 16 - 1)
-              , default     => 1883
-              , cli_operand => "port"
-              , cli_short   => $p
-              }}
-        , version =>
-            {[value, os_env, cli_param],
-             #{ oneliner    => "MQTT protocol version"
-              , type        => range(1, 5)
-              , default     => 5
-              , cli_operand => "version"
-              , cli_short   => $V
-              }}
-        , username =>
-            {[value, os_env, cli_param],
-             #{ oneliner    => "Username of the client"
-              , type        => union(string(), undefined)
-              , default     => undefined
-              , cli_operand => "username"
-              , cli_short   => $u
-              }}
-        , password =>
-            {[value, os_env, cli_param],
-             #{ oneliner    => "Password for connecting to the broker"
-              , type        => union(string(), undefined)
-              , default     => undefined
-              , cli_operand => "password"
-              , cli_short   => $P
-              }}
-        , session_expiry =>
-            {[value, os_env, cli_param],
-             #{ oneliner    => "Session expiry"
-              , type        => non_neg_integer()
-              , default     => 0
-              , cli_operand => "session-expiry"
-              , cli_short   => $x
-              }}
-        , ifaddr =>
-            {[value, cli_param],
-             #{ oneliner    => "Local IP addresses"
-              , type        => nonempty_list(typerefl:ip_address())
-              , default     => [{0, 0, 0, 0}]
-              , cli_operand => "ifaddr"
-              }}
-        }
+   , client => default_client_model()
    , restapi =>
        #{ listen_port =>
             {[value, os_env, cli_param],
@@ -321,6 +280,95 @@ model() ->
               }}
         }
    , scenarios => emqttb_scenario:model()
+   , groups =>
+       {[map, cli_action],
+        #{ oneliner     => "Configuration for client groups"
+         , doc          => "<para>
+                              It is possible to override client configuration for the group.
+                            </para>"
+         , cli_operand  => "group-cfg"
+         , key_elements => [[id]]
+         },
+        group_model()}
+   }.
+
+group_model() ->
+  maps:merge(
+    #{ id =>
+         {[value, cli_param],
+          #{ oneliner    => "ID of the group"
+           , type        => atom()
+           , cli_operand => "id"
+           , cli_short   => $i
+           }}
+     },
+    client_model()
+   ).
+
+client_model() ->
+  Fun = fun(Key, MNode = {MTs, MPs}) ->
+            { MTs -- [os_env]
+            , (maps:without([default], MPs)) #{default_ref => [client|Key]}
+            }
+        end,
+  lee_model:map_vals(Fun, default_client_model()).
+
+default_client_model() ->
+  #{ host =>
+       {[value, os_env, cli_param],
+        #{ oneliner    => "Hostname of the target broker"
+         , type        => nonempty_string()
+         , default     => "localhost"
+         , cli_operand => "host"
+         , cli_short   => $h
+         }}
+   , port =>
+       {[value, os_env, cli_param],
+        #{ oneliner    => "Hostname of the target broker"
+         , type        => range(1, 1 bsl 16 - 1)
+         , default     => 1883
+         , cli_operand => "port"
+         , cli_short   => $p
+         }}
+   , version =>
+       {[value, os_env, cli_param],
+        #{ oneliner    => "MQTT protocol version"
+         , type        => range(1, 5)
+         , default     => 5
+         , cli_operand => "version"
+         , cli_short   => $V
+         }}
+   , username =>
+       {[value, os_env, cli_param],
+        #{ oneliner    => "Username of the client"
+         , type        => union(string(), undefined)
+         , default     => undefined
+         , cli_operand => "username"
+         , cli_short   => $u
+         }}
+   , password =>
+       {[value, os_env, cli_param],
+        #{ oneliner    => "Password for connecting to the broker"
+         , type        => union(string(), undefined)
+         , default     => undefined
+         , cli_operand => "password"
+         , cli_short   => $P
+         }}
+   , session_expiry =>
+       {[value, os_env, cli_param],
+        #{ oneliner    => "Session expiry"
+         , type        => non_neg_integer()
+         , default     => 0
+         , cli_operand => "session-expiry"
+         , cli_short   => $x
+         }}
+   , ifaddr =>
+       {[value, cli_param],
+        #{ oneliner    => "Local IP addresses"
+         , type        => nonempty_list(typerefl:ip_address())
+         , default     => [{0, 0, 0, 0}]
+         , cli_operand => "ifaddr"
+         }}
    }.
 
 intro() ->
