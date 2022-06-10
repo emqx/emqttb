@@ -37,16 +37,23 @@
 load_conf() ->
   Storage = lee_storage:new(lee_persistent_term_storage),
   MTs = metamodel(),
-  {ok, Model} = lee_model:compile(MTs, [model()]),
-  persistent_term:put(?CONF_STORE, Storage),
-  persistent_term:put(?MODEL_STORE, Model),
-  case lee:init_config(Model, Storage) of
-    {ok, _Data, _Warnings} ->
-      maybe_load_repeat(),
-      maybe_load_conf_file(),
-      maybe_dump_conf(),
-      ok;
-    {error, Errors, _Warnings} ->
+  case lee_model:compile(MTs, [model()]) of
+    {ok, Model} ->
+      persistent_term:put(?CONF_STORE, Storage),
+      persistent_term:put(?MODEL_STORE, Model),
+      case lee:init_config(Model, Storage) of
+        {ok, _Data, _Warnings} ->
+          maybe_load_repeat(),
+          maybe_load_conf_file(),
+          maybe_dump_conf(),
+          ok;
+        {error, Errors, _Warnings} ->
+          [logger:critical(E) || E <- Errors],
+          emqttb:setfail(),
+          emqttb:terminate()
+      end;
+    {error, Errors} ->
+      logger:critical("Configuration model is invalid!"),
       [logger:critical(E) || E <- Errors],
       emqttb:setfail(),
       emqttb:terminate()
@@ -124,34 +131,17 @@ model() ->
          , doc       => intro()
          , prog_name => "emqttb"
          }}
-   %% , help =>
-   %%     {[value, cli_param, undocumented],
-   %%      #{ oneliner    => "Show help and exit"
-   %%       , type        => boolean()
-   %%       , default     => false
-   %%       , cli_operand => "help"
-   %%       }}
-   %% , bootstrap_node =>
-   %%     {[value, os_env, cli_param],
-   %%      #{ oneliner    => "Connect to this node to form the cluster"
-   %%       , doc         => "<para>By default set to <code language=\"erlang\">node()</code>,
-   %%                         which is equivalent to no clustering.</para>"
-   %%       , type        => typerefl:node()
-   %%       , default     => node()
-   %%       , cli_operand => "bootstrap-node"
-   %%       , cli_short   => $B
-   %%       }}
-   , rate =>
+   , interval =>
        {[value, cli_param],
-        #{ oneliner  => "Default max rate used by all groups (events/sec)"
-         , type      => emqttb:rate()
-         , default   => 10
+        #{ oneliner  => "Default interval between events"
+         , type      => emqttb:interval()
+         , default   => 100
          , cli_param => "max-rate"
          , cli_short => $R
          }}
    , n_clients =>
        {[value, cli_param],
-        #{ oneliner  => "Default maximum number of clients used by all groups"
+        #{ oneliner  => "Maximum number of clients used by default by all groups"
          , type      => emqttb:n_clients()
          , default   => 1000
          , cli_param => "max-clients"
@@ -290,6 +280,23 @@ model() ->
          , key_elements => [[id]]
          },
         group_model()}
+   %% , help =>
+   %%     {[value, cli_param, undocumented],
+   %%      #{ oneliner    => "Show help and exit"
+   %%       , type        => boolean()
+   %%       , default     => false
+   %%       , cli_operand => "help"
+   %%       }}
+   %% , bootstrap_node =>
+   %%     {[value, os_env, cli_param],
+   %%      #{ oneliner    => "Connect to this node to form the cluster"
+   %%       , doc         => "<para>By default set to <code language=\"erlang\">node()</code>,
+   %%                         which is equivalent to no clustering.</para>"
+   %%       , type        => typerefl:node()
+   %%       , default     => node()
+   %%       , cli_operand => "bootstrap-node"
+   %%       , cli_short   => $B
+   %%       }}
    }.
 
 group_model() ->

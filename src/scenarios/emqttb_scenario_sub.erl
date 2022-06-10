@@ -46,26 +46,26 @@ name() ->
 model() ->
   #{ topic =>
        {[value, cli_param],
-        #{ oneliner => "Topic that the clients shall subscribe to"
-         , type => binary()
+        #{ oneliner    => "Topic that the clients shall subscribe to"
+         , type        => binary()
          , cli_operand => "topic"
-         , cli_short => $t
+         , cli_short   => $t
          }}
-   , connrate =>
+   , conninterval =>
        {[value, cli_param],
-        #{ oneliner => "Client connection rate"
-         , type => emqttb:rate()
-         , default_ref => [rate]
+        #{ oneliner    => "Maximum client connection interval"
+         , type        => emqttb:interval()
+         , default_ref => [interval]
          , cli_operand => "connrate"
-         , cli_short => $r
+         , cli_short   => $r
          }}
    , n_subs =>
        {[value, cli_param],
-        #{ oneliner => "Number of clients"
-         , type => non_neg_integer()
+        #{ oneliner    => "Number of clients"
+         , type        => emqttb:n_clients()
          , default_ref => [n_clients]
          , cli_operand => "max-clients"
-         , cli_short => $N
+         , cli_short   => $N
          }}
    }.
 

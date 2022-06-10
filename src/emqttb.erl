@@ -39,14 +39,13 @@
 
 -type group() :: atom().
 
-%% Events per second:
--type rate() :: non_neg_integer() | unlimited.
-
 -type n_clients() :: non_neg_integer() | unlimited.
 
--type rate_key() :: atom().
+-type autorate() :: atom().
 
--reflect_type([scenario/0, stage/0, group/0, rate/0, n_clients/0, rate_key/0]).
+-type interval() :: non_neg_integer() | autorate().
+
+-reflect_type([scenario/0, stage/0, group/0, interval/0, n_clients/0]).
 
 %%================================================================================
 %% API funcions

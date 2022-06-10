@@ -18,7 +18,7 @@
 -behavior(gen_server).
 
 %% API:
--export([ensure/1, ramp_up/3, ramp_down/3, foreach_children/2]).
+-export([ensure/1, set_target/3, foreach_children/2]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
@@ -62,15 +62,10 @@
 ensure(Conf) ->
   emqttb_group_sup:ensure(Conf).
 
-%% Autoscale the group up
--spec ramp_up(emqttb:group(), non_neg_integer(), emqttb:rate_key() | non_neg_integer()) -> ok.
-ramp_up(Id, Target, Rate) ->
-  gen_server:call(Id, {up, Target, Rate}, infinity).
-
-%% Autoscale the group down
--spec ramp_down(emqttb:group(), non_neg_integer(), emqttb:rate_key() | non_neg_integer()) -> ok.
-ramp_down(Id, Target, Rate) ->
-  gen_server:call(Id, {down, Target, Rate}, infinity).
+%% Autoscale the group to the target number of workers
+-spec set_target(emqttb:group(), non_neg_integer(), emqttb:rate_key() | non_neg_integer()) -> ok.
+set_target(Id, Target, Rate) ->
+  gen_server:call(Id, {set_target, Target, Rate}, infinity).
 
 %%================================================================================
 %% behavior callbacks
@@ -94,17 +89,9 @@ init([Conf]) ->
         },
   {ok, S}.
 
-handle_call({Direction, Target, Rate}, From, S0) when Direction =:= up;
-                                                      Direction =:= down ->
-  case S0#s.scaling of
-    undefined ->
-      S = start_scale( S0, Direction, Target, Rate
-                     , fun() -> gen_server:reply(From, ok) end
-                     ),
-      {noreply, S};
-    _ ->
-      {reply, {error, already_scaling}, S0}
-  end;
+handle_call({set_target, Target, Rate}, From, S) ->
+  OnComplete = fun(Result) -> gen_server:reply(From, Result) end,
+  {noreply, do_set_target(Target, Rate, OnComplete, S)};
 handle_call(_, _, S) ->
   {reply, {error, unknown_call}, S}.
 
@@ -131,6 +118,20 @@ start_link(Conf = #{id := ID}) ->
 %% Internal functions
 %%================================================================================
 
+do_set_target(Target, Rate, OnComplete, S = #s{n_clients = N, scaling = Scaling}) ->
+  Direction = if Target > N   -> up;
+                 Target =:= N -> stay;
+                 true         -> down
+              end,
+  maybe_cancel_previous(Scaling),
+  case Direction of
+    stay ->
+      OnComplete({ok, N}),
+      S#s{scaling = undefined};
+    _ ->
+      start_scale(S, Direction, Target, Rate, OnComplete)
+  end.
+
 start_scale(S0, Direction, Target, Rate, OnComplete) ->
   Scaling = #r{ direction   = Direction
               , target      = Target
@@ -150,12 +151,17 @@ do_scale(S = #s{n_clients = N, scaling = Scaling}) ->
     } = Scaling,
   if Direction =:= up   andalso N >= Target;
      Direction =:= down andalso N =< Target ->
-      OnComplete(),
+      OnComplete({ok, N}),
       S#s{scaling = undefined};
      true ->
       erlang:send_after(10, self(), do_scale),
-      S
+      S#s{n_clients = N + 1}
   end.
+
+maybe_cancel_previous(undefined) ->
+  ok;
+maybe_cancel_previous(#r{on_complete = OnComplete}) ->
+  OnComplete({error, new_target}).
 
 -spec foreach_children(fun((pid()) -> _), pid() | atom()) -> ok.
 foreach_children(Fun, Id) when is_atom(Id) ->

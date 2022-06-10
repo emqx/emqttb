@@ -25,7 +25,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2]).
 
 %% lee_metatype callbacks:
--export([create/1, names/1, post_patch/5]).
+-export([names/1, post_patch/5]).
 
 %% internal exports:
 -export([start_link/1]).
@@ -152,9 +152,6 @@ handle_cast(_, S) ->
 
 names(_) ->
   [scenario].
-
-create(_) ->
-  [].
 
 %% This will start/stop scenario automatically when the config changes:
 post_patch(scenario, _, _, _, {set, [?SK(Scenario)], _}) ->

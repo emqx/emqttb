@@ -51,21 +51,21 @@ model() ->
          , cli_operand => "topic"
          , cli_short => $t
          }}
-   , connrate =>
+   , conninterval =>
        {[value, cli_param],
-        #{ oneliner => "Client connection rate"
-         , type => emqttb:rate()
-         , default_ref => [rate]
-         , cli_operand => "connrate"
-         , cli_short => $r
+        #{ oneliner => "Client connection interval"
+         , type => emqttb:interval()
+         , default_ref => [interval]
+         , cli_operand => "conninterval"
+         , cli_short => $I
          }}
-   , pubrate =>
+   , pubinterval =>
        {[value, cli_param],
-        #{ oneliner => "Message publishing rate"
-         , type => emqttb:rate()
-         , default_ref => [rate]
-         , cli_operand => "pubrate"
-         , cli_short => $R
+        #{ oneliner => "Message publishing interval"
+         , type => emqttb:interval()
+         , default_ref => [interval]
+         , cli_operand => "pubinterval"
+         , cli_short => $i
          }}
    , n_clients =>
        {[value, cli_param],
@@ -91,8 +91,11 @@ run() ->
                        , behavior => emqttb_behavior_pub
                        , max_size => ?CFG([?SK, n_clients])
                        }),
+  Foo = ?CFG([?SK, conninterval]),
   ?STAGE(ramp_up),
-  ok = emqttb_group:ramp_up(pub_group, ?CFG([?SK, n_clients]), 1),
+  N = ?CFG([?SK, n_clients]),
+  {ok, N} = emqttb_group:set_target(pub_group, N, 1),
+  {ok, N} = emqttb_group:set_target(pub_group, N, 1),
   ?LINGER(),
   ?COMPLETE(ok).
 
