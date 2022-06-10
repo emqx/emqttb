@@ -428,7 +428,7 @@ metamodel() ->
                          , priority => -110
                          , file => "/etc/emqttb/emqttb.conf"
                          })
-  , lee_metatype:create(emqttb_scenario)
+  , lee_metatype:create(emqttb_mt_scenario)
   ].
 
 cli_args_getter() ->

@@ -24,9 +24,6 @@
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2]).
 
-%% lee_metatype callbacks:
--export([names/1, post_patch/5]).
-
 %% internal exports:
 -export([start_link/1]).
 
@@ -145,19 +142,6 @@ handle_call(_, _, S) ->
 
 handle_cast(_, S) ->
   {notrepy, S}.
-
-%%================================================================================
-%% lee_metatype callbacks
-%%================================================================================
-
-names(_) ->
-  [scenario].
-
-%% This will start/stop scenario automatically when the config changes:
-post_patch(scenario, _, _, _, {set, [?SK(Scenario)], _}) ->
-  run(Scenario);
-post_patch(scenario, _, _, _, {rm, [?SK(Scenario)]}) ->
-  stop(Scenario).
 
 %%================================================================================
 %% Internal functions

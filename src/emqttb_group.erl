@@ -62,10 +62,14 @@
 ensure(Conf) ->
   emqttb_group_sup:ensure(Conf).
 
-%% Autoscale the group to the target number of workers
--spec set_target(emqttb:group(), non_neg_integer(), emqttb:rate_key() | non_neg_integer()) -> ok.
-set_target(Id, Target, Rate) ->
-  gen_server:call(Id, {set_target, Target, Rate}, infinity).
+%% Autoscale the group to the target number of workers. Returns value
+%% when the target or a ratelimit has been reached, or when the new
+%% target has been set.
+-spec set_target(emqttb:group(), NClients, emqttb:interval()) ->
+             {ok, NClients} | {error, new_target | {ratelimited, atom(), NClients}}
+          when NClients :: non_neg_integer().
+set_target(Id, Target, Interval) ->
+  gen_server:call(Id, {set_target, Target, Interval}, infinity).
 
 %%================================================================================
 %% behavior callbacks
