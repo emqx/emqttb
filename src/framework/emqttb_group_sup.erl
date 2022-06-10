@@ -32,8 +32,8 @@ ensure(Options = #{id := Id}) ->
 
 init([]) ->
   SupFlags = #{ strategy => one_for_one
-              , intensity => 1
-              , period => 10
+              , intensity => 0
+              , period => 1
               },
   ChildSpecs = [],
   {ok, {SupFlags, ChildSpecs}}.

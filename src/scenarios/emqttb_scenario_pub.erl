@@ -91,11 +91,12 @@ run() ->
                        , behavior => emqttb_behavior_pub
                        , max_size => ?CFG([?SK, n_clients])
                        }),
-  Foo = ?CFG([?SK, conninterval]),
+  Interval = ?CFG([?SK, conninterval]),
   ?STAGE(ramp_up),
   N = ?CFG([?SK, n_clients]),
-  {ok, N} = emqttb_group:set_target(pub_group, N, 1),
-  {ok, N} = emqttb_group:set_target(pub_group, N, 1),
+  {ok, N} = emqttb_group:set_target(pub_group, N, Interval),
+  {ok, N} = emqttb_group:set_target(pub_group, N, Interval),
+  %{ok, 0} = emqttb_group:set_target(pub_group, 0, Interval),
   ?LINGER(),
   ?COMPLETE(ok).
 

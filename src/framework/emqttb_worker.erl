@@ -13,72 +13,59 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(emqttb_scenario_sub).
+-module(emqttb_worker).
 
--behavior(emqttb_scenario).
-
+%% API:
+-export([start/3, my_group/0]).
 
 %% behavior callbacks:
--export([ name/0
-        , model/0
-        , run/0
-        ]).
+-export([]).
 
 %% internal exports:
--export([]).
+-export([entrypoint/3, loop/2]).
 
 -export_type([]).
 
--include("emqttb.hrl").
--include_lib("typerefl/include/types.hrl").
+-include("emqttb_internal.hrl").
 
 %%================================================================================
 %% Type declarations
 %%================================================================================
 
 %%================================================================================
-%% behavior callbacks
+%% API funcions
 %%================================================================================
 
-name() ->
-  sub.
+-spec start(module(), pid(), non_neg_integer()) -> {pid(), reference()}.
+start(Behavior, Group, Number) ->
+  spawn_monitor(?MODULE, entrypoint, [Behavior, Group, Number]).
 
-model() ->
-  #{ topic =>
-       {[value, cli_param],
-        #{ oneliner    => "Topic that the clients shall subscribe to"
-         , type        => binary()
-         , cli_operand => "topic"
-         , cli_short   => $t
-         }}
-   , conninterval =>
-       {[value, cli_param],
-        #{ oneliner    => "Maximum client connection interval"
-         , type        => emqttb:interval()
-         , default_ref => [interval]
-         , cli_operand => "connrate"
-         , cli_short   => $r
-         }}
-   , n_subs =>
-       {[value, cli_param],
-        #{ oneliner    => "Number of clients"
-         , type        => emqttb:n_clients()
-         , default_ref => [n_clients]
-         , cli_operand => "max-clients"
-         , cli_short   => $N
-         }}
-   }.
+-spec my_group() -> emqttb:group().
+my_group() ->
+  persistent_term:get(?GROUP_LEADER_TO_GROUP_ID(group_leader())).
 
-run() ->
-  error(test),
-  ?STAGE(ramp_up),
-  ?STAGE(run_traffic),
-  ?LINGER(),
-  ?COMPLETE(ok).
+%%================================================================================
+%% behavior callbacks
+%%================================================================================
 
 %%================================================================================
 %% Internal exports
 %%================================================================================
+
+entrypoint(Behavior, Group, Number) ->
+  try
+    process_flag(trap_exit, true),
+    group_leader(Group, self()),
+    emqttb_metrics:counter_inc(?GROUP_N_WORKERS(my_group()), 1),
+    loop(Behavior, Number)
+  catch
+    EC:Err:Stack ->
+      emqttb_metrics:counter_dec(?GROUP_N_WORKERS(my_group()), 1),
+      logger:debug("[~p:~p] ~p:~p:~p", [my_group(), Number, EC, Err, Stack])
+  end.
+
+loop(Behavior, Number) ->
+  receive after infinity -> ok end.
 
 %%================================================================================
 %% Internal functions

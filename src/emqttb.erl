@@ -22,7 +22,7 @@
 -export([]).
 
 %% internal exports:
--export([]).
+-export([n_clients/0]).
 
 -export_type([]).
 
@@ -39,13 +39,13 @@
 
 -type group() :: atom().
 
--type n_clients() :: non_neg_integer() | unlimited.
+-type n_clients() :: non_neg_integer().
 
 -type autorate() :: atom().
 
--type interval() :: non_neg_integer() | autorate().
+-type interval() :: non_neg_integer() | {auto, autorate()}.
 
--reflect_type([scenario/0, stage/0, group/0, interval/0, n_clients/0]).
+-reflect_type([scenario/0, stage/0, group/0, interval/0]).
 
 %%================================================================================
 %% API funcions
@@ -58,7 +58,9 @@ main(Args) ->
   %% Wait for completion of the scenarios:
   MRef = monitor(process, whereis(emqttb_scenario_sup)),
   receive
-    {'DOWN', MRef, _, _, _} -> terminate()
+    {'DOWN', MRef, _, _, Reason} ->
+      Reason =/= shutdown andalso setfail(),
+      terminate()
   end.
 
 setfail() ->
@@ -67,6 +69,9 @@ setfail() ->
 %%================================================================================
 %% Internal exports
 %%================================================================================
+
+n_clients() ->
+  typerefl:range(0, erlang:system_info(process_limit) - 100).
 
 %%================================================================================
 %% Internal functions

@@ -23,7 +23,8 @@ init([]) ->
               , period        => 1
               , auto_shutdown => any_significant
               },
-  ChildSpecs = [ scenario_sup()
+  ChildSpecs = [ metrics()
+               , scenario_sup()
                , sup(emqttb_autorate_sup)
                , sup(emqttb_group_sup)
                , sup(emqttb_misc_sup) %% Allows restarts
@@ -32,21 +33,28 @@ init([]) ->
 
 %% internal functions
 
+metrics() ->
+  #{ id       => emqttb_metrics
+   , start    => {emqttb_metrics, start_link, []}
+   , type     => worker
+   , shutdown => 1000
+   }.
+
 scenario_sup() ->
-   #{ id          => emqttb_scenario_sup
-    , start       => {emqttb_scenario_sup, start_link, []}
-    , type        => supervisor
-    , shutdown    => infinity
-    , significant => true
-    , restart     => transient
-    }.
+  #{ id          => emqttb_scenario_sup
+   , start       => {emqttb_scenario_sup, start_link, []}
+   , type        => supervisor
+   , shutdown    => infinity
+   , significant => true
+   , restart     => transient
+   }.
 
 sup(Module) ->
-   #{ id          => Module
-    , start       => {Module, start_link, []}
-    , type        => supervisor
-    , shutdown    => infinity
-    }.
+  #{ id          => Module
+   , start       => {Module, start_link, []}
+   , type        => supervisor
+   , shutdown    => infinity
+   }.
 
 %% cluster_discovery() ->
 %%   %% Low-tech cluster discovery with a single point of failure: the

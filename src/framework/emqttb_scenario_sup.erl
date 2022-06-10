@@ -17,13 +17,14 @@ start_link() ->
 
 run(Module) ->
   Id = Module:name(),
-  Result = supervisor:start_child(?SERVER, #{ id => Id
-                                            , start => {emqttb_scenario, start_link, [Module]}
-                                            , type => worker
-                                            , restart => transient
-                                            , significant => true
-                                            , shutdown => brutal_kill
-                                            }),
+  Spec = #{ id          => Id
+          , start       => {emqttb_scenario, start_link, [Module]}
+          , type        => worker
+          , restart     => transient
+          , significant => true
+          , shutdown    => brutal_kill
+          },
+  Result = supervisor:start_child(?SERVER, Spec),
   case Result of
     {ok, _} ->
       ok;

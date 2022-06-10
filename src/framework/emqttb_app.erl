@@ -13,7 +13,6 @@
 -include("emqttb.hrl").
 
 start(_StartType, _StartArgs) ->
-  declare_metrics(),
   Sup = emqttb_sup:start_link(),
   emqttb_conf:load_conf(),
   ?CFG([convenience, keep_running]) orelse
@@ -25,11 +24,6 @@ stop(_State) ->
   ok.
 
 %% internal functions
-
-declare_metrics() ->
-  prometheus_gauge:declare([{name, num_clients},
-                            {help, <<"Number of connected clients in the group">>},
-                            {labels, [group]}]).
 
 %% Start misc. processes that depend on configuration
 post_init() ->

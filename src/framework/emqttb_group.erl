@@ -18,7 +18,7 @@
 -behavior(gen_server).
 
 %% API:
--export([ensure/1, set_target/3, foreach_children/2]).
+-export([ensure/1, set_target/3]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
@@ -27,6 +27,9 @@
 -export([start_link/1]).
 
 -export_type([group_config/0]).
+
+-include_lib("snabbkaffe/include/trace.hrl").
+-include("emqttb_internal.hrl").
 
 %%================================================================================
 %% Type declarations
@@ -40,19 +43,21 @@
 
 -record(r,
         { direction   :: up | down
-        , target      :: non_neg_integer()
-        , rate        :: emqttb:rate_key() | non_neg_integer()
         , on_complete :: fun(() -> _)
         }).
 
 -record(s,
-        { id            :: atom()
-        , behavior      :: module()
-        , pids          :: queue:queue(pid())
-        , conf_prefix   :: lee:key()
-        , scaling       :: #r{} | undefined
-        , n_clients = 0 :: integer()
+        { id           :: atom()
+        , behavior     :: module()
+        , conf_prefix  :: lee:key()
+        , scaling      :: #r{} | undefined
+        , target       :: non_neg_integer() | undefined
+        , interval     :: emqttb:interval()
+        , scale_timer  :: reference() | undefined
+        , tick_timer   :: reference()
         }).
+
+-define(TICK_TIME, 1000).
 
 %%================================================================================
 %% API funcions
@@ -65,6 +70,9 @@ ensure(Conf) ->
 %% Autoscale the group to the target number of workers. Returns value
 %% when the target or a ratelimit has been reached, or when the new
 %% target has been set.
+%%
+%% Note: this implementation is optimized for scaling up very fast,
+%% not scaling down. Scaling down is rather memory-expensive.
 -spec set_target(emqttb:group(), NClients, emqttb:interval()) ->
              {ok, NClients} | {error, new_target | {ratelimited, atom(), NClients}}
           when NClients :: non_neg_integer().
@@ -86,24 +94,32 @@ init([Conf]) ->
                  _       -> [groups, {ConfID}]
                end,
   logger:info("Starting group ~p with client configuration ~p", [ID, ConfID]),
-  S = #s{ id = ID
-        , behavior = Behavior
-        , pids = queue:new()
+  persistent_term:put(?GROUP_LEADER_TO_GROUP_ID(self()), ID),
+  persistent_term:put(?GROUP_CONF_PREFIX(self()), ConfPrefix),
+  emqttb_metrics:new_counter(?GROUP_N_WORKERS(ID),
+                             [ {help, <<"Number of workers in the group">>}
+                             , {labels, [group]}
+                             ]),
+  S = #s{ id          = ID
+        , behavior    = Behavior
         , conf_prefix = ConfPrefix
+        , tick_timer  = set_tick_timer()
         },
   {ok, S}.
 
-handle_call({set_target, Target, Rate}, From, S) ->
+handle_call({set_target, Target, Interval}, From, S) ->
   OnComplete = fun(Result) -> gen_server:reply(From, Result) end,
-  {noreply, do_set_target(Target, Rate, OnComplete, S)};
+  {noreply, do_set_target(Target, Interval, OnComplete, S)};
 handle_call(_, _, S) ->
   {reply, {error, unknown_call}, S}.
 
 handle_cast(_, S) ->
   {noreply, S}.
 
+handle_info(tick, S) ->
+  {noreply, do_tick(S#s{tick_timer = set_tick_timer()})};
 handle_info(do_scale, S)->
-  {noreply, do_scale(S)};
+  {noreply, do_scale(S#s{scale_timer = undefined})};
 handle_info(_, S) ->
   {noreply, S}.
 
@@ -122,7 +138,8 @@ start_link(Conf = #{id := ID}) ->
 %% Internal functions
 %%================================================================================
 
-do_set_target(Target, Rate, OnComplete, S = #s{n_clients = N, scaling = Scaling}) ->
+do_set_target(Target, Interval, OnComplete, S = #s{scaling = Scaling}) ->
+  N = n_clients(S),
   Direction = if Target > N   -> up;
                  Target =:= N -> stay;
                  true         -> down
@@ -131,35 +148,81 @@ do_set_target(Target, Rate, OnComplete, S = #s{n_clients = N, scaling = Scaling}
   case Direction of
     stay ->
       OnComplete({ok, N}),
-      S#s{scaling = undefined};
+      S#s{scaling = undefined, target = Target, interval = Interval};
     _ ->
-      start_scale(S, Direction, Target, Rate, OnComplete)
+      start_scale(S, Direction, Target, Interval, OnComplete)
   end.
 
-start_scale(S0, Direction, Target, Rate, OnComplete) ->
+start_scale(S0, Direction, Target, Interval, OnComplete) ->
   Scaling = #r{ direction   = Direction
-              , target      = Target
-              , rate        = Rate
               , on_complete = OnComplete
               },
-  self() ! do_scale,
+  S = S0#s{scaling = Scaling, target = Target, interval = Interval},
   logger:info("Group ~p is scaling ~p...", [S0#s.id, Direction]),
-  S0#s{scaling = Scaling}.
+  set_scale_timer(S).
 
-do_scale(S = #s{n_clients = N, scaling = Scaling}) ->
-  logger:debug("Scaling ~p.", [S#s.id]),
-  #r{ direction   = Direction
-    , target      = Target
-    , rate        = Rate
-    , on_complete = OnComplete
-    } = Scaling,
+do_tick(S) ->
+  S.
+
+do_scale(S0) ->
+  #s{ target    = Target
+    , interval  = Interval
+    , id        = ID
+    } = S0,
+  N = n_clients(S0),
+  logger:debug("Scaling ~p; ~p -> ~p.", [ID, N, Target]),
+  S = maybe_notify(N, S0),
+  %prometheus_gauge:set(group_num_workers, [ID], N),
+  if N < Target ->
+      S1 = set_scale_timer(S),
+      scale_up(N, S1);
+     N > Target ->
+      S1 = set_scale_timer(S),
+      scale_down(N, S1);
+     true ->
+      S
+  end.
+
+scale_up(N, S = #s{behavior = Behavior, id = Id}) ->
+  {_Pid, _MRef} = emqttb_worker:start(Behavior, self(), N + 1),
+  ?tp(start_worker, #{group => Id, pid => _Pid, mref => _MRef}),
+  S.
+
+scale_down(N, S0) ->
+  S0.
+  %% case maps:next(maps:iterator(Pids0)) of
+  %%   {MRef, Pid, _} ->
+  %%     case is_process_alive(Pid) of
+  %%       true ->
+  %%         exit(Pid, shutdown),
+  %%         S#s{n_clients = N - 1, pids = Pids};
+  %%       false ->
+  %%         scale_down(S#s{n_clients = N - 1, pids = Pids})
+  %%     end;
+  %%   none ->
+  %%     S#s{n_clients = 0}
+  %% end.
+
+set_tick_timer() ->
+  erlang:send_after(?TICK_TIME, self(), tick).
+
+set_scale_timer(S = #s{scale_timer = undefined, interval = Interval}) ->
+  S#s{scale_timer = erlang:send_after(Interval, self(), do_scale)};
+set_scale_timer(S) ->
+  S.
+
+maybe_notify(_, S = #s{scaling = undefined}) ->
+  S;
+maybe_notify(N, S) ->
+  #s{ scaling   = #r{direction = Direction, on_complete = OnComplete}
+    , target    = Target
+    } = S,
   if Direction =:= up   andalso N >= Target;
      Direction =:= down andalso N =< Target ->
       OnComplete({ok, N}),
       S#s{scaling = undefined};
      true ->
-      erlang:send_after(10, self(), do_scale),
-      S#s{n_clients = N + 1}
+      S
   end.
 
 maybe_cancel_previous(undefined) ->
@@ -181,3 +244,6 @@ foreach_children(Fun, GL) ->
            end
        end,
   lists:foreach(Go, PIDs).
+
+n_clients(#s{id = Id}) ->
+  emqttb_metrics:get_counter(?GROUP_N_WORKERS(Id)).
