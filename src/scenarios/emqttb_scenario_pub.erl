@@ -89,7 +89,6 @@ run() ->
   emqttb_group:ensure(#{ id => pub_group
                        , client_config => ?CFG([?SK, group])
                        , behavior => emqttb_behavior_pub
-                       , max_size => ?CFG([?SK, n_clients])
                        }),
   Interval = ?CFG([?SK, conninterval]),
   ?STAGE(ramp_up),

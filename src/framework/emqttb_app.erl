@@ -15,8 +15,6 @@
 start(_StartType, _StartArgs) ->
   Sup = emqttb_sup:start_link(),
   emqttb_conf:load_conf(),
-  ?CFG([convenience, keep_running]) orelse
-    emqttb_scenario_sup:enable_autostop(),
   post_init(),
   Sup.
 

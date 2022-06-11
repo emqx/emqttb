@@ -15,8 +15,6 @@
 %%--------------------------------------------------------------------
 -module(emqttb_scenario).
 
--behavior(lee_metatype).
-
 %% API:
 -export([set_stage/3, set_stage/2, stage/1, complete/2, linger/1,
          model/0, list_enabled_scenarios/0, run/1, stop/1]).
@@ -95,7 +93,7 @@ complete(Scenario, PrevStageResult) ->
   case PrevStageResult of
     ok         -> ok;
     {ok, _}    -> ok;
-    {error, _} -> emqttb:setfail()
+    {error, _} -> emqttb:setfail(Scenario)
   end.
 
 -spec model() -> lee_model:lee_module().

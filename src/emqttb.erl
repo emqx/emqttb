@@ -16,7 +16,7 @@
 -module(emqttb).
 
 %% API:
--export([main/1, terminate/0, setfail/0]).
+-export([main/1, terminate/0, setfail/1]).
 
 %% behavior callbacks:
 -export([]).
@@ -24,7 +24,7 @@
 %% internal exports:
 -export([n_clients/0]).
 
--export_type([]).
+-export_type([n_clients/0]).
 
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
@@ -45,25 +45,31 @@
 
 -type interval() :: non_neg_integer() | {auto, autorate()}.
 
--reflect_type([scenario/0, stage/0, group/0, interval/0]).
+-type transport() :: mqtt | ws | quic.
+
+-reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0]).
 
 %%================================================================================
 %% API funcions
 %%================================================================================
 
 %% Escript entrypoint
+-spec main([string()]) -> no_return().
 main(Args) ->
   application:set_env(emqttb, cli_args, Args),
   {ok, _} = application:ensure_all_started(?APP, permanent),
   %% Wait for completion of the scenarios:
   MRef = monitor(process, whereis(emqttb_scenario_sup)),
+  ?CFG([convenience, keep_running]) orelse
+    emqttb_scenario_sup:enable_autostop(),
   receive
     {'DOWN', MRef, _, _, Reason} ->
-      Reason =/= shutdown andalso setfail(),
+      Reason =/= shutdown andalso setfail(Reason),
       terminate()
   end.
 
-setfail() ->
+setfail(Reason) ->
+  application:set_env(emqttb, fail_reason, Reason),
   application:set_env(emqttb, is_fail, true).
 
 %%================================================================================
@@ -77,11 +83,15 @@ n_clients() ->
 %% Internal functions
 %%================================================================================
 
+-spec terminate() -> no_return().
 terminate() ->
-  timer:sleep(100), %% Ugly: give logger time to flush events...
   case application:get_env(emqttb, is_fail, false) of
     false ->
+      timer:sleep(100), %% Ugly: give logger time to flush events...
       halt(0);
     true ->
+      Reason = application:get_env(emqttb, fail_reason, ""),
+      logger:critical("Run unsuccessful due to ~p", [Reason]),
+      timer:sleep(100), %% Ugly: give logger time to flush events...
       halt(1)
   end.

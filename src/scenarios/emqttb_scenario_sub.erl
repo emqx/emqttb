@@ -70,7 +70,6 @@ model() ->
    }.
 
 run() ->
-  error(test),
   ?STAGE(ramp_up),
   ?STAGE(run_traffic),
   ?LINGER(),

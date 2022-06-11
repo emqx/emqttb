@@ -49,13 +49,13 @@ load_conf() ->
           ok;
         {error, Errors, _Warnings} ->
           [logger:critical(E) || E <- Errors],
-          emqttb:setfail(),
+          emqttb:setfail("invalid configuration"),
           emqttb:terminate()
       end;
     {error, Errors} ->
       logger:critical("Configuration model is invalid!"),
       [logger:critical(E) || E <- Errors],
-      emqttb:setfail(),
+      emqttb:setfail("invalid configuration model"),
       emqttb:terminate()
   end.
 
@@ -109,8 +109,6 @@ model() ->
          , cli_param => "max-clients"
          , cli_short => $N
          }}
-     %% Default clients' connection settings:
-   , client => default_client_model()
    , restapi =>
        #{ listen_port =>
             {[value, os_env, cli_param],
@@ -233,12 +231,12 @@ model() ->
         }
    , scenarios => emqttb_scenario:model()
    , groups =>
-       {[map, cli_action],
+       {[map, cli_action, default_instance],
         #{ oneliner     => "Configuration for client groups"
          , doc          => "<para>
                               It is possible to override client configuration for the group.
                             </para>"
-         , cli_operand  => "group-cfg"
+         , cli_operand  => "g"
          , key_elements => [[id]]
          },
         group_model()}
@@ -260,19 +258,6 @@ model() ->
    %%       , cli_short   => $B
    %%       }}
    }.
-
-group_model() ->
-  maps:merge(
-    #{ id =>
-         {[value, cli_param],
-          #{ oneliner    => "ID of the group"
-           , type        => atom()
-           , cli_operand => "id"
-           , cli_short   => $i
-           }}
-     },
-    client_model()
-   ).
 
 maybe_dump_conf() ->
   case {?CFG([convenience, conf_dump]), ?CFG([convenience, again])} of
@@ -306,23 +291,17 @@ maybe_load_conf_file() ->
       {ok, _, _} = lee_config_file:read_to(?MYMODEL, ?MYCONF, File)
   end.
 
-%% maybe_show_help_and_exit() ->
-%%   ?CFG([help])
-%%     andalso open_port({spawn, "man -l docs/EMQTT\\ bench\\ daemon.man"}, [nouse_stdio, out]),
-%%   emqttb:setfail(),
-%%   emqttb:terminate().
-
-client_model() ->
-  Fun = fun(Key, MNode = {MTs, MPs}) ->
-            { MTs -- [os_env]
-            , (maps:without([default], MPs)) #{default_ref => [client|Key]}
-            }
-        end,
-  lee_model:map_vals(Fun, default_client_model()).
-
-default_client_model() ->
-  #{ host =>
-       {[value, os_env, cli_param],
+group_model() ->
+  #{ id =>
+       {[value, cli_param],
+        #{ oneliner    => "ID of the group"
+         , type        => atom()
+         , default     => default
+         , cli_operand => "group"
+         , cli_short   => $g
+         }}
+   , host =>
+       {[value, cli_param],
         #{ oneliner    => "Hostname of the target broker"
          , type        => nonempty_string()
          , default     => "localhost"
@@ -330,7 +309,7 @@ default_client_model() ->
          , cli_short   => $h
          }}
    , port =>
-       {[value, os_env, cli_param],
+       {[value, cli_param],
         #{ oneliner    => "Hostname of the target broker"
          , type        => range(1, 1 bsl 16 - 1)
          , default     => 1883
@@ -338,7 +317,7 @@ default_client_model() ->
          , cli_short   => $p
          }}
    , version =>
-       {[value, os_env, cli_param],
+       {[value, cli_param],
         #{ oneliner    => "MQTT protocol version"
          , type        => range(1, 5)
          , default     => 5
@@ -346,7 +325,7 @@ default_client_model() ->
          , cli_short   => $V
          }}
    , username =>
-       {[value, os_env, cli_param],
+       {[value, cli_param],
         #{ oneliner    => "Username of the client"
          , type        => union(string(), undefined)
          , default     => undefined
@@ -354,7 +333,7 @@ default_client_model() ->
          , cli_short   => $u
          }}
    , password =>
-       {[value, os_env, cli_param],
+       {[value, cli_param],
         #{ oneliner    => "Password for connecting to the broker"
          , type        => union(string(), undefined)
          , default     => undefined
@@ -362,7 +341,7 @@ default_client_model() ->
          , cli_short   => $P
          }}
    , session_expiry =>
-       {[value, os_env, cli_param],
+       {[value, cli_param],
         #{ oneliner    => "Session expiry"
          , type        => non_neg_integer()
          , default     => 0
@@ -382,7 +361,7 @@ default_client_model() ->
          , doc         => [ p("A pattern used to generate clientids.
                               The following substitutions are supported:")
                           , {itemlist,
-                             [ li("%h", ["hostname of emqttb"])
+                             [ li("%h", ["Hostname of emqttb"])
                              , li("%g", ["Group ID"])
                              , li("%n", ["Worker number"])
                              ]}
@@ -392,6 +371,21 @@ default_client_model() ->
          , cli_operand => "clientid"
          , cli_short   => $i
          }}
+   , protocol =>
+       {[value, cli_param],
+        #{ oneliner    => "Transport protocol"
+         , type        => emqttb:transport()
+         , default     => mqtt
+         , cli_operand => "transport"
+         , cli_short   => $T
+         }}
+   , lowmem =>
+       {[value, cli_param],
+        #{ oneliner    => "Reduce memory useage at the cost of CPU wherever possible"
+         , type        => boolean()
+         , default     => false
+         , cli_operand => "lowmem"
+         }}
    }.
 
 intro() ->
@@ -399,7 +393,7 @@ intro() ->
          [ p("Generally speaking, this script can work in either script mode or in deamon mode.
               The mode is determined by whether REST API is enabled or not.")
          , p("Basic usage: emqttb <gloabal parameters> @<scenario1> <scenario parameters> [@<scenario2> <scenario parameters> ...]")
-         , p("Repeat the last run: emqttb --again")
+         , p("Repeat the last run: <code>emqttb --again</code>")
          ])
   , sect("concepts", "Core concepts",
          [{itemlist,
@@ -449,3 +443,9 @@ metamodel() ->
 
 cli_args_getter() ->
   application:get_env(emqttb, cli_args, []).
+
+%% maybe_show_help_and_exit() ->
+%%   ?CFG([help])
+%%     andalso open_port({spawn, "man -l docs/EMQTT\\ bench\\ daemon.man"}, [nouse_stdio, out]),
+%%   emqttb:setfail(),
+%%   emqttb:terminate().

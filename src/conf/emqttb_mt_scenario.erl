@@ -14,6 +14,8 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 -module(emqttb_mt_scenario).
+%% With the magic of Lee callbacks, this module starts or stops
+%% scenarios when they are added to or removed from the config.
 
 -behavior(lee_metatype).
 
@@ -29,7 +31,6 @@
 names(_) ->
   [scenario].
 
-%% This will automatically start or stop scenarios when the config changes:
 post_patch(scenario, _, _, _, {set, [?SK(Scenario)], _}) ->
   emqttb_scenario:run(Scenario);
 post_patch(scenario, _, _, _, {rm, [?SK(Scenario)]}) ->

@@ -72,6 +72,7 @@ retainer() ->
 
 %% This child does nothing but sits there and prevents the supervisor
 %% from stopping.
+-dialyzer({nowarn_function, start_retainer/0}).
 start_retainer() ->
   {ok, spawn_link(fun() ->
                       register(emqttb_scenario_sup_retainer, self()),

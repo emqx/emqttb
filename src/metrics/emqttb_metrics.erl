@@ -71,7 +71,7 @@ counter_inc(Key, Delta) ->
 counter_dec(Key, Delta) ->
   counters:sub(persistent_term:get(?C(Key)), 1, Delta).
 
--spec get_counter(key()) -> ok.
+-spec get_counter(key()) -> integer().
 get_counter(Key) ->
   counters:get(persistent_term:get(?C(Key)), 1).
 
@@ -88,7 +88,7 @@ gauge_observe(Key, Val) ->
   counters:add(Cnt, 1, Val), %% Update the sum
   counters:add(Cnt, 2, 1).   %% Update the number of samples
 
--spec get_gauge(key()) -> ok.
+-spec get_gauge(key()) -> integer().
 get_gauge(Key) ->
   gen_server:call(?SERVER, {get_gauge, Key}).
 
@@ -128,7 +128,7 @@ handle_call(_Call, _From, S) ->
   {reply, {error, unknown_call}, S}.
 
 handle_cast(_Call, S) ->
-  {reply, {error, unknown_call}, S}.
+  {noreply, S}.
 
 handle_info(tick, S) ->
   erlang:send_after(?TICK_TIME, self(), tick),

@@ -20,7 +20,7 @@
 
 %% Persistent term keys:
 -define(GROUP_LEADER_TO_GROUP_ID(GL), {emqttb_group_leader_to_group_id, GL}).
--define(GROUP_CONF_PREFIX(GL), {emqttb_group_client_conf_prefix, GL}).
+-define(GROUP_CONF_ID(GL), {emqttb_group_client_conf_id, GL}).
 
 %% Metrics:
 -define(GROUP_N_WORKERS(GRP), {group_n_workers, GRP}).

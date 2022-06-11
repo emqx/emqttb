@@ -20,6 +20,7 @@
         , descr/0
         , handle_request/2
         , content_types_provided/2
+        , allowed_methods/2
         , resource_exists/2
         ]).
 

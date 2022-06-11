@@ -18,7 +18,7 @@
 -behavior(gen_server).
 
 %% API:
--export([ensure/1, set_target/3]).
+-export([ensure/1, set_target/3, set_target_async/3]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
@@ -41,25 +41,6 @@
          , behavior      := module()
          }.
 
--record(r,
-        { direction   :: up | down
-        , on_complete :: fun(() -> _)
-        }).
-
--record(s,
-        { id           :: atom()
-        , behavior     :: module()
-        , conf_prefix  :: lee:key()
-        , scaling      :: #r{} | undefined
-        , target       :: non_neg_integer() | undefined
-        , interval     :: emqttb:interval()
-        , scale_timer  :: reference() | undefined
-        , tick_timer   :: reference()
-        , next_id = 0  :: non_neg_integer()
-        }).
-
--define(TICK_TIME, 1000).
-
 %%================================================================================
 %% API funcions
 %%================================================================================
@@ -68,22 +49,52 @@
 ensure(Conf) ->
   emqttb_group_sup:ensure(Conf).
 
-%% Autoscale the group to the target number of workers. Returns value
-%% when the target or a ratelimit has been reached, or when the new
-%% target has been set.
+%% @doc Autoscale the group to the target number of workers. Returns
+%% value when the target or a ratelimit has been reached, or error
+%% when the new target has been set.
 %%
-%% Note: this implementation is optimized for scaling up very fast,
-%% not scaling down. Scaling down is rather memory-expensive.
+%% The group will try to maintain the last target number of workers
+%% even after set_target returns.
+%%
+%% Note: this implementation has been optimized for scaling up very
+%% fast, not scaling down. Scaling down is rather memory-expensive.
+%%
 %% Order of workers' removal during ramping down is not specified.
 -spec set_target(emqttb:group(), NClients, emqttb:interval()) ->
              {ok, NClients} | {error, new_target | {ratelimited, atom(), NClients}}
-          when NClients :: non_neg_integer().
+          when NClients :: emqttb:n_clients().
 set_target(Id, Target, Interval) ->
   gen_server:call(Id, {set_target, Target, Interval}, infinity).
+
+
+%% @doc Async version of `set_target'
+-spec set_target_async(emqttb:group(), emqttb:n_clients(), emqttb:interval()) -> ok.
+set_target_async(Id, Target, Interval) ->
+  gen_server:cast(Id, {set_target, Target, Interval}).
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
+
+%% Currently running scaling operation:
+-record(r,
+        { direction   :: up | down
+        , on_complete :: fun((_Result) -> _)
+        }).
+
+-record(s,
+        { id           :: atom()
+        , behavior     :: module()
+        , conf_prefix  :: lee:key()
+        , scaling      :: #r{} | undefined
+        , target       :: non_neg_integer() | undefined
+        , interval     :: emqttb:interval() | undefined
+        , scale_timer  :: reference() | undefined
+        , tick_timer   :: reference()
+        , next_id = 0  :: non_neg_integer()
+        }).
+
+-define(TICK_TIME, 1000).
 
 init([Conf]) ->
   process_flag(trap_exit, true),
@@ -91,20 +102,16 @@ init([Conf]) ->
    , client_config := ConfID
    , behavior := Behavior
    } = Conf,
-  ConfPrefix = case ConfID of
-                 default -> [client];
-                 _       -> [groups, {ConfID}]
-               end,
   logger:info("Starting group ~p with client configuration ~p", [ID, ConfID]),
   persistent_term:put(?GROUP_LEADER_TO_GROUP_ID(self()), ID),
-  persistent_term:put(?GROUP_CONF_PREFIX(self()), ConfPrefix),
+  persistent_term:put(?GROUP_CONF_ID(self()), ConfID),
   emqttb_metrics:new_counter(?GROUP_N_WORKERS(ID),
                              [ {help, <<"Number of workers in the group">>}
                              , {labels, [group]}
                              ]),
   S = #s{ id          = ID
         , behavior    = Behavior
-        , conf_prefix = ConfPrefix
+        , conf_prefix = [groups, ConfID]
         , tick_timer  = set_tick_timer()
         },
   {ok, S}.
@@ -115,6 +122,9 @@ handle_call({set_target, Target, Interval}, From, S) ->
 handle_call(_, _, S) ->
   {reply, {error, unknown_call}, S}.
 
+handle_cast({set_target, Target, Interval}, S) ->
+  OnComplete = fun(Result) -> ok end,
+  {noreply, do_set_target(Target, Interval, OnComplete, S)};
 handle_cast(_, S) ->
   {noreply, S}.
 
@@ -125,7 +135,12 @@ handle_info(do_scale, S)->
 handle_info(_, S) ->
   {noreply, S}.
 
-terminate(_Reason, State) ->
+terminate(_Reason, #s{id = Id}) ->
+  _ = fold_workers(fun(Pid, Acc) ->
+                       kill_worker(Id, Pid)
+                   end,
+                   [],
+                   Id),
   ok.
 
 %%================================================================================
@@ -163,8 +178,14 @@ start_scale(S0, Direction, Target, Interval, OnComplete) ->
   logger:info("Group ~p is scaling ~p...", [S0#s.id, Direction]),
   set_scale_timer(S).
 
-do_tick(S) ->
-  S.
+do_tick(S = #s{id = Id, target = Target}) ->
+  N = n_clients(S),
+  if N < Target -> %% Some clients died on us?
+      logger:info("[~p]: ~p -> ~p", [Id, N, Target]),
+      do_scale(S);
+     true ->
+      S
+  end.
 
 do_scale(S0) ->
   #s{ target    = Target
@@ -191,18 +212,6 @@ scale_up(N, S = #s{behavior = Behavior, id = Id, next_id = WorkerId}) ->
 
 scale_down(N, S0) ->
   S0.
-  %% case maps:next(maps:iterator(Pids0)) of
-  %%   {MRef, Pid, _} ->
-  %%     case is_process_alive(Pid) of
-  %%       true ->
-  %%         exit(Pid, shutdown),
-  %%         S#s{n_clients = N - 1, pids = Pids};
-  %%       false ->
-  %%         scale_down(S#s{n_clients = N - 1, pids = Pids})
-  %%     end;
-  %%   none ->
-  %%     S#s{n_clients = 0}
-  %% end.
 
 set_tick_timer() ->
   erlang:send_after(?TICK_TIME, self(), tick).
@@ -217,9 +226,11 @@ maybe_notify(_, S = #s{scaling = undefined}) ->
 maybe_notify(N, S) ->
   #s{ scaling   = #r{direction = Direction, on_complete = OnComplete}
     , target    = Target
+    , id        = Id
     } = S,
   if Direction =:= up   andalso N >= Target;
      Direction =:= down andalso N =< Target ->
+      logger:info("[~p]: Reached the target number of clients", [Id]),
       OnComplete({ok, N}),
       S#s{scaling = undefined};
      true ->
@@ -231,20 +242,29 @@ maybe_cancel_previous(undefined) ->
 maybe_cancel_previous(#r{on_complete = OnComplete}) ->
   OnComplete({error, new_target}).
 
--spec foreach_children(fun((pid()) -> _), pid() | atom()) -> ok.
-foreach_children(Fun, Id) when is_atom(Id) ->
-  GL = whereis(Id),
-  is_pid(GL) orelse throw({group_is_not_alive, Id}),
-  foreach_children(Fun, GL);
-foreach_children(Fun, GL) ->
-  PIDs = erlang:processes(),
-  Go = fun(Pid) ->
-           case process_info(Pid, [group_leader]) of
-             GL -> Fun(Pid);
-             _  -> ok
-           end
-       end,
-  lists:foreach(Go, PIDs).
-
 n_clients(#s{id = Id}) ->
   emqttb_metrics:get_counter(?GROUP_N_WORKERS(Id)).
+
+kill_worker(GroupId, Pid) ->
+  %% Make sure to use kill, so the worker can't decrement the counter
+  %% by itself:
+  exit(Pid, kill),
+  emqttb_metrics:counter_dec(?GROUP_N_WORKERS(GroupId), 1).
+
+-spec fold_workers( fun((pid(), Acc) -> Acc)
+                  , Acc
+                  , pid() | atom()
+                  ) -> Acc.
+fold_workers(Fun, Acc, GroupId) when is_atom(GroupId) ->
+  GL = whereis(GroupId),
+  is_pid(GL) orelse error({group_is_not_alive, GroupId}),
+  fold_workers(Fun, Acc, GL);
+fold_workers(Fun, Acc, GL) ->
+  PIDs = erlang:processes(),
+  Fun = fun(Pid, Acc) ->
+            case process_info(Pid, [group_leader]) of
+              GL -> Fun(Pid, Acc);
+              _  -> Acc
+            end
+        end,
+  lists:foldl(Fun, Acc, PIDs).
