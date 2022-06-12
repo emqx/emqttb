@@ -35,7 +35,7 @@
 
 %% Called once, during initializtion of the group. This callback
 %% allows to create a static, shared behavior state.
--callback create_settings(emqttb:group(), _BehaviorSettings) -> _SharedSettings.
+-callback create_settings(emqttb:group(), _BehaviorSettings) -> _Shared.
 
 %% Called when the worker is started. For example, you can start an
 %% MQTT client here. Avoid keeping static and shared terms in the
@@ -44,7 +44,9 @@
 
 %% Self-explanotary. Called every time when worker receives a message
 %% that is not an <code>'EXIT'</code>
--callback handle_message(State, _SharedSettings, _Msg) -> {ok, State} | exit.
+-callback handle_message(State, _Shared, _Msg) -> {ok, State} | {exit, State}.
+
+-callback terminate(_Shared, _State) -> _.
 
 %%================================================================================
 %% Type declarations
@@ -133,21 +135,33 @@ entrypoint(Behavior, Group, Number) ->
   %% group leader relies on the counter to stop scaling. If the
   %% above part takes too long, it will overshoot by large margin.
   emqttb_metrics:counter_inc(?GROUP_N_WORKERS(my_group()), 1),
-  State = call(Behavior, init, [my_settings()]),
-  loop(State).
+  try apply(Behavior, init, [my_settings()]) of
+    State -> loop(State)
+  catch
+    EC:Err:Stack ->
+      logger:error("[~p:~p] init ~p:~p:~p", [my_group(), my_id(), EC, Err, Stack]),
+      terminate({Err, Stack})
+  end.
 
 loop(State) ->
   receive
-    Exit = {'EXIT', _Pid, Reason} ->
+    {'EXIT', _Pid, Reason} = Exit ->
+      _ = catch apply(behavior(), terminate, [my_settings(), State]),
       Reason =:= shutdown orelse
         logger:error("[~p:~p] received ~p", [my_group(), my_id(), Exit]),
-      terminate(Reason);
+      terminate(State, Reason);
     Msg ->
-      case call(behavior(), handle_message, [my_settings(), State, Msg]) of
+      try apply(behavior(), handle_message, [my_settings(), State, Msg]) of
         {ok, NewState} ->
           loop(NewState);
-        _ ->
-          terminate(normal)
+        {exit, NewState} ->
+          terminate(NewState, normal)
+      catch
+        EC:Err:Stack ->
+          logger:error( "[~p:~p] handle_message ~p ~p:~p:~p"
+                      ,  [my_group(), my_id(), Msg, EC, Err, Stack]
+                      ),
+          terminate(State, {Err, Stack})
       end
   end.
 
@@ -162,15 +176,10 @@ my_settings() ->
 behavior() ->
   persistent_term:get(?GROUP_BEHAVIOR(group_leader())).
 
--spec call(module(), init | handle_message, list()) -> _State.
-call(Behavior, Callback, Args) ->
-  try
-    apply(Behavior, Callback, Args)
-  catch
-    EC:Err:Stack ->
-      logger:error("[~p:~p] ~p:~p:~p", [my_group(), my_id(), EC, Err, Stack]),
-      terminate({Err, Stack})
-  end.
+-spec terminate(_State, _Reason) -> no_return().
+terminate(State, Reason) ->
+  _ = catch apply(behavior(), terminate, [my_settings(), State]),
+  terminate(Reason).
 
 -spec terminate(_Reason) -> no_return().
 terminate(Reason) ->

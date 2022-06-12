@@ -18,6 +18,7 @@ ensure(Options = #{id := Id}) ->
   Result = supervisor:start_child(?SERVER,
                                   #{ id => Id
                                    , type => worker
+                                   , restart => temporary
                                    , start => {emqttb_group, start_link, [Options]}
                                    , shutdown => timer:seconds(1)
                                    }),

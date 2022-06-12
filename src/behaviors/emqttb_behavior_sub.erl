@@ -18,7 +18,7 @@
 -behavior(emqttb_worker).
 
 %% behavior callbacks:
--export([create_settings/2, init/1, handle_message/3]).
+-export([create_settings/2, init/1, handle_message/3, terminate/2]).
 
 -export_type([]).
 
@@ -54,6 +54,10 @@ handle_message(#{sub_counter := Cnt}, Conn, {publish, #{client_pid := Pid}}) whe
   {ok, Conn};
 handle_message(_, Conn, _) ->
   {ok, Conn}.
+
+terminate(_Shared, Conn) ->
+  emqtt:disconnect(Conn),
+  emqtt:stop(Conn).
 
 %%================================================================================
 %% Internal functions
