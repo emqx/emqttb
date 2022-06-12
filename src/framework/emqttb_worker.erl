@@ -146,7 +146,6 @@ entrypoint(Behavior, Group, Number) ->
 loop(State) ->
   receive
     {'EXIT', _Pid, Reason} = Exit ->
-      _ = catch apply(behavior(), terminate, [my_settings(), State]),
       Reason =:= shutdown orelse
         logger:error("[~p:~p] received ~p", [my_group(), my_id(), Exit]),
       terminate(State, Reason);
@@ -155,7 +154,9 @@ loop(State) ->
         {ok, NewState} ->
           loop(NewState);
         {exit, NewState} ->
-          terminate(NewState, normal)
+          terminate(NewState, normal);
+        _ ->
+          terminate(State, badreturn)
       catch
         EC:Err:Stack ->
           logger:error( "[~p:~p] handle_message ~p ~p:~p:~p"
