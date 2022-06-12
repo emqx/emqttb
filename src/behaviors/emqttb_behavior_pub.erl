@@ -65,8 +65,7 @@ handle_message(_, Conn, _) ->
   {ok, Conn}.
 
 terminate(_Shared, Conn) ->
-  emqtt:disconnect(Conn),
-  emqtt:stop(Conn).
+  emqtt:disconnect(Conn).
 
 %%================================================================================
 %% Internal functions

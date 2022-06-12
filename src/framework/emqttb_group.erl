@@ -159,7 +159,7 @@ handle_info(tick, S) ->
 handle_info(do_scale, S)->
   {noreply, do_scale(S#s{scale_timer = undefined})};
 handle_info({'DOWN', MRef, _, _, _}, S = #s{parent_ref = MRef}) ->
-  {stop, S};
+  {stop, normal, S};
 handle_info(_, S) ->
   {noreply, S}.
 
@@ -288,9 +288,11 @@ fold_workers(Fun, Acc, GroupId) when is_atom(GroupId) ->
 fold_workers(Fun0, Acc, GL) ->
   PIDs = erlang:processes(),
   Fun = fun(Pid, Acc) ->
-            case process_info(Pid, [group_leader]) of
-              [{group_leader, GL}] -> Fun0(Pid, Acc);
-              _                    -> Acc
+            case process_info(Pid, [group_leader, initial_call]) of
+              [{group_leader, GL}, {initial_call, {emqttb_worker, entrypoint, _}}] ->
+                Fun0(Pid, Acc);
+              _ ->
+                Acc
             end
         end,
   lists:foldl(Fun, Acc, PIDs).
