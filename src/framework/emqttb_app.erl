@@ -14,6 +14,7 @@
 
 start(_StartType, _StartArgs) ->
   Sup = emqttb_sup:start_link(),
+  maybe_increase_fd_limit(),
   emqttb_conf:load_conf(),
   post_init(),
   Sup.
@@ -34,3 +35,13 @@ post_init() ->
                                 , {emqttb_pushgw, start_link, []}
                                 ),
   ok.
+
+maybe_increase_fd_limit() ->
+  case os:type() of
+    {unix, linux} ->
+      %% Best effort to increase the soft limit
+      os:cmd("prlimit --nofile=$(ulimit -Hn): --pid " ++ os:getpid()),
+      ok;
+    _ ->
+      ok
+  end.

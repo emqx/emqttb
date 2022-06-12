@@ -167,6 +167,7 @@ model() ->
               , type        => timeout()
               , default     => infinity
               , cli_operand => "loiter"
+              , cli_short   => $L
               }}
         , keep_running =>
             {[value, os_env, cli_param],
