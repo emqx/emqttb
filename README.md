@@ -76,14 +76,14 @@ Name of the repeat file or \`undefined\`, see:
 Keep the process running after completing all the scenarios, see:
 [\[convenience,keep\_running\]](#[convenience,keep_running])
 
-### \--linger
-
-Default linger time for the scenarios (sec), see:
-[\[convenience,linger\]](#[convenience,linger])
-
 ### \--log-level
 
 Global log level, see: [\[logging,level\]](#[logging,level])
+
+### \--loiter
+
+Default loiter time for the scenarios (sec), see:
+[\[convenience,loiter\]](#[convenience,loiter])
 
 ### \--pushgw
 
@@ -98,6 +98,11 @@ REST API listening interface/port, see:
 ### \--restapi
 
 Enable REST API, see: [\[restapi,enabled\]](#[restapi,enabled])
+
+### \-L
+
+Default loiter time for the scenarios (sec), see:
+[\[convenience,loiter\]](#[convenience,loiter])
 
 ### \-N
 
@@ -216,10 +221,10 @@ Session expiry, see:
 
 Run scenario make-docs
 
-### \--linger
+### \--loiter
 
 Keep running scenario stages for this period of time (sec), see:
-[\[scenarios,emqttb\_scenario\_make\_docs,{},linger\]](#[scenarios,emqttb_scenario_make_docs,{},linger])
+[\[scenarios,emqttb\_scenario\_make\_docs,{},loiter\]](#[scenarios,emqttb_scenario_make_docs,{},loiter])
 
 ## @pub
 
@@ -235,10 +240,10 @@ Client connection interval, see:
 ID of the client group, see:
 [\[scenarios,emqttb\_scenario\_pub,{},group\]](#[scenarios,emqttb_scenario_pub,{},group])
 
-### \--linger
+### \--loiter
 
 Keep running scenario stages for this period of time (sec), see:
-[\[scenarios,emqttb\_scenario\_pub,{},linger\]](#[scenarios,emqttb_scenario_pub,{},linger])
+[\[scenarios,emqttb\_scenario\_pub,{},loiter\]](#[scenarios,emqttb_scenario_pub,{},loiter])
 
 ### \--num-clients
 
@@ -294,39 +299,49 @@ Topic where the clients shall publish messages, see:
 
 Run scenario sub
 
-### \--connrate
+### \--conninterval
 
-Maximum client connection interval, see:
+Client connection interval, see:
 [\[scenarios,emqttb\_scenario\_sub,{},conninterval\]](#[scenarios,emqttb_scenario_sub,{},conninterval])
 
-### \--linger
+### \--group
+
+ID of the client group, see:
+[\[scenarios,emqttb\_scenario\_sub,{},group\]](#[scenarios,emqttb_scenario_sub,{},group])
+
+### \--loiter
 
 Keep running scenario stages for this period of time (sec), see:
-[\[scenarios,emqttb\_scenario\_sub,{},linger\]](#[scenarios,emqttb_scenario_sub,{},linger])
+[\[scenarios,emqttb\_scenario\_sub,{},loiter\]](#[scenarios,emqttb_scenario_sub,{},loiter])
 
-### \--max-clients
+### \--num-clients
 
 Number of clients, see:
-[\[scenarios,emqttb\_scenario\_sub,{},n\_subs\]](#[scenarios,emqttb_scenario_sub,{},n_subs])
+[\[scenarios,emqttb\_scenario\_sub,{},n\_clients\]](#[scenarios,emqttb_scenario_sub,{},n_clients])
 
 ### \--topic
 
-Topic that the clients shall subscribe to, see:
+Topic that the clients shall subscribe, see:
 [\[scenarios,emqttb\_scenario\_sub,{},topic\]](#[scenarios,emqttb_scenario_sub,{},topic])
+
+### \-I
+
+Client connection interval, see:
+[\[scenarios,emqttb\_scenario\_sub,{},conninterval\]](#[scenarios,emqttb_scenario_sub,{},conninterval])
 
 ### \-N
 
 Number of clients, see:
-[\[scenarios,emqttb\_scenario\_sub,{},n\_subs\]](#[scenarios,emqttb_scenario_sub,{},n_subs])
+[\[scenarios,emqttb\_scenario\_sub,{},n\_clients\]](#[scenarios,emqttb_scenario_sub,{},n_clients])
 
-### \-r
+### \-g
 
-Maximum client connection interval, see:
-[\[scenarios,emqttb\_scenario\_sub,{},conninterval\]](#[scenarios,emqttb_scenario_sub,{},conninterval])
+ID of the client group, see:
+[\[scenarios,emqttb\_scenario\_sub,{},group\]](#[scenarios,emqttb_scenario_sub,{},group])
 
 ### \-t
 
-Topic that the clients shall subscribe to, see:
+Topic that the clients shall subscribe, see:
 [\[scenarios,emqttb\_scenario\_sub,{},topic\]](#[scenarios,emqttb_scenario_sub,{},topic])
 
 # OS Environment Variables
@@ -347,10 +362,10 @@ Name of the repeat file or \`undefined\`, see:
 Keep the process running after completing all the scenarios, see:
 [\[convenience,keep\_running\]](#[convenience,keep_running])
 
-## EMQTTB\_CONVENIENCE\_\_LINGER
+## EMQTTB\_CONVENIENCE\_\_LOITER
 
-Default linger time for the scenarios (sec), see:
-[\[convenience,linger\]](#[convenience,linger])
+Default loiter time for the scenarios (sec), see:
+[\[convenience,loiter\]](#[convenience,loiter])
 
 ## EMQTTB\_LOGGING\_\_DEFAULT\_HANDLER\_LEVEL
 
@@ -474,9 +489,9 @@ keeps running waiting for commands.
 
 This flag can be used to explicitly override this behavior.
 
-## \[convenience,linger\]
+## \[convenience,loiter\]
 
-Default linger time for the scenarios (sec)
+Default loiter time for the scenarios (sec)
 
 *Type:*
 
@@ -799,7 +814,7 @@ Maximum number of clients used by default by all groups
 *Type:*
 
 ``` erlang
-0..262044
+0..16777116
 ```
 
 *Default value:*
@@ -842,7 +857,7 @@ listen_port_ip4() when
 0.0.0.0:8017
 ```
 
-## \[scenarios,emqttb\_scenario\_make\_docs,{},linger\]
+## \[scenarios,emqttb\_scenario\_make\_docs,{},loiter\]
 
 Keep running scenario stages for this period of time (sec)
 
@@ -856,7 +871,7 @@ timeout() when
 
 *Default value:*
 
-See [\[convenience,linger\]](#[convenience,linger])
+See [\[convenience,loiter\]](#[convenience,loiter])
 
 ## \[scenarios,emqttb\_scenario\_pub,{},conninterval\]
 
@@ -891,7 +906,7 @@ atom()
 default
 ```
 
-## \[scenarios,emqttb\_scenario\_pub,{},linger\]
+## \[scenarios,emqttb\_scenario\_pub,{},loiter\]
 
 Keep running scenario stages for this period of time (sec)
 
@@ -905,7 +920,7 @@ timeout() when
 
 *Default value:*
 
-See [\[convenience,linger\]](#[convenience,linger])
+See [\[convenience,loiter\]](#[convenience,loiter])
 
 ## \[scenarios,emqttb\_scenario\_pub,{},msg\_size\]
 
@@ -931,7 +946,7 @@ Number of clients
 *Type:*
 
 ``` erlang
-0..262044
+0..16777116
 ```
 
 *Default value:*
@@ -967,7 +982,7 @@ binary()
 
 ## \[scenarios,emqttb\_scenario\_sub,{},conninterval\]
 
-Maximum client connection interval
+Client connection interval
 
 *Type:*
 
@@ -982,7 +997,23 @@ emqttb:interval() when
 
 See [\[interval\]](#[interval])
 
-## \[scenarios,emqttb\_scenario\_sub,{},linger\]
+## \[scenarios,emqttb\_scenario\_sub,{},group\]
+
+ID of the client group
+
+*Type:*
+
+``` erlang
+atom()
+```
+
+*Default value:*
+
+``` erlang
+default
+```
+
+## \[scenarios,emqttb\_scenario\_sub,{},loiter\]
 
 Keep running scenario stages for this period of time (sec)
 
@@ -996,16 +1027,16 @@ timeout() when
 
 *Default value:*
 
-See [\[convenience,linger\]](#[convenience,linger])
+See [\[convenience,loiter\]](#[convenience,loiter])
 
-## \[scenarios,emqttb\_scenario\_sub,{},n\_subs\]
+## \[scenarios,emqttb\_scenario\_sub,{},n\_clients\]
 
 Number of clients
 
 *Type:*
 
 ``` erlang
-0..262044
+0..16777116
 ```
 
 *Default value:*
@@ -1014,7 +1045,7 @@ See [\[n\_clients\]](#[n_clients])
 
 ## \[scenarios,emqttb\_scenario\_sub,{},topic\]
 
-Topic that the clients shall subscribe to
+Topic that the clients shall subscribe
 
 *Type:*
 

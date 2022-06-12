@@ -18,7 +18,7 @@
 -behavior(gen_server).
 
 %% API:
--export([ensure/1, set_target/3, set_target_async/3]).
+-export([ensure/1, set_target/3, set_target_async/3, broadcast/2]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
@@ -39,6 +39,7 @@
         #{ id            := atom()
          , client_config := atom()
          , behavior      := {module(), map()}
+         , parent        => pid()
          }.
 
 %%================================================================================
@@ -47,7 +48,7 @@
 
 -spec ensure(group_config()) -> ok.
 ensure(Conf) ->
-  emqttb_group_sup:ensure(Conf).
+  emqttb_group_sup:ensure(Conf#{parent => self()}).
 
 %% @doc Autoscale the group to the target number of workers. Returns
 %% value when the target or a ratelimit has been reached, or error
@@ -72,6 +73,19 @@ set_target(Id, Target, Interval) ->
 set_target_async(Id, Target, Interval) ->
   gen_server:cast(Id, {set_target, Target, Interval}).
 
+%% @doc Send a message to all members of the group
+-spec broadcast(emqttb:group(), _Message) -> ok.
+broadcast(Group, Message) ->
+  ?tp(emqttb_group_broadcast, #{group => Group, message => Message}),
+  fold_workers(
+    fun(Pid, _) ->
+        Pid ! Message,
+        []
+    end,
+    [],
+    Group).
+
+
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
@@ -92,6 +106,7 @@ set_target_async(Id, Target, Interval) ->
         , scale_timer  :: reference() | undefined
         , tick_timer   :: reference()
         , next_id = 0  :: non_neg_integer()
+        , parent_ref   :: reference() | undefined
         }).
 
 -define(TICK_TIME, 1000).
@@ -102,7 +117,10 @@ init([Conf]) ->
    , client_config := ConfID
    , behavior := {Behavior, BehSettings}
    } = Conf,
-  logger:info("Starting group ~p with client configuration ~p", [ID, ConfID]),
+  ?tp(info, "Starting worker group",
+      #{ id         => ID
+       , group_conf => ConfID
+       }),
   persistent_term:put(?GROUP_LEADER_TO_GROUP_ID(self()), ID),
   persistent_term:put(?GROUP_BEHAVIOR(self()), Behavior),
   persistent_term:put(?GROUP_CONF_ID(self()), ConfID),
@@ -120,6 +138,7 @@ init([Conf]) ->
         , behavior    = Behavior
         , conf_prefix = [groups, ConfID]
         , tick_timer  = set_tick_timer()
+        , parent_ref  = maybe_monitor_parent(Conf)
         },
   {ok, S}.
 
@@ -139,6 +158,8 @@ handle_info(tick, S) ->
   {noreply, do_tick(S#s{tick_timer = set_tick_timer()})};
 handle_info(do_scale, S)->
   {noreply, do_scale(S#s{scale_timer = undefined})};
+handle_info({'DOWN', MRef, _, _, _}, S = #s{parent_ref = MRef}) ->
+  {stop, normal, S};
 handle_info(_, S) ->
   {noreply, S}.
 
@@ -148,6 +169,7 @@ terminate(_Reason, #s{id = Id}) ->
                    end,
                    [],
                    Id),
+  ?tp(debug, "Stopped worker group", #{id => Id}),
   ok.
 
 %%================================================================================
@@ -266,9 +288,16 @@ fold_workers(Fun, Acc, GroupId) when is_atom(GroupId) ->
 fold_workers(Fun0, Acc, GL) ->
   PIDs = erlang:processes(),
   Fun = fun(Pid, Acc) ->
-            case process_info(Pid, [group_leader]) of
-              [{group_leader, GL}] -> Fun0(Pid, Acc);
-              _                    -> Acc
+            case process_info(Pid, [group_leader, initial_call]) of
+              [{group_leader, GL}, {initial_call, {emqttb_worker, entrypoint, _}}] ->
+                Fun0(Pid, Acc);
+              _ ->
+                Acc
             end
         end,
   lists:foldl(Fun, Acc, PIDs).
+
+maybe_monitor_parent(#{parent := Pid}) ->
+  monitor(process, Pid);
+maybe_monitor_parent(_) ->
+  undefined.

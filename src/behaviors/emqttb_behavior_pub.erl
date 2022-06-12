@@ -22,6 +22,8 @@
 
 -export_type([]).
 
+-import(emqttb_worker, [my_group/0, my_id/0, my_clientid/0, my_cfg/1, connect/2]).
+
 %%================================================================================
 %% Type declarations
 %%================================================================================
@@ -63,8 +65,7 @@ handle_message(_, Conn, _) ->
   {ok, Conn}.
 
 terminate(_Shared, Conn) ->
-  emqtt:disconnect(Conn),
-  emqtt:stop(Conn).
+  emqtt:disconnect(Conn).
 
 %%================================================================================
 %% Internal functions

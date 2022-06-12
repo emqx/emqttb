@@ -85,6 +85,7 @@ connect(CustomOptions, CustomTcpOptions) ->
             , {proto_ver,  my_cfg([connection, proto_ver])}
             , {low_mem,    my_cfg([lowmem])}
             , {tcp_opts,   tcp_opts(CustomTcpOptions)}
+            , {owner,      self()}
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
   ConnectFun = connect_fun(),
@@ -139,14 +140,13 @@ entrypoint(Behavior, Group, Number) ->
     State -> loop(State)
   catch
     EC:Err:Stack ->
-      logger:error("[~p:~p] init ~p:~p:~p", [my_group(), my_id(), EC, Err, Stack]),
+      logger:error("[~p:~p] init~n ~p~n~p:~p", [my_group(), my_id(), EC, Err, Stack]),
       terminate({Err, Stack})
   end.
 
 loop(State) ->
   receive
     {'EXIT', _Pid, Reason} = Exit ->
-      _ = catch apply(behavior(), terminate, [my_settings(), State]),
       Reason =:= shutdown orelse
         logger:error("[~p:~p] received ~p", [my_group(), my_id(), Exit]),
       terminate(State, Reason);
@@ -155,7 +155,9 @@ loop(State) ->
         {ok, NewState} ->
           loop(NewState);
         {exit, NewState} ->
-          terminate(NewState, normal)
+          terminate(NewState, normal);
+        _ ->
+          terminate(State, badreturn)
       catch
         EC:Err:Stack ->
           logger:error( "[~p:~p] handle_message ~p ~p:~p:~p"

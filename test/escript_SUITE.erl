@@ -24,13 +24,6 @@
 suite() ->
   [{timetrap, {seconds, 30}}].
 
-init_per_testcase(Config) ->
-  snabbkaffe:fix_ct_logging(),
-  Config.
-
-end_per_testcase(_Config) ->
-  ok.
-
 t_no_args(Config) when is_list(Config) ->
   ?assertMatch(0, run("")).
 
