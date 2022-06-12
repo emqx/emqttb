@@ -48,7 +48,7 @@ name() ->
 model() ->
   #{ topic =>
        {[value, cli_param],
-        #{ oneliner => "Topic where the clients shall publish messages"
+        #{ oneliner => "Topic that the clients shall subscribe"
          , type => binary()
          , cli_operand => "topic"
          , cli_short => $t
