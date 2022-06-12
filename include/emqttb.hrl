@@ -37,13 +37,5 @@
                                )).
 
 -define(SK(SCENARIO), scenarios, SCENARIO, {}).
--define(SK, ?SK(?MODULE)).
-
--define(LINGER(), emqttb_scenario:linger(?MODULE)).
-
--define(STAGE(S, RESULT), emqttb_scenario:set_stage(?MODULE:name(), S, RESULT)).
--define(STAGE(S), emqttb_scenario:set_stage(?MODULE:name(), S)).
-
--define(COMPLETE(RESULT), emqttb_scenario:complete(?MODULE:name(), RESULT)).
 
 -endif.

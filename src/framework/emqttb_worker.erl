@@ -138,7 +138,7 @@ entrypoint(Behavior, Group, Number) ->
 
 loop(State) ->
   receive
-    Exit = {'EXIT', Pid, Reason} ->
+    Exit = {'EXIT', _Pid, Reason} ->
       logger:error("[~p:~p] received ~p", [my_group(), my_id(), Exit]),
       terminate(Reason);
     Msg ->

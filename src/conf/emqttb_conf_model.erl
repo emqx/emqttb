@@ -161,12 +161,12 @@ model() ->
               , default     => undefined
               , cli_operand => "conf"
               }}
-        , linger =>
+        , loiter =>
             {[value, os_env, cli_param],
-             #{ oneliner    => "Default linger time for the scenarios (sec)"
+             #{ oneliner    => "Default loiter time for the scenarios (sec)"
               , type        => timeout()
               , default     => infinity
-              , cli_operand => "linger"
+              , cli_operand => "loiter"
               }}
         , keep_running =>
             {[value, os_env, cli_param],

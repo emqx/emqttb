@@ -32,6 +32,8 @@
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
 
+-import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, set_stage/2, set_stage/1]).
+
 %%================================================================================
 %% Type declarations
 %%================================================================================
@@ -94,22 +96,20 @@ model() ->
    }.
 
 run() ->
-  PubOpts = #{ topic       => ?CFG([?SK, topic])
-             , pubinterval => ?CFG([?SK, pubinterval])
-             , msg_size    => ?CFG([?SK, msg_size])
+  PubOpts = #{ topic       => my_conf([topic])
+             , pubinterval => my_conf([pubinterval])
+             , msg_size    => my_conf([msg_size])
              },
-  emqttb_group:ensure(#{ id => pub_group
-                       , client_config => ?CFG([?SK, group])
-                       , behavior => {emqttb_behavior_pub, PubOpts}
+  emqttb_group:ensure(#{ id            => pub_group
+                       , client_config => my_conf([group])
+                       , behavior      => {emqttb_behavior_pub, PubOpts}
                        }),
-  Interval = ?CFG([?SK, conninterval]),
-  ?STAGE(ramp_up),
-  N = ?CFG([?SK, n_clients]),
+  Interval = my_conf([conninterval]),
+  set_stage(ramp_up),
+  N = my_conf([n_clients]),
   {ok, N} = emqttb_group:set_target(pub_group, N, Interval),
-  {ok, N} = emqttb_group:set_target(pub_group, N, Interval),
-  %{ok, 0} = emqttb_group:set_target(pub_group, 0, Interval),
-  ?LINGER(),
-  ?COMPLETE(ok).
+  emqttb_scenario:loiter(),
+  complete(ok).
 
 %%================================================================================
 %% Internal exports
