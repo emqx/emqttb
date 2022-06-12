@@ -38,7 +38,7 @@
 -type group_config() ::
         #{ id            := atom()
          , client_config := atom()
-         , behavior      := module()
+         , behavior      := {module(), map()}
          }.
 
 %%================================================================================
@@ -100,11 +100,14 @@ init([Conf]) ->
   process_flag(trap_exit, true),
   #{ id := ID
    , client_config := ConfID
-   , behavior := Behavior
+   , behavior := {Behavior, BehSettings}
    } = Conf,
   logger:info("Starting group ~p with client configuration ~p", [ID, ConfID]),
   persistent_term:put(?GROUP_LEADER_TO_GROUP_ID(self()), ID),
+  persistent_term:put(?GROUP_BEHAVIOR(self()), Behavior),
   persistent_term:put(?GROUP_CONF_ID(self()), ConfID),
+  BehSharedState = emqttb_worker:create_settings(Behavior, ID, BehSettings),
+  persistent_term:put(?GROUP_BEHAVIOR_SHARED_STATE(self()), BehSharedState),
   emqttb_metrics:new_counter(?GROUP_N_WORKERS(ID),
                              [ {help, <<"Number of workers in the group">>}
                              , {labels, [group]}
@@ -210,8 +213,8 @@ do_scale(S0) ->
   end.
 
 scale_up(N, S = #s{behavior = Behavior, id = Id, next_id = WorkerId}) ->
-  {_Pid, _MRef} = emqttb_worker:start(Behavior, self(), WorkerId),
-  ?tp(start_worker, #{group => Id, pid => _Pid, mref => _MRef}),
+  _Pid = emqttb_worker:start(Behavior, self(), WorkerId),
+  ?tp(start_worker, #{group => Id, pid => _Pid}),
   S#s{next_id = WorkerId + 1}.
 
 scale_down(N, S0) ->

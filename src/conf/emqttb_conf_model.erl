@@ -216,6 +216,13 @@ group_model() ->
          , cli_operand => "group"
          , cli_short   => $g
          }}
+   , lowmem =>
+       {[value, cli_param],
+        #{ oneliner    => "Reduce memory useage at the cost of CPU wherever possible"
+         , type        => boolean()
+         , default     => false
+         , cli_operand => "lowmem"
+         }}
    , broker =>
        #{ hosts =>
             {[value, cli_param],
@@ -295,21 +302,16 @@ group_model() ->
               , cli_short   => $x
               }}
         }
-   , ifaddr =>
-       {[value, cli_param],
-        #{ oneliner    => "Local IP addresses"
-         , type        => nonempty_list(typerefl:ip_address())
-         , default     => [{0, 0, 0, 0}]
-         , from_string => fun parse_addresses/1
-         , cli_operand => "ifaddr"
-         }}
-   , lowmem =>
-       {[value, cli_param],
-        #{ oneliner    => "Reduce memory useage at the cost of CPU wherever possible"
-         , type        => boolean()
-         , default     => false
-         , cli_operand => "lowmem"
-         }}
+   , net =>
+       #{ ifaddr =>
+            {[value, cli_param],
+             #{ oneliner    => "Local IP addresses"
+              , type        => nonempty_list(typerefl:ip_address())
+              , default     => [{0, 0, 0, 0}]
+              , from_string => fun parse_addresses/1
+              , cli_operand => "ifaddr"
+              }}
+        }
    }.
 
 intro() ->

@@ -59,9 +59,10 @@ start_link() ->
 
 %% Simple counters:
 
--spec new_counter(key(), list()) -> ok.
+-spec new_counter(key(), list()) -> key().
 new_counter(Key, PrometheusParams) ->
-  gen_server:call(?SERVER, {new_counter, Key, PrometheusParams}).
+  ok = gen_server:call(?SERVER, {new_counter, Key, PrometheusParams}),
+  Key.
 
 -spec counter_inc(key(), integer()) -> ok.
 counter_inc(Key, Delta) ->
@@ -77,9 +78,10 @@ get_counter(Key) ->
 
 %% Rolling average "gauge":
 
--spec new_gauge(key(), non_neg_integer()) -> ok.
-new_gauge(Key, Window) ->
-  gen_server:call(?SERVER, {new_gauge, Key, Window}).
+-spec new_gauge(key(), list()) -> key().
+new_gauge(Key, PrometheusParams) ->
+  ok = gen_server:call(?SERVER, {new_gauge, Key, PrometheusParams}),
+  Key.
 
 %% Fast update of rolling average of a value:
 -spec gauge_observe(key(), integer()) -> ok.

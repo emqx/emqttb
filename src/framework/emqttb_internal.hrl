@@ -20,6 +20,9 @@
 
 %% Persistent term keys:
 -define(GROUP_LEADER_TO_GROUP_ID(GL), {emqttb_group_leader_to_group_id, GL}).
+-define(GROUP_BEHAVIOR(GL), {emqttb_group_behavior, GL}).
+-define(GROUP_BEHAVIOR_SHARED_STATE(GL), {emqttb_group_behavior_settings, GL}).
+
 -define(GROUP_CONF_ID(GL), {emqttb_group_client_conf_id, GL}).
 
 %% Metrics:

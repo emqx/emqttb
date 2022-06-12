@@ -51,6 +51,14 @@ model() ->
          , cli_operand => "topic"
          , cli_short => $t
          }}
+   , msg_size =>
+       {[value, cli_param],
+        #{ oneliner => "Size of the published message in bytes"
+         , type => non_neg_integer()
+         , cli_operand => "size"
+         , cli_short => $s
+         , default => 256
+         }}
    , conninterval =>
        {[value, cli_param],
         #{ oneliner => "Client connection interval"
@@ -86,9 +94,13 @@ model() ->
    }.
 
 run() ->
+  PubOpts = #{ topic       => ?CFG([?SK, topic])
+             , pubinterval => ?CFG([?SK, pubinterval])
+             , msg_size    => ?CFG([?SK, msg_size])
+             },
   emqttb_group:ensure(#{ id => pub_group
                        , client_config => ?CFG([?SK, group])
-                       , behavior => emqttb_behavior_pub
+                       , behavior => {emqttb_behavior_pub, PubOpts}
                        }),
   Interval = ?CFG([?SK, conninterval]),
   ?STAGE(ramp_up),
