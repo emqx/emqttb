@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
 
+-import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, set_stage/2, set_stage/1]).
+
 %%================================================================================
 %% Type declarations
 %%================================================================================
@@ -46,34 +48,51 @@ name() ->
 model() ->
   #{ topic =>
        {[value, cli_param],
-        #{ oneliner    => "Topic that the clients shall subscribe to"
-         , type        => binary()
+        #{ oneliner => "Topic where the clients shall publish messages"
+         , type => binary()
          , cli_operand => "topic"
-         , cli_short   => $t
+         , cli_short => $t
          }}
    , conninterval =>
        {[value, cli_param],
-        #{ oneliner    => "Maximum client connection interval"
-         , type        => emqttb:interval()
+        #{ oneliner => "Client connection interval"
+         , type => emqttb:interval()
          , default_ref => [interval]
-         , cli_operand => "connrate"
-         , cli_short   => $r
+         , cli_operand => "conninterval"
+         , cli_short => $I
          }}
-   , n_subs =>
+   , n_clients =>
        {[value, cli_param],
-        #{ oneliner    => "Number of clients"
-         , type        => emqttb:n_clients()
+        #{ oneliner => "Number of clients"
+         , type => emqttb:n_clients()
          , default_ref => [n_clients]
-         , cli_operand => "max-clients"
-         , cli_short   => $N
+         , cli_operand => "num-clients"
+         , cli_short => $N
+         }}
+   , group =>
+       {[value, cli_param],
+        #{ oneliner => "ID of the client group"
+         , type => atom()
+         , default => default
+         , cli_operand => "group"
+         , cli_short => $g
          }}
    }.
 
 run() ->
-  ?STAGE(ramp_up),
-  ?STAGE(run_traffic),
-  ?LINGER(),
-  ?COMPLETE(ok).
+  SubOpts = #{ topic => my_conf([topic])
+             },
+  emqttb_group:ensure(#{ id            => sub_group
+                       , client_config => my_conf([group])
+                       , behavior      => {emqttb_behavior_sub, SubOpts}
+                       }),
+  Interval = my_conf([conninterval]),
+  set_stage(ramp_up),
+  N = my_conf([n_clients]),
+  {ok, N} = emqttb_group:set_target(sub_group, N, Interval),
+  set_stage(run_traffic),
+  loiter(),
+  complete(ok).
 
 %%================================================================================
 %% Internal exports
