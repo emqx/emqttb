@@ -109,6 +109,10 @@ init([Conf]) ->
                              [ {help, <<"Number of workers in the group">>}
                              , {labels, [group]}
                              ]),
+  emqttb_metrics:new_counter(?GROUP_N_CONNECTIONS(ID),
+                             [ {help, <<"Number of connections">>}
+                             , {labels, [group]}
+                             ]),
   S = #s{ id          = ID
         , behavior    = Behavior
         , conf_prefix = [groups, ConfID]
@@ -137,7 +141,7 @@ handle_info(_, S) ->
 
 terminate(_Reason, #s{id = Id}) ->
   _ = fold_workers(fun(Pid, Acc) ->
-                       kill_worker(Id, Pid)
+                       stop_worker(Id, Pid)
                    end,
                    [],
                    Id),
@@ -245,11 +249,8 @@ maybe_cancel_previous(#r{on_complete = OnComplete}) ->
 n_clients(#s{id = Id}) ->
   emqttb_metrics:get_counter(?GROUP_N_WORKERS(Id)).
 
-kill_worker(GroupId, Pid) ->
-  %% Make sure to use kill, so the worker can't decrement the counter
-  %% by itself:
-  exit(Pid, kill),
-  emqttb_metrics:counter_dec(?GROUP_N_WORKERS(GroupId), 1).
+stop_worker(GroupId, Pid) ->
+  exit(Pid, shutdown).
 
 -spec fold_workers( fun((pid(), Acc) -> Acc)
                   , Acc
@@ -259,12 +260,12 @@ fold_workers(Fun, Acc, GroupId) when is_atom(GroupId) ->
   GL = whereis(GroupId),
   is_pid(GL) orelse error({group_is_not_alive, GroupId}),
   fold_workers(Fun, Acc, GL);
-fold_workers(Fun, Acc, GL) ->
+fold_workers(Fun0, Acc, GL) ->
   PIDs = erlang:processes(),
   Fun = fun(Pid, Acc) ->
             case process_info(Pid, [group_leader]) of
-              GL -> Fun(Pid, Acc);
-              _  -> Acc
+              [{group_leader, GL}] -> Fun0(Pid, Acc);
+              _                    -> Acc
             end
         end,
   lists:foldl(Fun, Acc, PIDs).

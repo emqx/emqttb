@@ -24,5 +24,6 @@
 
 %% Metrics:
 -define(GROUP_N_WORKERS(GRP), {group_n_workers, GRP}).
+-define(GROUP_N_CONNECTIONS(GRP), {group_n_connections, GRP}).
 
 -endif.

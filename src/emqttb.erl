@@ -45,9 +45,11 @@
 
 -type interval() :: non_neg_integer() | {auto, autorate()}.
 
--type transport() :: mqtt | ws | quic.
+-type transport() :: sock | ws | quic.
 
--reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0]).
+-type proto_ver() :: v3 | v4 | v5.
+
+-reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0]).
 
 %%================================================================================
 %% API funcions

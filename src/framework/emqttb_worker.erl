@@ -16,7 +16,7 @@
 -module(emqttb_worker).
 
 %% Worker API:
--export([my_group/0, my_id/0, my_clientid/0, cfg/1, connect/1]).
+-export([my_group/0, my_id/0, my_clientid/0, cfg/1, connect/2]).
 
 %% behavior callbacks:
 -export([]).
@@ -29,6 +29,7 @@
 -include("emqttb_internal.hrl").
 
 -define(MY_ID, emqttb_my_id).
+-define(MY_CLIENT, emqttb_my_client).
 
 %%================================================================================
 %% Type declarations
@@ -50,20 +51,44 @@ my_group() ->
 my_id() ->
   get(?MY_ID).
 
+-spec connect([emqtt:option()], [gen_tcp:option()]) -> gen_statem:start_ret().
+connect(CustomOptions, CustomTcpOptions) ->
+  Username = cfg([client, username]),
+  Password = cfg([client, password]),
+  Options = [ {username,   Username} || Username =/= undefined]
+         ++ [ {password,   Password} || Password =/= undefined]
+         ++ [ {clientid,   my_clientid()}
+            , {hosts,      broker_hosts()}
+            , {port,       cfg([broker, port])}
+            , {proto_ver,  cfg([connection, proto_ver])}
+            , {low_mem,    cfg([lowmem])}
+            , {tcp_opts,   tcp_opts(CustomTcpOptions)}
+            | CustomOptions
+            ],
+  {ok, Client} = emqtt:start_link(Options),
+  ConnectFun = connect_fun(),
+  {ok, _Properties} =  emqtt:ConnectFun(Client),
+  {ok, Client}.
+
+-spec tcp_opts([gen_tcp:option()]) -> [gen_tcp:option()].
+tcp_opts(CustomOptions) ->
+  IfAddrs = cfg([ifaddr]),
+  IfAddr  = lists:nth(my_id() rem length(IfAddrs) + 1, IfAddrs),
+  [ {ifaddr, IfAddr}
+  | CustomOptions
+  ].
+
 %% @doc Get configuration
 -spec cfg(lee:key()) -> term().
 cfg(Key) ->
   ConfId = ?GROUP_CONF_ID(group_leader()),
   ?CFG([groups, ConfId | Key]).
 
-connect(Opts) ->
-  ok.
-
 -spec my_clientid() -> binary().
 my_clientid() ->
   Group = my_group(),
   ID = my_id(),
-  Pattern = cfg([clientid]),
+  Pattern = cfg([client, clientid]),
   Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
   Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
   Id1.
@@ -77,6 +102,8 @@ my_clientid() ->
 %%================================================================================
 
 entrypoint(Behavior, Group, Number) ->
+  %% We need to trap exits to make sure the counter is decremented in
+  %% the end.
   process_flag(trap_exit, true),
   group_leader(Group, self()),
   put(?MY_ID, Number),
@@ -88,7 +115,7 @@ entrypoint(Behavior, Group, Number) ->
 
 loop(Behavior) ->
   try
-    ClientId = my_clientid(),
+    {ok, Client} = connect([], []),
     receive after 10000 -> ok end
   catch
     EC:Err:Stack ->
@@ -105,11 +132,19 @@ loop(Behavior) ->
 
 -spec connect_fun() -> FunName :: atom().
 connect_fun()->
-    case cfg([transport]) of
+    case cfg([connection, transport]) of
         ws ->
             ws_connect;
         quic ->
             quic_connect;
-        mqtt ->
+        sock ->
             connect
     end.
+
+-spec broker_hosts() -> [{string(), inet:port_number()}].
+broker_hosts() ->
+  lists:map(
+    fun({Host, Port}) -> {Host, Port};
+       (Host)         -> {Host, cfg([broker, port])}
+    end,
+    cfg([broker, hosts])).

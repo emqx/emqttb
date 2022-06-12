@@ -11,7 +11,8 @@
     prometheus,
     jsone,
     lee,
-    snabbkaffe
+    snabbkaffe,
+    emqtt
    ]},
   {env,[]},
   {modules, []},
