@@ -139,7 +139,8 @@ entrypoint(Behavior, Group, Number) ->
 loop(State) ->
   receive
     Exit = {'EXIT', _Pid, Reason} ->
-      logger:error("[~p:~p] received ~p", [my_group(), my_id(), Exit]),
+      Reason =:= shutdown orelse
+        logger:error("[~p:~p] received ~p", [my_group(), my_id(), Exit]),
       terminate(Reason);
     Msg ->
       case call(behavior(), handle_message, [my_settings(), State, Msg]) of

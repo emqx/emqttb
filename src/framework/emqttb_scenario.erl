@@ -21,7 +21,7 @@
          my_scenario/0, my_scenario_module/0, my_conf/1]).
 
 %% gen_server callbacks:
--export([init/1, handle_call/3, handle_cast/2, handle_continue/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_continue/2, terminate/2]).
 
 %% internal exports:
 -export([start_link/1]).
@@ -167,7 +167,7 @@ handle_call(_, _, S) ->
 handle_cast(_, S) ->
   {notrepy, S}.
 
-termiante(_, State) ->
+terminate(_, State) ->
   persistent_term:erase(?SCENARIO_GROUP_LEADER(group_leader())).
 
 %%================================================================================

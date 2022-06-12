@@ -13,7 +13,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(emqttb_scenario_pub).
+-module(emqttb_scenario_sub).
 
 -behavior(emqttb_scenario).
 
@@ -43,7 +43,7 @@
 %%================================================================================
 
 name() ->
-  pub.
+  sub.
 
 model() ->
   #{ topic =>
@@ -53,14 +53,6 @@ model() ->
          , cli_operand => "topic"
          , cli_short => $t
          }}
-   , msg_size =>
-       {[value, cli_param],
-        #{ oneliner => "Size of the published message in bytes"
-         , type => non_neg_integer()
-         , cli_operand => "size"
-         , cli_short => $s
-         , default => 256
-         }}
    , conninterval =>
        {[value, cli_param],
         #{ oneliner => "Client connection interval"
@@ -68,14 +60,6 @@ model() ->
          , default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
-         }}
-   , pubinterval =>
-       {[value, cli_param],
-        #{ oneliner => "Message publishing interval"
-         , type => emqttb:interval()
-         , default_ref => [interval]
-         , cli_operand => "pubinterval"
-         , cli_short => $i
          }}
    , n_clients =>
        {[value, cli_param],
@@ -96,18 +80,16 @@ model() ->
    }.
 
 run() ->
-  PubOpts = #{ topic       => my_conf([topic])
-             , pubinterval => my_conf([pubinterval])
-             , msg_size    => my_conf([msg_size])
+  SubOpts = #{ topic => my_conf([topic])
              },
-  emqttb_group:ensure(#{ id            => pub_group
+  emqttb_group:ensure(#{ id            => sub_group
                        , client_config => my_conf([group])
-                       , behavior      => {emqttb_behavior_pub, PubOpts}
+                       , behavior      => {emqttb_behavior_sub, SubOpts}
                        }),
   Interval = my_conf([conninterval]),
   set_stage(ramp_up),
   N = my_conf([n_clients]),
-  {ok, N} = emqttb_group:set_target(pub_group, N, Interval),
+  {ok, N} = emqttb_group:set_target(sub_group, N, Interval),
   set_stage(run_traffic),
   loiter(),
   complete(ok).
