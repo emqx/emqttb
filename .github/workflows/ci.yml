@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        otp: [23.2.5]
+        otp: [24]
     container:
       image: erlang:${{ matrix.otp }}
 
@@ -21,3 +21,9 @@ jobs:
     - uses: actions/checkout@v2
     - name: Compile and run tests
       run: BUILD_WITHOUT_QUIC=true make
+
+    # services:
+    #   emqx:
+    #     image: emqx:4.4
+    #     ports:
+    #       - 1883:1883

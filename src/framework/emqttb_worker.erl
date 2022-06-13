@@ -140,7 +140,12 @@ entrypoint(Behavior, Group, Number) ->
     State -> loop(State)
   catch
     EC:Err:Stack ->
-      logger:error("[~p:~p] init~n ~p~n~p:~p", [my_group(), my_id(), EC, Err, Stack]),
+      ?tp(error, emqttb_worker_crash,
+          #{ callback  => init
+           , group     => Group
+           , worker_id => Number
+           , error     => {EC, Err, Stack}
+           }),
       terminate({Err, Stack})
   end.
 
@@ -148,7 +153,11 @@ loop(State) ->
   receive
     {'EXIT', _Pid, Reason} = Exit ->
       Reason =:= shutdown orelse
-        logger:error("[~p:~p] received ~p", [my_group(), my_id(), Exit]),
+        ?tp(error, emqttb_worker_crash,
+            #{ message   => Exit
+             , group     => my_group()
+             , worker_id => my_id()
+             }),
       terminate(State, Reason);
     Msg ->
       try apply(behavior(), handle_message, [my_settings(), State, Msg]) of
@@ -156,13 +165,26 @@ loop(State) ->
           loop(NewState);
         {exit, NewState} ->
           terminate(NewState, normal);
-        _ ->
+        _Bad ->
+          ?tp(error, emqttb_worker_crash,
+              #{ callback  => handle_message
+               , message   => Msg
+               , state     => State
+               , group     => my_group()
+               , worker_id => my_id()
+               , error     => {bad_return, _Bad}
+               }),
           terminate(State, badreturn)
       catch
         EC:Err:Stack ->
-          logger:error( "[~p:~p] handle_message ~p ~p:~p:~p"
-                      ,  [my_group(), my_id(), Msg, EC, Err, Stack]
-                      ),
+          ?tp(error, emqttb_worker_crash,
+              #{ callback  => handle_message
+               , message   => Msg
+               , state     => State
+               , group     => my_group()
+               , worker_id => my_id()
+               , error     => {EC, Err, Stack}
+               }),
           terminate(State, {Err, Stack})
       end
   end.
