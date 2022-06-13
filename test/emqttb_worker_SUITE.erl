@@ -71,77 +71,40 @@ t_group(Config) ->
      ]).
 
 t_error_in_init(Config) ->
-  NClients = 10,
-  Group = test_group,
-  ?check_trace(
-     #{timeout => 1000},
-     begin
-       {ok, Pid} = emqttb_group:start_link(#{ id            => Group
-                                            , client_config => #{}
-                                            , behavior      => {emqttb_dummy_behavior, #{init => error}}
-                                            }),
-       {ok, NActual} = emqttb_group:set_target(Group, NClients, 1),
-       unlink(Pid),
-       exit(Pid, shutdown)
-     end,
-     [ fun ?MODULE:worker_counter_spec/1
-     ]).
+  error_scenario(#{init => error}).
 
 t_error_in_handle_msg(Config) ->
-  NClients = 10,
-  Group = test_group,
-  ?check_trace(
-     #{timeout => 1000},
-     begin
-       {ok, Pid} = emqttb_group:start_link(#{ id            => Group
-                                            , client_config => #{}
-                                            , behavior      => {emqttb_dummy_behavior, #{handle_message => error}}
-                                            }),
-       {ok, NActual} = emqttb_group:set_target(Group, NClients, 1),
-       unlink(Pid),
-       exit(Pid, shutdown)
-     end,
-     [ fun ?MODULE:worker_counter_spec/1
-     , fun ?MODULE:cb_terminate_spec/1
-     ]).
+  error_scenario(#{handle_message => error}).
 
 t_invalid_return(Config) ->
-  NClients = 10,
-  Group = test_group,
-  ?check_trace(
-     #{timeout => 1000},
-     begin
-       {ok, Pid} = emqttb_group:start_link(#{ id            => Group
-                                            , client_config => #{}
-                                            , behavior      => {emqttb_dummy_behavior,
-                                                                #{handle_message => invalid_return}}
-                                            }),
-       {ok, NActual} = emqttb_group:set_target(Group, NClients, 1),
-       unlink(Pid),
-       exit(Pid, shutdown)
-     end,
-     [ fun ?MODULE:worker_counter_spec/1
-     , fun ?MODULE:cb_terminate_spec/1
-     ]).
+  error_scenario(#{handle_message => invalid_return}).
 
 t_error_in_terminate(Config) ->
-  NClients = 10,
+  error_scenario(#{terminate => error}).
+
+error_scenario(Config) ->
+  NClients = 1,
   Group = test_group,
   ?check_trace(
-     #{timeout => 1000},
+     #{timeout => 10, timetrap => 1000},
      begin
        {ok, Pid} = emqttb_group:start_link(#{ id            => Group
                                             , client_config => #{}
-                                            , behavior      => {emqttb_dummy_behavior,
-                                                                #{terminate => error}}
+                                            , behavior      => {emqttb_dummy_behavior, Config}
                                             }),
-       {ok, NActual} = emqttb_group:set_target(Group, NClients, 1),
+       emqttb_group:set_target_async(Group, NClients, 1),
+       %% Wait until the first worker start:
+       ?block_until(#{?snk_kind := emqttb_dummy}),
+       %% Before triggering crashes, make sure the group won't try to
+       %% resurrect the workers:
+       emqttb_group:set_target_async(Group, 0, 0),
+       emqttb_group:broadcast(Group, heyhey),
+       ?tp("Stopping test group", #{}),
        unlink(Pid),
        exit(Pid, shutdown)
      end,
-     [ fun ?MODULE:worker_counter_spec/1
-     , fun ?MODULE:cb_terminate_spec/1
-     ]).
+     [fun ?MODULE:cb_terminate_spec/1 || not maps:is_key(init, Config)] ++
+     [fun ?MODULE:worker_counter_spec/1]).
 
 %% Trace specifications:
 
@@ -155,12 +118,13 @@ worker_counter_spec(Trace) ->
 
 %% Ensure that the worker state is passed through callbacks
 state_continuity_spec(Trace) ->
-  ?assert(
-     ?causality( #{?snk_kind := emqttb_dummy, group := _G, id := _N, state := _S1}
-               , #{?snk_kind := emqttb_dummy, group := _G, id := _N, state := _S2}
-               , _S1 =:= _S2 + 1
-               , Trace
-               )).
+  T0 = [{{Grp, Id}, S} || #{ ?snk_kind := emqttb_dummy
+                           , group := Grp
+                           , id := Id
+                           , state := S
+                           } <- Trace],
+  T = lists:keysort(1, T0), %% Stable sort by group and ID, so it won't rearrange states
+  ?assert(snabbkaffe:strictly_increasing(T)).
 
 %% Ensure that for every `init' there is a call of `terminate' callback
 cb_terminate_spec(Trace) ->

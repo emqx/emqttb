@@ -28,7 +28,7 @@ t_no_args(Config) when is_list(Config) ->
   ?assertMatch(0, run("")).
 
 t_basic_scenarios(Config) when is_list(Config) ->
-  ?assertMatch(0, run("--loiter 0 @pub -t foo -I 0")).
+  ?assertMatch(0, run("--loiter 0 @pub -t foo -I 1000 -N 0")).
 
 t_set_group_config(Config) when is_list(Config) ->
   ?assertMatch(0, run("@g -p 9090")),
