@@ -260,6 +260,14 @@ group_model() ->
               , cli_operand => "transport"
               , cli_short   => $T
               }}
+        , inflight =>
+            {[value, cli_param],
+             #{ oneliner    => "maximum inflight messages for QoS 1 an 2"
+              , type        => union(non_neg_integer(), infinity)
+              , default     => infinity
+              , cli_operand => "inflight"
+              , cli_short   => $F
+              }}
         }
    , client =>
        #{ clientid =>

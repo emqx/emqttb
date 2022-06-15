@@ -86,6 +86,7 @@ connect(CustomOptions, CustomTcpOptions, CustomSslOptions) ->
          ++ [ {password,   Password} || Password =/= undefined]
          ++ [ {ssl_opts,   CustomSslOptions ++ ssl_opts()} || SSL]
          ++ [ {clientid,   my_clientid()}
+            , {inflight,   my_cfg([connection, inflight])}
             , {hosts,      broker_hosts()}
             , {port,       get_port()}
             , {proto_ver,  my_cfg([connection, proto_ver])}
