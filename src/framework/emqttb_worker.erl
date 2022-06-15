@@ -16,7 +16,7 @@
 -module(emqttb_worker).
 
 %% Worker API:
--export([my_group/0, my_id/0, my_clientid/0, my_cfg/1, connect/2]).
+-export([my_group/0, my_id/0, my_clientid/0, my_cfg/1, connect/1, connect/3]).
 
 %% internal exports:
 -export([entrypoint/3, loop/1, start/3, create_settings/3]).
@@ -73,34 +73,31 @@ my_group() ->
 my_id() ->
   get(?MY_ID).
 
--spec connect([emqtt:option()], [gen_tcp:option()]) -> gen_statem:start_ret().
-connect(CustomOptions, CustomTcpOptions) ->
+-spec connect([emqtt:option()]) -> gen_statem:start_ret().
+connect(Options) ->
+  connect(Options, [], []).
+
+-spec connect([emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
+connect(CustomOptions, CustomTcpOptions, CustomSslOptions) ->
   Username = my_cfg([client, username]),
   Password = my_cfg([client, password]),
+  SSL      = my_cfg([ssl, enable]),
   Options = [ {username,   Username} || Username =/= undefined]
          ++ [ {password,   Password} || Password =/= undefined]
+         ++ [ {ssl_opts,   CustomSslOptions ++ ssl_opts()} || SSL]
          ++ [ {clientid,   my_clientid()}
             , {hosts,      broker_hosts()}
-            , {port,       my_cfg([broker, port])}
+            , {port,       get_port()}
             , {proto_ver,  my_cfg([connection, proto_ver])}
             , {low_mem,    my_cfg([lowmem])}
-            , {tcp_opts,   tcp_opts(CustomTcpOptions)}
             , {owner,      self()}
+            , {ssl,        SSL}
+            , {tcp_opts,   CustomTcpOptions ++ tcp_opts()}
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
   ConnectFun = connect_fun(),
   {ok, _Properties} =  emqtt:ConnectFun(Client),
   {ok, Client}.
-
--spec tcp_opts([gen_tcp:option()]) -> [gen_tcp:option()].
-tcp_opts(CustomOptions) ->
-  [ {ifaddr, ifaddr()}
-  | CustomOptions
-  ].
-
-ifaddr() ->
-  IfAddrs = my_cfg([net, ifaddr]),
-  lists:nth(my_id() rem length(IfAddrs) + 1, IfAddrs).
 
 %% @doc Get group-specific configuration (as opposed to global)
 -spec my_cfg(lee:key()) -> term().
@@ -116,10 +113,6 @@ my_clientid() ->
   Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
   Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
   Id1.
-
-%%================================================================================
-%% behavior callbacks
-%%================================================================================
 
 %%================================================================================
 %% Internal exports
@@ -213,6 +206,27 @@ terminate(Reason) ->
 
 %% Connection
 
+get_port() ->
+  case my_cfg([broker, port]) of
+    Port when is_integer(Port) ->
+      Port;
+    default ->
+      Transport = my_cfg([connection, transport]),
+      SSL = my_cfg([ssl, enable]),
+      case {Transport, SSL} of
+        {sock, false} ->
+          1883;
+        {sock, true} ->
+          8883;
+        {ws, false} ->
+          8083;
+        {ws, true} ->
+          8084;
+        {quic, _} ->
+          14567
+      end
+  end.
+
 -spec connect_fun() -> FunName :: atom().
 connect_fun()->
     case my_cfg([connection, transport]) of
@@ -228,6 +242,27 @@ connect_fun()->
 broker_hosts() ->
   lists:map(
     fun({Host, Port}) -> {Host, Port};
-       (Host)         -> {Host, my_cfg([broker, port])}
+       (Host)         -> {Host, get_port()}
     end,
     my_cfg([broker, hosts])).
+
+-spec tcp_opts() -> [gen_tcp:option()].
+tcp_opts() ->
+  [ {ifaddr, ifaddr()}
+  ].
+
+ifaddr() ->
+  IfAddrs = my_cfg([net, ifaddr]),
+  lists:nth(my_id() rem length(IfAddrs) + 1, IfAddrs).
+
+-spec ssl_opts() -> [ssl:option()].
+ssl_opts() ->
+  Cert    = my_cfg([ssl, certfile]),
+  Keyfile = my_cfg([ssl, keyfile]),
+  [{certfile, Cert} || Cert =/= []] ++
+  [{keyfile, Keyfile} || Keyfile =/= []] ++
+  [{ciphers, all_ssl_ciphers()}].
+
+all_ssl_ciphers() ->
+  Vers = ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3'],
+  lists:usort(lists:concat([ssl:cipher_suites(all, Ver) || Ver <- Vers])).
