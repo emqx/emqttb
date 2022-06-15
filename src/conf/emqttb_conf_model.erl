@@ -237,8 +237,8 @@ group_model() ->
         , port =>
             {[value, cli_param],
              #{ oneliner    => "Hostname of the target broker"
-              , type        => net_port()
-              , default     => 1883
+              , type        => union(net_port(), default)
+              , default     => default
               , cli_operand => "port"
               , cli_short   => $p
               }}
@@ -259,6 +259,14 @@ group_model() ->
               , default     => sock
               , cli_operand => "transport"
               , cli_short   => $T
+              }}
+        , inflight =>
+            {[value, cli_param],
+             #{ oneliner    => "maximum inflight messages for QoS 1 and 2"
+              , type        => union(non_neg_integer(), infinity)
+              , default     => infinity
+              , cli_operand => "inflight"
+              , cli_short   => $F
               }}
         }
    , client =>
@@ -311,6 +319,29 @@ group_model() ->
               , default     => [{0, 0, 0, 0}]
               , from_string => fun parse_addresses/1
               , cli_operand => "ifaddr"
+              }}
+        }
+   , ssl =>
+       #{ enable =>
+            {[value, cli_param],
+             #{ oneliner    => "Enable SSL for the connections"
+              , type        => boolean()
+              , default     => false
+              , cli_operand => "ssl"
+              }}
+        , certfile =>
+            {[value, cli_param],
+             #{ oneliner    => "Client certificate for authentication, if required by the server"
+              , type        => string()
+              , default     => ""
+              , cli_operand => "certfile"
+              }}
+        , keyfile =>
+            {[value, cli_param],
+             #{ oneliner    => "Client private key for authentication, if required by the server"
+              , type        => string()
+              , default     => ""
+              , cli_operand => "keyfile"
               }}
         }
    }.

@@ -44,7 +44,7 @@ create_settings(Group,
    }.
 
 init(#{topic := T}) ->
-  {ok, Conn} = emqttb_worker:connect([], []),
+  {ok, Conn} = emqttb_worker:connect([]),
   emqtt:subscribe(Conn, T),
   Conn.
 
