@@ -85,6 +85,15 @@ Global log level, see: [\[logging,level\]](#[logging,level])
 Default loiter time for the scenarios (sec), see:
 [\[convenience,loiter\]](#[convenience,loiter])
 
+### \--max-clients
+
+Maximum number of clients used by default by all groups, see:
+[\[n\_clients\]](#[n_clients])
+
+### \--max-rate
+
+Default interval between events, see: [\[interval\]](#[interval])
+
 ### \--pushgw
 
 Enable sending metrics to pushgateway, see:
@@ -119,6 +128,11 @@ Configuration for client groups
 
 It is possible to override client configuration for the group.
 
+### \--certfile
+
+Client certificate for authentication, if required by the server, see:
+[\[groups,{},ssl,certfile\]](#[groups,{},ssl,certfile])
+
 ### \--clientid
 
 Clientid pattern, see:
@@ -138,6 +152,16 @@ Hostname of the target broker, see:
 Local IP addresses, see:
 [\[groups,{},net,ifaddr\]](#[groups,{},net,ifaddr])
 
+### \--inflight
+
+maximum inflight messages for QoS 1 and 2, see:
+[\[groups,{},connection,inflight\]](#[groups,{},connection,inflight])
+
+### \--keyfile
+
+Client private key for authentication, if required by the server, see:
+[\[groups,{},ssl,keyfile\]](#[groups,{},ssl,keyfile])
+
 ### \--lowmem
 
 Reduce memory useage at the cost of CPU wherever possible, see:
@@ -153,10 +177,10 @@ Password for connecting to the broker, see:
 Hostname of the target broker, see:
 [\[groups,{},broker,port\]](#[groups,{},broker,port])
 
-### \--session-expiry
+### \--ssl
 
-Session expiry, see:
-[\[groups,{},client,session\_expiry\]](#[groups,{},client,session_expiry])
+Enable SSL for the connections, see:
+[\[groups,{},ssl,enable\]](#[groups,{},ssl,enable])
 
 ### \--transport
 
@@ -172,6 +196,11 @@ Username of the client, see:
 
 MQTT protocol version, see:
 [\[groups,{},connection,proto\_ver\]](#[groups,{},connection,proto_ver])
+
+### \-F
+
+maximum inflight messages for QoS 1 and 2, see:
+[\[groups,{},connection,inflight\]](#[groups,{},connection,inflight])
 
 ### \-P
 
@@ -212,11 +241,6 @@ Hostname of the target broker, see:
 Username of the client, see:
 [\[groups,{},client,username\]](#[groups,{},client,username])
 
-### \-x
-
-Session expiry, see:
-[\[groups,{},client,session\_expiry\]](#[groups,{},client,session_expiry])
-
 ## @make-docs
 
 Run scenario make-docs
@@ -255,6 +279,11 @@ Number of clients, see:
 Message publishing interval, see:
 [\[scenarios,emqttb\_scenario\_pub,{},pubinterval\]](#[scenarios,emqttb_scenario_pub,{},pubinterval])
 
+### \--qos
+
+QoS of the published messages, see:
+[\[scenarios,emqttb\_scenario\_pub,{},qos\]](#[scenarios,emqttb_scenario_pub,{},qos])
+
 ### \--size
 
 Size of the published message in bytes, see:
@@ -285,6 +314,11 @@ ID of the client group, see:
 Message publishing interval, see:
 [\[scenarios,emqttb\_scenario\_pub,{},pubinterval\]](#[scenarios,emqttb_scenario_pub,{},pubinterval])
 
+### \-q
+
+QoS of the published messages, see:
+[\[scenarios,emqttb\_scenario\_pub,{},qos\]](#[scenarios,emqttb_scenario_pub,{},qos])
+
 ### \-s
 
 Size of the published message in bytes, see:
@@ -304,6 +338,11 @@ Run scenario sub
 Client connection interval, see:
 [\[scenarios,emqttb\_scenario\_sub,{},conninterval\]](#[scenarios,emqttb_scenario_sub,{},conninterval])
 
+### \--expiry
+
+Set 'Session-Expiry' for persistent sessions (seconds), see:
+[\[scenarios,emqttb\_scenario\_sub,{},expiry\]](#[scenarios,emqttb_scenario_sub,{},expiry])
+
 ### \--group
 
 ID of the client group, see:
@@ -318,6 +357,11 @@ Keep running scenario stages for this period of time (sec), see:
 
 Number of clients, see:
 [\[scenarios,emqttb\_scenario\_sub,{},n\_clients\]](#[scenarios,emqttb_scenario_sub,{},n_clients])
+
+### \--qos
+
+QoS of the subscription, see:
+[\[scenarios,emqttb\_scenario\_sub,{},qos\]](#[scenarios,emqttb_scenario_sub,{},qos])
 
 ### \--topic
 
@@ -339,10 +383,20 @@ Number of clients, see:
 ID of the client group, see:
 [\[scenarios,emqttb\_scenario\_sub,{},group\]](#[scenarios,emqttb_scenario_sub,{},group])
 
+### \-q
+
+QoS of the subscription, see:
+[\[scenarios,emqttb\_scenario\_sub,{},qos\]](#[scenarios,emqttb_scenario_sub,{},qos])
+
 ### \-t
 
 Topic that the clients shall subscribe, see:
 [\[scenarios,emqttb\_scenario\_sub,{},topic\]](#[scenarios,emqttb_scenario_sub,{},topic])
+
+### \-x
+
+Set 'Session-Expiry' for persistent sessions (seconds), see:
+[\[scenarios,emqttb\_scenario\_sub,{},expiry\]](#[scenarios,emqttb_scenario_sub,{},expiry])
 
 # OS Environment Variables
 
@@ -534,14 +588,14 @@ Hostname of the target broker
 *Type:*
 
 ``` erlang
-emqttb_conf_model:net_port() when
+emqttb_conf_model:net_port() | default when
   emqttb_conf_model:net_port() :: 1..65535.
 ```
 
 *Default value:*
 
 ``` erlang
-1883
+default
 ```
 
 ## \[groups,{},client,clientid\]
@@ -585,23 +639,6 @@ undefined | string() when
 undefined
 ```
 
-## \[groups,{},client,session\_expiry\]
-
-Session expiry
-
-*Type:*
-
-``` erlang
-non_neg_integer() when
-  non_neg_integer() :: 0..inf.
-```
-
-*Default value:*
-
-``` erlang
-0
-```
-
 ## \[groups,{},client,username\]
 
 Username of the client
@@ -618,6 +655,23 @@ undefined | string() when
 
 ``` erlang
 undefined
+```
+
+## \[groups,{},connection,inflight\]
+
+maximum inflight messages for QoS 1 and 2
+
+*Type:*
+
+``` erlang
+non_neg_integer() | infinity when
+  non_neg_integer() :: 0..inf.
+```
+
+*Default value:*
+
+``` erlang
+infinity
 ```
 
 ## \[groups,{},connection,proto\_ver\]
@@ -703,6 +757,58 @@ Local IP addresses
 
 ``` erlang
 [{0,0,0,0}]
+```
+
+## \[groups,{},ssl,certfile\]
+
+Client certificate for authentication, if required by the server
+
+*Type:*
+
+``` erlang
+string() when
+  char() :: 0..1114111,
+  string() :: [char()].
+```
+
+*Default value:*
+
+``` erlang
+[]
+```
+
+## \[groups,{},ssl,enable\]
+
+Enable SSL for the connections
+
+*Type:*
+
+``` erlang
+boolean()
+```
+
+*Default value:*
+
+``` erlang
+false
+```
+
+## \[groups,{},ssl,keyfile\]
+
+Client private key for authentication, if required by the server
+
+*Type:*
+
+``` erlang
+string() when
+  char() :: 0..1114111,
+  string() :: [char()].
+```
+
+*Default value:*
+
+``` erlang
+[]
 ```
 
 ## \[interval\]
@@ -970,6 +1076,23 @@ emqttb:interval() when
 
 See [\[interval\]](#[interval])
 
+## \[scenarios,emqttb\_scenario\_pub,{},qos\]
+
+QoS of the published messages
+
+*Type:*
+
+``` erlang
+emqttb:qos() when
+  emqttb:qos() :: 0..2.
+```
+
+*Default value:*
+
+``` erlang
+0
+```
+
 ## \[scenarios,emqttb\_scenario\_pub,{},topic\]
 
 Topic where the clients shall publish messages
@@ -996,6 +1119,23 @@ emqttb:interval() when
 *Default value:*
 
 See [\[interval\]](#[interval])
+
+## \[scenarios,emqttb\_scenario\_sub,{},expiry\]
+
+Set 'Session-Expiry' for persistent sessions (seconds)
+
+*Type:*
+
+``` erlang
+non_neg_integer() | undefined when
+  non_neg_integer() :: 0..inf.
+```
+
+*Default value:*
+
+``` erlang
+undefined
+```
 
 ## \[scenarios,emqttb\_scenario\_sub,{},group\]
 
@@ -1042,6 +1182,23 @@ Number of clients
 *Default value:*
 
 See [\[n\_clients\]](#[n_clients])
+
+## \[scenarios,emqttb\_scenario\_sub,{},qos\]
+
+QoS of the subscription
+
+*Type:*
+
+``` erlang
+emqttb:qos() when
+  emqttb:qos() :: 0..2.
+```
+
+*Default value:*
+
+``` erlang
+0
+```
 
 ## \[scenarios,emqttb\_scenario\_sub,{},topic\]
 

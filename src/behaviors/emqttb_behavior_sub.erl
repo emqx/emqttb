@@ -27,6 +27,7 @@
 %%================================================================================
 
 -define(CNT_SUB_MESSAGES(GRP), {emqttb_received_messages, GRP}).
+-define(AVG_SUB_TIME, subscribe).
 
 %%================================================================================
 %% behavior callbacks
@@ -41,6 +42,7 @@ create_settings(Group,
                                       [ {help, <<"Number of received messages">>}
                                       , {labels, [group]}
                                       ]),
+  emqttb_worker:new_opstat(Group, ?AVG_SUB_TIME),
   #{ topic       => Topic
    , sub_counter => SubCnt
    , qos         => QoS
@@ -53,7 +55,7 @@ init(#{topic := T, qos := QoS, expiry := Expiry}) ->
             _         -> #{'Session-Expiry-Interval' => Expiry}
           end,
   {ok, Conn} = emqttb_worker:connect(Props),
-  emqtt:subscribe(Conn, T, QoS),
+  emqttb_worker:call_with_counter(?AVG_SUB_TIME, emqtt, subscribe, [Conn, T, QoS]),
   Conn.
 
 handle_message(#{sub_counter := Cnt}, Conn, {publish, #{client_pid := Pid}}) when
