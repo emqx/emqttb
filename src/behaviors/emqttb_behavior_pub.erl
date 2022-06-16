@@ -55,7 +55,7 @@ create_settings(Group,
    }.
 
 init(#{pubinterval := I}) ->
-  {ok, Conn} = emqttb_worker:connect([]),
+  {ok, Conn} = emqttb_worker:connect(#{}),
   set_timer(I),
   Conn.
 

@@ -48,7 +48,11 @@ create_settings(Group,
    }.
 
 init(#{topic := T, qos := QoS, expiry := Expiry}) ->
-  {ok, Conn} = emqttb_worker:connect([]),
+  Props = case Expiry of
+            undefined -> #{};
+            _         -> #{'Session-Expiry-Interval' => Expiry}
+          end,
+  {ok, Conn} = emqttb_worker:connect(Props),
   emqtt:subscribe(Conn, T, QoS),
   Conn.
 

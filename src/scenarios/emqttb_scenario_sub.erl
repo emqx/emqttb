@@ -80,8 +80,8 @@ model() ->
    , expiry =>
        {[value, cli_param],
         #{ oneliner => "Set 'Session-Expiry' for persistent sessions (seconds)"
-         , type => non_neg_integer()
-         , default => 0
+         , type => union(non_neg_integer(), undefined)
+         , default => undefined
          , cli_operand => "expiry"
          , cli_short => $x
          }}

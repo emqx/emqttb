@@ -302,14 +302,6 @@ group_model() ->
               , cli_operand => "password"
               , cli_short   => $P
               }}
-        , session_expiry =>
-            {[value, cli_param],
-             #{ oneliner    => "Session expiry"
-              , type        => non_neg_integer()
-              , default     => 0
-              , cli_operand => "session-expiry"
-              , cli_short   => $x
-              }}
         }
    , net =>
        #{ ifaddr =>

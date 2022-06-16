@@ -17,7 +17,7 @@
 
 %% Worker API:
 -export([my_group/0, my_id/0, my_clientid/0, my_hostname/0, my_cfg/1,
-         connect/1, connect/3,
+         connect/1, connect/4,
          format_topic/1,
          new_opstat/2, call_with_counter/4]).
 
@@ -84,12 +84,12 @@ format_topic(Pattern) ->
   Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
   binary:replace(Id1, <<"%h">>, my_hostname(), [global]).
 
--spec connect([emqtt:option()]) -> gen_statem:start_ret().
-connect(Options) ->
-  connect(Options, [], []).
+-spec connect(map()) -> gen_statem:start_ret().
+connect(Properties) ->
+  connect(Properties, [], [], []).
 
--spec connect([emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
-connect(CustomOptions, CustomTcpOptions, CustomSslOptions) ->
+-spec connect(map(), [emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
+connect(Properties, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
   Username = my_cfg([client, username]),
   Password = my_cfg([client, password]),
   SSL      = my_cfg([ssl, enable]),
@@ -105,6 +105,7 @@ connect(CustomOptions, CustomTcpOptions, CustomSslOptions) ->
             , {owner,      self()}
             , {ssl,        SSL}
             , {tcp_opts,   CustomTcpOptions ++ tcp_opts()}
+            , {properties, Properties}
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
   ConnectFun = connect_fun(),
@@ -154,7 +155,8 @@ new_opstat(Group, Operation) ->
   emqttb_metrics:new_counter(?GROUP_N_PENDING(Group, Operation),
                              [ {help, <<"Number of pending operations">>}
                              , {labels, [group, operation]}
-                             ]).
+                             ]),
+  ok.
 
 %%================================================================================
 %% Internal exports
