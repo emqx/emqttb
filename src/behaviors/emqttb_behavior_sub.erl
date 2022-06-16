@@ -33,7 +33,9 @@
 %%================================================================================
 
 create_settings(Group,
-                #{ topic := Topic
+                #{ topic  := Topic
+                 , qos    := QoS
+                 , expiry := Expiry
                  }) when is_binary(Topic) ->
   SubCnt = emqttb_metrics:new_counter(?CNT_SUB_MESSAGES(Group),
                                       [ {help, <<"Number of received messages">>}
@@ -41,11 +43,13 @@ create_settings(Group,
                                       ]),
   #{ topic       => Topic
    , sub_counter => SubCnt
+   , qos         => QoS
+   , expiry      => Expiry
    }.
 
-init(#{topic := T}) ->
+init(#{topic := T, qos := QoS, expiry := Expiry}) ->
   {ok, Conn} = emqttb_worker:connect([]),
-  emqtt:subscribe(Conn, T),
+  emqtt:subscribe(Conn, T, QoS),
   Conn.
 
 handle_message(#{sub_counter := Cnt}, Conn, {publish, #{client_pid := Pid}}) when

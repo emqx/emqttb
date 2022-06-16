@@ -49,7 +49,9 @@
 
 -type proto_ver() :: v3 | v4 | v5.
 
--reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0]).
+-type qos() :: 0..2.
+
+-reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0, qos/0]).
 
 %%================================================================================
 %% API funcions

@@ -77,10 +77,28 @@ model() ->
          , cli_operand => "group"
          , cli_short => $g
          }}
+   , expiry =>
+       {[value, cli_param],
+        #{ oneliner => "Set 'Session-Expiry' for persistent sessions (seconds)"
+         , type => non_neg_integer()
+         , default => 0
+         , cli_operand => "expiry"
+         , cli_short => $x
+         }}
+   , qos =>
+       {[value, cli_param],
+        #{ oneliner => "QoS of the subscription"
+         , type => emqttb:qos()
+         , default => 0
+         , cli_operand => "qos"
+         , cli_short => $q
+         }}
    }.
 
 run() ->
-  SubOpts = #{ topic => my_conf([topic])
+  SubOpts = #{ topic  => my_conf([topic])
+             , qos    => my_conf([qos])
+             , expiry => my_conf([expiry])
              },
   emqttb_group:ensure(#{ id            => sub_group
                        , client_config => my_conf([group])

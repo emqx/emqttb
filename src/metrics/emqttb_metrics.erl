@@ -19,7 +19,7 @@
 
 %% API:
 -export([new_counter/2, counter_inc/2, counter_dec/2, get_counter/1,
-         new_gauge/2, gauge_observe/2, get_gauge/1
+         new_gauge/2, gauge_observe/2, get_gauge/1, get_gauge/2
         ]).
 
 %% gen_server callbacks:
@@ -138,11 +138,11 @@ handle_call({new_counter, Key, PrometheusParams}, _From, S) ->
 handle_call({new_gauge, Key, PrometheusParams}, _From, S) ->
   {reply, ok, mk_rolling_average(S, Key, PrometheusParams)};
 handle_call({get_gauge, Key, Window}, _From, S) ->
-  Ret = case lists:keyfind(Key, 1, S#s.rolling_average) of
+  Ret = case lists:keyfind(Key, #r.key, S#s.rolling_average) of
           false -> undefined;
           RA    -> do_get_gauge(RA, Window)
         end,
-  {reply, ok, Ret};
+  {reply, Ret, S};
 handle_call(_Call, _From, S) ->
   {reply, {error, unknown_call}, S}.
 

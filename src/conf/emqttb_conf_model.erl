@@ -45,26 +45,26 @@
 model() ->
   #{ '$doc_root' =>
        {[doc_root],
-        #{ oneliner  => "A scriptable load generator for MQTT"
-         , app_name  => "EMQTT bench daemon"
-         , doc       => intro()
-         , prog_name => "emqttb"
+        #{ oneliner    => "A scriptable load generator for MQTT"
+         , app_name    => "EMQTT bench daemon"
+         , doc         => intro()
+         , prog_name   => "emqttb"
          }}
-   , interval =>
+   , interval          =>
        {[value, cli_param],
-        #{ oneliner  => "Default interval between events"
-         , type      => emqttb:interval()
-         , default   => 100
-         , cli_param => "max-rate"
-         , cli_short => $R
+        #{ oneliner    => "Default interval between events"
+         , type        => emqttb:interval()
+         , default     => 100
+         , cli_operand => "max-rate"
+         , cli_short   => $R
          }}
-   , n_clients =>
+   , n_clients         =>
        {[value, cli_param],
-        #{ oneliner  => "Maximum number of clients used by default by all groups"
-         , type      => emqttb:n_clients()
-         , default   => 1000
-         , cli_param => "max-clients"
-         , cli_short => $N
+        #{ oneliner    => "Maximum number of clients used by default by all groups"
+         , type        => emqttb:n_clients()
+         , default     => 1000
+         , cli_operand => "max-clients"
+         , cli_short   => $N
          }}
    , restapi =>
        #{ listen_port =>

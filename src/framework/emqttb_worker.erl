@@ -16,7 +16,10 @@
 -module(emqttb_worker).
 
 %% Worker API:
--export([my_group/0, my_id/0, my_clientid/0, my_cfg/1, connect/1, connect/3]).
+-export([my_group/0, my_id/0, my_clientid/0, my_hostname/0, my_cfg/1,
+         connect/1, connect/3,
+         format_topic/1,
+         new_opstat/2, call_with_counter/4]).
 
 %% internal exports:
 -export([entrypoint/3, loop/1, start/3, create_settings/3]).
@@ -73,6 +76,14 @@ my_group() ->
 my_id() ->
   get(?MY_ID).
 
+-spec format_topic(binary()) -> binary().
+format_topic(Pattern) ->
+  Group = my_group(),
+  ID = my_id(),
+  Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
+  Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
+  binary:replace(Id1, <<"%h">>, my_hostname(), [global]).
+
 -spec connect([emqtt:option()]) -> gen_statem:start_ret().
 connect(Options) ->
   connect(Options, [], []).
@@ -97,7 +108,7 @@ connect(CustomOptions, CustomTcpOptions, CustomSslOptions) ->
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
   ConnectFun = connect_fun(),
-  {ok, _Properties} = call_with_counter(emqtt, ConnectFun, [Client]),
+  {ok, _Properties} = call_with_counter(connect, emqtt, ConnectFun, [Client]),
   {ok, Client}.
 
 %% @doc Get group-specific configuration (as opposed to global)
@@ -113,12 +124,16 @@ my_clientid() ->
   Pattern = my_cfg([client, clientid]),
   Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
   Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
-  Id1.
+  binary:replace(Id1, <<"%h">>, my_hostname(), [global]).
 
--spec call_with_counter(module(), atom(), list()) -> _.
-call_with_counter(Mod, Fun, Args) ->
+-spec my_hostname() -> binary().
+my_hostname() ->
+  atom_to_binary(node()).
+
+-spec call_with_counter(atom(), module(), atom(), list()) -> _.
+call_with_counter(Operation, Mod, Fun, Args) ->
   Grp = my_group(),
-  emqttb_metrics:counter_inc(?GROUP_N_PENDING(Grp, Fun), 1),
+  emqttb_metrics:counter_inc(?GROUP_N_PENDING(Grp, Operation), 1),
   T0 = os:system_time(microsecond),
   try apply(Mod, Fun, Args)
   catch
@@ -126,9 +141,20 @@ call_with_counter(Mod, Fun, Args) ->
       EC(Err)
   after
     T = os:system_time(microsecond),
-    emqttb_metrics:counter_dec(?GROUP_N_PENDING(Grp, Fun), 1),
-    emqttb_metrics:gauge_observe(?GROUP_OP_TIME(Grp, Fun), T - T0)
+    emqttb_metrics:counter_dec(?GROUP_N_PENDING(Grp, Operation), 1),
+    emqttb_metrics:gauge_observe(?GROUP_OP_TIME(Grp, Operation), T - T0)
   end.
+
+-spec new_opstat(emqttb:group(), atom()) -> ok.
+new_opstat(Group, Operation) ->
+  emqttb_metrics:new_gauge(?GROUP_OP_TIME(Group, Operation),
+                           [ {help, <<"Average run time of an operation (microseconds)">>}
+                           , {labels, [group, operation]}
+                           ]),
+  emqttb_metrics:new_counter(?GROUP_N_PENDING(Group, Operation),
+                             [ {help, <<"Number of pending operations">>}
+                             , {labels, [group, operation]}
+                             ]).
 
 %%================================================================================
 %% Internal exports
