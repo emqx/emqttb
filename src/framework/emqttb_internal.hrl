@@ -27,6 +27,7 @@
 
 %% Metrics:
 -define(GROUP_N_WORKERS(GRP), {group_n_workers, GRP}).
--define(GROUP_N_CONNECTIONS(GRP), {group_n_connections, GRP}).
+-define(GROUP_OP_TIME(GRP, OP), {group_op_time, {GRP, OP}}).
+-define(GROUP_N_PENDING(GRP, OP), {group_n_pending, {GRP, OP}}).
 
 -endif.

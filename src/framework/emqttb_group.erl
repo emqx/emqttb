@@ -126,14 +126,7 @@ init([Conf]) ->
   persistent_term:put(?GROUP_CONF_ID(self()), ConfID),
   BehSharedState = emqttb_worker:create_settings(Behavior, ID, BehSettings),
   persistent_term:put(?GROUP_BEHAVIOR_SHARED_STATE(self()), BehSharedState),
-  emqttb_metrics:new_counter(?GROUP_N_WORKERS(ID),
-                             [ {help, <<"Number of workers in the group">>}
-                             , {labels, [group]}
-                             ]),
-  emqttb_metrics:new_counter(?GROUP_N_CONNECTIONS(ID),
-                             [ {help, <<"Number of connections">>}
-                             , {labels, [group]}
-                             ]),
+  declare_metrics(ID),
   S = #s{ id          = ID
         , behavior    = Behavior
         , conf_prefix = [groups, ConfID]
@@ -301,3 +294,20 @@ maybe_monitor_parent(#{parent := Pid}) ->
   monitor(process, Pid);
 maybe_monitor_parent(_) ->
   undefined.
+
+declare_metrics(ID) ->
+  emqttb_metrics:new_counter(?GROUP_N_WORKERS(ID),
+                             [ {help, <<"Number of workers in the group">>}
+                             , {labels, [group]}
+                             ]),
+  [begin
+     emqttb_metrics:new_gauge(?GROUP_OP_TIME(ID, OP),
+                              [ {help, <<"Average run time of an operation (microseconds)">>}
+                              , {labels, [group, operation]}
+                              ]),
+     emqttb_metrics:new_counter(?GROUP_N_PENDING(ID, OP),
+                                [ {help, <<"Number of pending operations">>}
+                                , {labels, [group, operation]}
+                                ])
+   end || OP <- [connect, ws_connect, quic_connect]],
+  ok.
