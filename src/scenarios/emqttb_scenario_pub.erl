@@ -53,6 +53,14 @@ model() ->
          , cli_operand => "topic"
          , cli_short => $t
          }}
+   , qos =>
+       {[value, cli_param],
+        #{ oneliner => "QoS of the published messages"
+         , type => emqttb:qos()
+         , default => 0
+         , cli_operand => "qos"
+         , cli_short => $q
+         }}
    , msg_size =>
        {[value, cli_param],
         #{ oneliner => "Size of the published message in bytes"
@@ -99,6 +107,7 @@ run() ->
   PubOpts = #{ topic       => my_conf([topic])
              , pubinterval => my_conf([pubinterval])
              , msg_size    => my_conf([msg_size])
+             , qos         => my_conf([qos])
              },
   emqttb_group:ensure(#{ id            => pub_group
                        , client_config => my_conf([group])

@@ -29,6 +29,7 @@
 %%================================================================================
 
 -define(CNT_PUB_MESSAGES(GRP), {emqttb_published_messages, GRP}).
+-define(AVG_PUB_TIME, publish).
 
 %%================================================================================
 %% behavior callbacks
@@ -38,27 +39,30 @@ create_settings(Group,
                 #{ topic       := Topic
                  , pubinterval := PubInterval
                  , msg_size    := MsgSize
+                 , qos         := QoS
                  }) when is_binary(Topic),
                          is_integer(MsgSize) ->
   PubCnt = emqttb_metrics:new_counter(?CNT_PUB_MESSAGES(Group),
                                       [ {help, <<"Number of published messages">>}
                                       , {labels, [group]}
                                       ]),
+  emqttb_worker:new_opstat(Group, ?AVG_PUB_TIME),
   #{ topic => Topic
    , pubinterval => PubInterval
    , message => message(MsgSize)
    , pub_counter => PubCnt
+   , qos => QoS
    }.
 
 init(#{pubinterval := I}) ->
-  {ok, Conn} = emqttb_worker:connect([]),
+  {ok, Conn} = emqttb_worker:connect(#{}),
   set_timer(I),
   Conn.
 
 handle_message(Shared, Conn, publish) ->
-  #{topic := T, pubinterval := I, message := Msg, pub_counter := Cnt} = Shared,
+  #{topic := T, pubinterval := I, message := Msg, pub_counter := Cnt, qos := QoS} = Shared,
   set_timer(I),
-  emqtt:publish(Conn, T, Msg),
+  emqttb_worker:call_with_counter(?AVG_PUB_TIME, emqtt, publish, [Conn, T, Msg, QoS]),
   emqttb_metrics:counter_inc(Cnt, 1),
   {ok, Conn};
 handle_message(_, Conn, _) ->

@@ -300,14 +300,4 @@ declare_metrics(ID) ->
                              [ {help, <<"Number of workers in the group">>}
                              , {labels, [group]}
                              ]),
-  [begin
-     emqttb_metrics:new_gauge(?GROUP_OP_TIME(ID, OP),
-                              [ {help, <<"Average run time of an operation (microseconds)">>}
-                              , {labels, [group, operation]}
-                              ]),
-     emqttb_metrics:new_counter(?GROUP_N_PENDING(ID, OP),
-                                [ {help, <<"Number of pending operations">>}
-                                , {labels, [group, operation]}
-                                ])
-   end || OP <- [connect, ws_connect, quic_connect]],
-  ok.
+  emqttb_worker:new_opstat(ID, connect).
