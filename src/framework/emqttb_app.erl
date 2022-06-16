@@ -40,7 +40,17 @@ maybe_increase_fd_limit() ->
   case os:type() of
     {unix, linux} ->
       %% Best effort to increase the soft limit
-      os:cmd("prlimit --nofile=$(ulimit -Hn): --pid " ++ os:getpid()),
+      Port = open_port({spawn, "prlimit --nofile=$(ulimit -Hn): --pid " ++ os:getpid()}, [exit_status, nouse_stdio]),
+      Success =
+        receive
+          {Port, {exit_status, Status}} ->
+            Status =:= 0
+        after
+          1000 ->
+            false
+        end,
+      Success orelse
+        logger:warning("Couldn't update soft FD limit"),
       ok;
     _ ->
       ok

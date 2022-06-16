@@ -39,7 +39,7 @@
 %% Type declarations
 %%================================================================================
 
--type key() :: {atom(), atom() | list()}.
+-type key() :: {atom(), atom() | list() | tuple()}.
 
 -define(SERVER, ?MODULE).
 
@@ -48,7 +48,8 @@
 -define(G(KEY), {emqttb_metrics_gauge, KEY}).
 
 -define(TICK_TIME, 100).
--define(N_BUCKETS, 2).
+-define(MAX_WINDOW_SEC, 30). % Keep about 30 seconds of history
+-define(DEFAULT_WINDOW, 5000).
 
 %%================================================================================
 %% API funcions
@@ -92,7 +93,16 @@ gauge_observe(Key, Val) ->
 
 -spec get_gauge(key()) -> integer().
 get_gauge(Key) ->
-  gen_server:call(?SERVER, {get_gauge, Key}).
+  get_gauge(Key, ?DEFAULT_WINDOW).
+
+-spec get_gauge(key(), non_neg_integer()) -> integer().
+get_gauge(Key, Window) ->
+  case gen_server:call(?SERVER, {get_gauge, Key, Window}) of
+    undefined ->
+      error({missing_gauge, Key});
+    Val ->
+      Val
+  end.
 
 %%================================================================================
 %% gen_server callbacks
@@ -105,18 +115,17 @@ get_gauge(Key) ->
 -record(p,
         { sum     :: integer()
         , samples :: integer()
+        , time    :: integer()
         }).
 
 %% Rolling average's state:
 -record(r,
         { key        :: key()
-        , window     :: non_neg_integer()
-        , datapoints :: queue:queue(#p{})
-        , time       :: integer()
+        , datapoints :: [#p{}]
         }).
 
 -record(s,
-        { simple_gauges   = [] :: [key()]
+        { counters        = [] :: [key()]
         , rolling_average = [] :: [#r{}]
         }).
 
@@ -126,14 +135,23 @@ init([]) ->
 
 handle_call({new_counter, Key, PrometheusParams}, _From, S) ->
   {reply, ok, mk_counter(S, Key, PrometheusParams)};
+handle_call({new_gauge, Key, PrometheusParams}, _From, S) ->
+  {reply, ok, mk_rolling_average(S, Key, PrometheusParams)};
+handle_call({get_gauge, Key, Window}, _From, S) ->
+  Ret = case lists:keyfind(Key, 1, S#s.rolling_average) of
+          false -> undefined;
+          RA    -> do_get_gauge(RA, Window)
+        end,
+  {reply, ok, Ret};
 handle_call(_Call, _From, S) ->
   {reply, {error, unknown_call}, S}.
 
 handle_cast(_Call, S) ->
   {noreply, S}.
 
-handle_info(tick, S) ->
+handle_info(tick, S0) ->
   erlang:send_after(?TICK_TIME, self(), tick),
+  S = collect_gauges(S0),
   update_prometheus(S),
   {noreply, S};
 handle_info(_, S) ->
@@ -146,44 +164,94 @@ terminate(_Reason, S) ->
 %% Internal functions
 %%================================================================================
 
+collect_gauges(S = #s{rolling_average = RA}) ->
+  S#s{rolling_average = lists:map(fun do_collect_gauge/1, RA)}.
+
+do_get_gauge(#r{key = Key, datapoints = DP}, Window) ->
+  #p{ sum = Sum
+    , samples = N
+    , time = T
+    } = collect_datapoint(Key),
+  #p{ sum = Sum0
+    , samples = N0
+    } = look_back(T - Window, DP),
+  if N =:= N0 ->
+      0;
+     true ->
+      (Sum - Sum0) div (N - N0)
+  end.
+
+look_back(StartTime, [A]) ->
+  A;
+look_back(StartTime, [A|Rest]) ->
+  if A#p.time =< StartTime ->
+      A;
+     true ->
+      look_back(StartTime, Rest)
+  end.
+
+do_collect_gauge(R0 = #r{key = K, datapoints = DP0}) ->
+  DP = lists:droplast(DP0),
+  R0#r{datapoints = [collect_datapoint(K) | DP]}.
+
+collect_datapoint(K) ->
+  Cnt = persistent_term:get(?G(K)),
+  #p{ sum = counters:get(Cnt, 1)
+    , samples = counters:get(Cnt, 2)
+    , time = os:system_time(millisecond)
+    }.
+
 %% Really ugly stuff, like everything about prometheus...
-update_prometheus(#s{simple_gauges = G}) ->
+update_prometheus(#s{counters = CC, rolling_average = RR}) ->
   lists:foreach(
     fun(K = {Tag, Label}) ->
-        LabelList = if is_list(Label) ->
-                        Label;
-                       is_tuple(Label) ->
-                        tuple_to_list(Label);
-                       is_atom(Label); is_binary(Label) ->
-                        [Label]
-                    end,
+        LabelList = prom_labels(Label),
         ok = prometheus_gauge:set(Tag, LabelList, get_counter(K))
     end,
-    G).
+    CC),
+  lists:foreach(
+    fun(R = #r{key = {Tag, Label}}) ->
+        LabelList = prom_labels(Label),
+        ok = prometheus_gauge:set(Tag, LabelList, do_get_gauge(R, ?DEFAULT_WINDOW))
+    end,
+    RR).
 
-mk_counter(S = #s{simple_gauges = G}, Key = {Tag, _Labels}, PrometheusParams) ->
-  prometheus_gauge:declare([{name, Tag}|PrometheusParams]),
-  case lists:member(Key, G) of
+mk_rolling_average(S = #s{rolling_average = RR}, Key = {Tag, _Labels}, PrometheusParams) ->
+  case lists:keyfind(Key, #r.key, RR) of
     false ->
+      prometheus_gauge:declare([{name, Tag}|PrometheusParams]),
+      Cnt = counters:new(2, [write_concurrency]),
+      persistent_term:put(?G(Key), Cnt),
+      DummyPoint = #p{ sum = 0
+                     , samples = 0
+                     , time = os:system_time(millisecond)
+                     },
+      NBuckets = timer:seconds(?MAX_WINDOW_SEC) div ?TICK_TIME,
+      Datapoints = [DummyPoint || _ <- lists:seq(1, NBuckets)],
+      R = #r{ key        = Key
+            , datapoints = Datapoints
+            },
+      S#s{rolling_average = [R|RR]};
+    _ ->
+      S
+  end.
+
+mk_counter(S = #s{counters = CC}, Key = {Tag, _Labels}, PrometheusParams) ->
+  case lists:member(Key, CC) of
+    false ->
+      prometheus_gauge:declare([{name, Tag}|PrometheusParams]),
       Cnt = counters:new(1, [write_concurrency]),
       persistent_term:put(?C(Key), Cnt),
-      S#s{simple_gauges = [Key|G]};
+      S#s{counters = [Key|CC]};
     true ->
       S
   end.
 
-%% mk_gauge(S = #s{rolling_average = A}, Key, PTKey, Window) ->
-%%   case lists:keyfind(Key, 1, A) of
-%%     false ->
-%%       Cnt = counters:new(2, [write_concurrency]),
-%%       persistent_term:put(?G(Key), Cnt),
-%%       DummyPoint = #p{sum = 0, samples = 0},
-%%       Datapoints = queue:from_list([DummyPoint || _ <- lists:seq(1, ?N_BUCKETS)])
-%%       R = #r{ window     = Window
-%%             , datapoints = Datapoints
-%%             , time       = os:system_time(millisecond)
-%%             },
-%%       S#s{rolling_average = [{Key, R}|A]};
-%%     _ ->
-%%       S
-%%   end.
+prom_labels(Label) ->
+  if is_list(Label) ->
+      Label;
+     is_tuple(Label) ->
+      tuple_to_list(Label);
+     is_atom(Label); is_binary(Label) ->
+      [Label]
+  end.

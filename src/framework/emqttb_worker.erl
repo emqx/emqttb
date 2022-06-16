@@ -97,7 +97,7 @@ connect(CustomOptions, CustomTcpOptions, CustomSslOptions) ->
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
   ConnectFun = connect_fun(),
-  {ok, _Properties} =  emqtt:ConnectFun(Client),
+  {ok, _Properties} = call_with_counter(emqtt, ConnectFun, [Client]),
   {ok, Client}.
 
 %% @doc Get group-specific configuration (as opposed to global)
@@ -114,6 +114,21 @@ my_clientid() ->
   Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
   Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
   Id1.
+
+-spec call_with_counter(module(), atom(), list()) -> _.
+call_with_counter(Mod, Fun, Args) ->
+  Grp = my_group(),
+  emqttb_metrics:counter_inc(?GROUP_N_PENDING(Grp, Fun), 1),
+  T0 = os:system_time(microsecond),
+  try apply(Mod, Fun, Args)
+  catch
+    EC:Err ->
+      EC(Err)
+  after
+    T = os:system_time(microsecond),
+    emqttb_metrics:counter_dec(?GROUP_N_PENDING(Grp, Fun), 1),
+    emqttb_metrics:gauge_observe(?GROUP_OP_TIME(Grp, Fun), T - T0)
+  end.
 
 %%================================================================================
 %% Internal exports
