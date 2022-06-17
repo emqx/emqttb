@@ -53,11 +53,11 @@
 
 -spec run(module()) -> ok.
 run(Module) ->
-  emqttb_scenario_sup:run(Module).
+  emqttb_scenarios_sup:run(Module).
 
 -spec stop(module()) -> ok.
 stop(Module) ->
-  emqttb_scenario_sup:stop_child(Module).
+  emqttb_scenarios_sup:stop_child(Module).
 
 %% Get module of the scenario that spawned our process
 -spec my_scenario_module() -> module().

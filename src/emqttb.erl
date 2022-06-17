@@ -63,9 +63,9 @@ main(Args) ->
   application:set_env(emqttb, cli_args, Args),
   {ok, _} = application:ensure_all_started(?APP, permanent),
   %% Wait for completion of the scenarios:
-  MRef = monitor(process, whereis(emqttb_scenario_sup)),
+  MRef = monitor(process, whereis(emqttb_scenarios_sup)),
   ?CFG([convenience, keep_running]) orelse
-    emqttb_scenario_sup:enable_autostop(),
+    emqttb_scenarios_sup:enable_autostop(),
   receive
     {'DOWN', MRef, _, _, Reason} ->
       Reason =/= shutdown andalso setfail(Reason),
