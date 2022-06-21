@@ -24,7 +24,7 @@ init([]) ->
               , auto_shutdown => any_significant
               },
   ChildSpecs = [ metrics()
-               , scenario_sup()
+               , scenarios_sup()
                , sup(emqttb_autorate_sup)
                , sup(emqttb_group_sup)
                , sup(emqttb_misc_sup) %% Allows restarts
@@ -40,9 +40,9 @@ metrics() ->
    , shutdown => 1000
    }.
 
-scenario_sup() ->
-  #{ id          => emqttb_scenario_sup
-   , start       => {emqttb_scenario_sup, start_link, []}
+scenarios_sup() ->
+  #{ id          => emqttb_scenarios_sup
+   , start       => {emqttb_scenarios_sup, start_link, []}
    , type        => supervisor
    , shutdown    => infinity
    , significant => true

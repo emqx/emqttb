@@ -62,65 +62,51 @@ in the runtime.
 Repeat the last execution., see:
 [\[convenience,again\]](#[convenience,again])
 
-### \--conf
-
-Read configuration from a file, see: [???](#[convenience,conf_file])
-
 ### \--conf-dump-file
 
 Name of the repeat file or \`undefined\`, see:
 [\[convenience,conf\_dump\]](#[convenience,conf_dump])
+
+### \--conf
+
+Read configuration from a file, see: [???](#[convenience,conf_file])
 
 ### \--keep-running
 
 Keep the process running after completing all the scenarios, see:
 [\[convenience,keep\_running\]](#[convenience,keep_running])
 
-### \--log-level
-
-Global log level, see: [\[logging,level\]](#[logging,level])
-
-### \--loiter
+### \--loiter, -L
 
 Default loiter time for the scenarios (sec), see:
 [\[convenience,loiter\]](#[convenience,loiter])
 
-### \--max-clients
-
-Maximum number of clients used by default by all groups, see:
-[\[n\_clients\]](#[n_clients])
-
-### \--max-rate
+### \--max-rate, -R
 
 Default interval between events, see: [\[interval\]](#[interval])
+
+### \--log-level
+
+Global log level, see: [\[logging,level\]](#[logging,level])
 
 ### \--pushgw
 
 Enable sending metrics to pushgateway, see:
 [\[metrics,pushgateway,enabled\]](#[metrics,pushgateway,enabled])
 
-### \--rest-listen
+### \--max-clients, -N
 
-REST API listening interface/port, see:
-[\[restapi,listen\_port\]](#[restapi,listen_port])
+Maximum number of clients used by default by all groups, see:
+[\[n\_clients\]](#[n_clients])
 
 ### \--restapi
 
 Enable REST API, see: [\[restapi,enabled\]](#[restapi,enabled])
 
-### \-L
+### \--rest-listen
 
-Default loiter time for the scenarios (sec), see:
-[\[convenience,loiter\]](#[convenience,loiter])
-
-### \-N
-
-Maximum number of clients used by default by all groups, see:
-[\[n\_clients\]](#[n_clients])
-
-### \-R
-
-Default interval between events, see: [\[interval\]](#[interval])
+REST API listening interface/port, see:
+[\[restapi,listen\_port\]](#[restapi,listen_port])
 
 ## @g
 
@@ -128,118 +114,74 @@ Configuration for client groups
 
 It is possible to override client configuration for the group.
 
-### \--certfile
-
-Client certificate for authentication, if required by the server, see:
-[\[groups,{},ssl,certfile\]](#[groups,{},ssl,certfile])
-
-### \--clientid
-
-Clientid pattern, see:
-[\[groups,{},client,clientid\]](#[groups,{},client,clientid])
-
-### \--group
-
-ID of the group, see: [\[groups,{},id\]](#[groups,{},id])
-
-### \--host
+### \--host, -h
 
 Hostname of the target broker, see:
 [\[groups,{},broker,hosts\]](#[groups,{},broker,hosts])
 
-### \--ifaddr
+### \--port, -p
 
-Local IP addresses, see:
-[\[groups,{},net,ifaddr\]](#[groups,{},net,ifaddr])
+Hostname of the target broker, see:
+[\[groups,{},broker,port\]](#[groups,{},broker,port])
 
-### \--inflight
+### \--clientid, -i
+
+Clientid pattern, see:
+[\[groups,{},client,clientid\]](#[groups,{},client,clientid])
+
+### \--password, -P
+
+Password for connecting to the broker, see:
+[\[groups,{},client,password\]](#[groups,{},client,password])
+
+### \--username, -u
+
+Username of the client, see:
+[\[groups,{},client,username\]](#[groups,{},client,username])
+
+### \--inflight, -F
 
 maximum inflight messages for QoS 1 and 2, see:
 [\[groups,{},connection,inflight\]](#[groups,{},connection,inflight])
 
-### \--keyfile
+### \--version, -V
 
-Client private key for authentication, if required by the server, see:
-[\[groups,{},ssl,keyfile\]](#[groups,{},ssl,keyfile])
+MQTT protocol version, see:
+[\[groups,{},connection,proto\_ver\]](#[groups,{},connection,proto_ver])
+
+### \--transport, -T
+
+Transport protocol, see:
+[\[groups,{},connection,transport\]](#[groups,{},connection,transport])
+
+### \--group, -g
+
+ID of the group, see: [\[groups,{},id\]](#[groups,{},id])
 
 ### \--lowmem
 
 Reduce memory useage at the cost of CPU wherever possible, see:
 [\[groups,{},lowmem\]](#[groups,{},lowmem])
 
-### \--password
+### \--ifaddr
 
-Password for connecting to the broker, see:
-[\[groups,{},client,password\]](#[groups,{},client,password])
+Local IP addresses, see:
+[\[groups,{},net,ifaddr\]](#[groups,{},net,ifaddr])
 
-### \--port
+### \--certfile
 
-Hostname of the target broker, see:
-[\[groups,{},broker,port\]](#[groups,{},broker,port])
+Client certificate for authentication, if required by the server, see:
+[\[groups,{},ssl,certfile\]](#[groups,{},ssl,certfile])
 
 ### \--ssl
 
 Enable SSL for the connections, see:
 [\[groups,{},ssl,enable\]](#[groups,{},ssl,enable])
 
-### \--transport
+### \--keyfile
 
-Transport protocol, see:
-[\[groups,{},connection,transport\]](#[groups,{},connection,transport])
-
-### \--username
-
-Username of the client, see:
-[\[groups,{},client,username\]](#[groups,{},client,username])
-
-### \--version
-
-MQTT protocol version, see:
-[\[groups,{},connection,proto\_ver\]](#[groups,{},connection,proto_ver])
-
-### \-F
-
-maximum inflight messages for QoS 1 and 2, see:
-[\[groups,{},connection,inflight\]](#[groups,{},connection,inflight])
-
-### \-P
-
-Password for connecting to the broker, see:
-[\[groups,{},client,password\]](#[groups,{},client,password])
-
-### \-T
-
-Transport protocol, see:
-[\[groups,{},connection,transport\]](#[groups,{},connection,transport])
-
-### \-V
-
-MQTT protocol version, see:
-[\[groups,{},connection,proto\_ver\]](#[groups,{},connection,proto_ver])
-
-### \-g
-
-ID of the group, see: [\[groups,{},id\]](#[groups,{},id])
-
-### \-h
-
-Hostname of the target broker, see:
-[\[groups,{},broker,hosts\]](#[groups,{},broker,hosts])
-
-### \-i
-
-Clientid pattern, see:
-[\[groups,{},client,clientid\]](#[groups,{},client,clientid])
-
-### \-p
-
-Hostname of the target broker, see:
-[\[groups,{},broker,port\]](#[groups,{},broker,port])
-
-### \-u
-
-Username of the client, see:
-[\[groups,{},client,username\]](#[groups,{},client,username])
+Client private key for authentication, if required by the server, see:
+[\[groups,{},ssl,keyfile\]](#[groups,{},ssl,keyfile])
 
 ## @make-docs
 
@@ -254,12 +196,12 @@ Keep running scenario stages for this period of time (sec), see:
 
 Run scenario pub
 
-### \--conninterval
+### \--conninterval, -I
 
 Client connection interval, see:
 [\[scenarios,emqttb\_scenario\_pub,{},conninterval\]](#[scenarios,emqttb_scenario_pub,{},conninterval])
 
-### \--group
+### \--group, -g
 
 ID of the client group, see:
 [\[scenarios,emqttb\_scenario\_pub,{},group\]](#[scenarios,emqttb_scenario_pub,{},group])
@@ -269,62 +211,27 @@ ID of the client group, see:
 Keep running scenario stages for this period of time (sec), see:
 [\[scenarios,emqttb\_scenario\_pub,{},loiter\]](#[scenarios,emqttb_scenario_pub,{},loiter])
 
-### \--num-clients
-
-Number of clients, see:
-[\[scenarios,emqttb\_scenario\_pub,{},n\_clients\]](#[scenarios,emqttb_scenario_pub,{},n_clients])
-
-### \--pubinterval
-
-Message publishing interval, see:
-[\[scenarios,emqttb\_scenario\_pub,{},pubinterval\]](#[scenarios,emqttb_scenario_pub,{},pubinterval])
-
-### \--qos
-
-QoS of the published messages, see:
-[\[scenarios,emqttb\_scenario\_pub,{},qos\]](#[scenarios,emqttb_scenario_pub,{},qos])
-
-### \--size
+### \--size, -s
 
 Size of the published message in bytes, see:
 [\[scenarios,emqttb\_scenario\_pub,{},msg\_size\]](#[scenarios,emqttb_scenario_pub,{},msg_size])
 
-### \--topic
-
-Topic where the clients shall publish messages, see:
-[\[scenarios,emqttb\_scenario\_pub,{},topic\]](#[scenarios,emqttb_scenario_pub,{},topic])
-
-### \-I
-
-Client connection interval, see:
-[\[scenarios,emqttb\_scenario\_pub,{},conninterval\]](#[scenarios,emqttb_scenario_pub,{},conninterval])
-
-### \-N
+### \--num-clients, -N
 
 Number of clients, see:
 [\[scenarios,emqttb\_scenario\_pub,{},n\_clients\]](#[scenarios,emqttb_scenario_pub,{},n_clients])
 
-### \-g
-
-ID of the client group, see:
-[\[scenarios,emqttb\_scenario\_pub,{},group\]](#[scenarios,emqttb_scenario_pub,{},group])
-
-### \-i
+### \--pubinterval, -i
 
 Message publishing interval, see:
 [\[scenarios,emqttb\_scenario\_pub,{},pubinterval\]](#[scenarios,emqttb_scenario_pub,{},pubinterval])
 
-### \-q
+### \--qos, -q
 
 QoS of the published messages, see:
 [\[scenarios,emqttb\_scenario\_pub,{},qos\]](#[scenarios,emqttb_scenario_pub,{},qos])
 
-### \-s
-
-Size of the published message in bytes, see:
-[\[scenarios,emqttb\_scenario\_pub,{},msg\_size\]](#[scenarios,emqttb_scenario_pub,{},msg_size])
-
-### \-t
+### \--topic, -t
 
 Topic where the clients shall publish messages, see:
 [\[scenarios,emqttb\_scenario\_pub,{},topic\]](#[scenarios,emqttb_scenario_pub,{},topic])
@@ -333,17 +240,17 @@ Topic where the clients shall publish messages, see:
 
 Run scenario sub
 
-### \--conninterval
+### \--conninterval, -I
 
 Client connection interval, see:
 [\[scenarios,emqttb\_scenario\_sub,{},conninterval\]](#[scenarios,emqttb_scenario_sub,{},conninterval])
 
-### \--expiry
+### \--expiry, -x
 
 Set 'Session-Expiry' for persistent sessions (seconds), see:
 [\[scenarios,emqttb\_scenario\_sub,{},expiry\]](#[scenarios,emqttb_scenario_sub,{},expiry])
 
-### \--group
+### \--group, -g
 
 ID of the client group, see:
 [\[scenarios,emqttb\_scenario\_sub,{},group\]](#[scenarios,emqttb_scenario_sub,{},group])
@@ -353,50 +260,20 @@ ID of the client group, see:
 Keep running scenario stages for this period of time (sec), see:
 [\[scenarios,emqttb\_scenario\_sub,{},loiter\]](#[scenarios,emqttb_scenario_sub,{},loiter])
 
-### \--num-clients
+### \--num-clients, -N
 
 Number of clients, see:
 [\[scenarios,emqttb\_scenario\_sub,{},n\_clients\]](#[scenarios,emqttb_scenario_sub,{},n_clients])
 
-### \--qos
+### \--qos, -q
 
 QoS of the subscription, see:
 [\[scenarios,emqttb\_scenario\_sub,{},qos\]](#[scenarios,emqttb_scenario_sub,{},qos])
 
-### \--topic
+### \--topic, -t
 
 Topic that the clients shall subscribe, see:
 [\[scenarios,emqttb\_scenario\_sub,{},topic\]](#[scenarios,emqttb_scenario_sub,{},topic])
-
-### \-I
-
-Client connection interval, see:
-[\[scenarios,emqttb\_scenario\_sub,{},conninterval\]](#[scenarios,emqttb_scenario_sub,{},conninterval])
-
-### \-N
-
-Number of clients, see:
-[\[scenarios,emqttb\_scenario\_sub,{},n\_clients\]](#[scenarios,emqttb_scenario_sub,{},n_clients])
-
-### \-g
-
-ID of the client group, see:
-[\[scenarios,emqttb\_scenario\_sub,{},group\]](#[scenarios,emqttb_scenario_sub,{},group])
-
-### \-q
-
-QoS of the subscription, see:
-[\[scenarios,emqttb\_scenario\_sub,{},qos\]](#[scenarios,emqttb_scenario_sub,{},qos])
-
-### \-t
-
-Topic that the clients shall subscribe, see:
-[\[scenarios,emqttb\_scenario\_sub,{},topic\]](#[scenarios,emqttb_scenario_sub,{},topic])
-
-### \-x
-
-Set 'Session-Expiry' for persistent sessions (seconds), see:
-[\[scenarios,emqttb\_scenario\_sub,{},expiry\]](#[scenarios,emqttb_scenario_sub,{},expiry])
 
 # OS Environment Variables
 

@@ -1,4 +1,4 @@
--module(emqttb_scenario_sup).
+-module(emqttb_scenarios_sup).
 
 -behaviour(supervisor).
 
@@ -48,7 +48,7 @@ stop_child(Module) ->
 %% To enable autostop this retainer child is terminated.
 enable_autostop() ->
   logger:debug("Enabling autostop"),
-  exit(whereis(emqttb_scenario_sup_retainer), shutdown).
+  exit(whereis(emqttb_scenarios_sup_retainer), shutdown).
 
 init([]) ->
   SupFlags = #{ strategy => one_for_all
@@ -75,6 +75,6 @@ retainer() ->
 -dialyzer({nowarn_function, start_retainer/0}).
 start_retainer() ->
   {ok, spawn_link(fun() ->
-                      register(emqttb_scenario_sup_retainer, self()),
+                      register(emqttb_scenarios_sup_retainer, self()),
                       receive after infinity -> ok end
                   end)}.

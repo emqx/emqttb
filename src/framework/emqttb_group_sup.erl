@@ -20,7 +20,7 @@ ensure(Options = #{id := Id}) ->
                                    , type => worker
                                    , restart => temporary
                                    , start => {emqttb_group, start_link, [Options]}
-                                   , shutdown => timer:seconds(1)
+                                   , shutdown => timer:seconds(300)
                                    }),
   case Result of
     {ok, _} ->

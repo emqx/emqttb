@@ -67,7 +67,6 @@ ensure(Conf) ->
 set_target(Id, Target, Interval) ->
   gen_server:call(Id, {set_target, Target, Interval}, infinity).
 
-
 %% @doc Async version of `set_target'
 -spec set_target_async(emqttb:group(), emqttb:n_clients(), emqttb:interval()) -> ok.
 set_target_async(Id, Target, Interval) ->
@@ -84,7 +83,6 @@ broadcast(Group, Message) ->
     end,
     [],
     Group).
-
 
 %%================================================================================
 %% behavior callbacks
@@ -157,12 +155,12 @@ handle_info(_, S) ->
   {noreply, S}.
 
 terminate(_Reason, #s{id = Id}) ->
-  _ = fold_workers(fun(Pid, Acc) ->
-                       stop_worker(Id, Pid)
-                   end,
-                   [],
-                   Id),
-  ?tp(debug, "Stopped worker group", #{id => Id}),
+  stop_group_workers(Id),
+  ?tp(info, "Stopped worker group", #{id => Id}),
+  persistent_term:erase(?GROUP_LEADER_TO_GROUP_ID(self())),
+  persistent_term:erase(?GROUP_BEHAVIOR(self())),
+  persistent_term:erase(?GROUP_CONF_ID(self())),
+  persistent_term:erase(?GROUP_BEHAVIOR_SHARED_STATE(self())),
   ok.
 
 %%================================================================================
@@ -176,6 +174,31 @@ start_link(Conf = #{id := ID}) ->
 %%================================================================================
 %% Internal functions
 %%================================================================================
+
+stop_group_workers(Id) ->
+  %% Terminate workers in batches:
+  {_, Group} = fold_workers(fun(Pid, {100, MRefs}) ->
+                                wait_group_stop(MRefs),
+                                {1, [stop_worker_async(Pid)]};
+                               (Pid, {N, MRefs}) ->
+                                {N + 1, [stop_worker_async(Pid) | MRefs]}
+                            end,
+                            {0, []},
+                            Id),
+  wait_group_stop(Group).
+
+stop_worker_async(Pid) ->
+  MRef = monitor(process, Pid),
+  exit(Pid, shutdown),
+  MRef.
+
+wait_group_stop([]) ->
+  ok;
+wait_group_stop([MRef|Rest]) ->
+  receive
+    {'DOWN', MRef, _, _, _} ->
+      wait_group_stop(Rest)
+  end.
 
 do_set_target(Target, Interval, OnComplete, S = #s{scaling = Scaling}) ->
   N = n_clients(S),
@@ -266,9 +289,6 @@ maybe_cancel_previous(#r{on_complete = OnComplete}) ->
 
 n_clients(#s{id = Id}) ->
   emqttb_metrics:get_counter(?GROUP_N_WORKERS(Id)).
-
-stop_worker(GroupId, Pid) ->
-  exit(Pid, shutdown).
 
 -spec fold_workers( fun((pid(), Acc) -> Acc)
                   , Acc
