@@ -14,6 +14,11 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 -module(emqttb_autorate).
+%% This module uses velocity PI controller to automatically adjust
+%% rate of something to minimize error function.
+%%
+%% See for the explanation of the theory:
+%% https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/
 
 %% API:
 -export([ensure/1, get_counter/1]).
@@ -31,15 +36,11 @@
 %%================================================================================
 
 -type config() ::
-        #{ id     := atom()
-         , parent => pid()
-         , min    => integer()
-         , max    => integer()
-         , max_control => number()
-         , k_p    => number()
-         , t_i    => number()
-         , t_d    => number()
-         , error  => fun(() -> number())
+        #{ id        := atom()
+         , conf_root := atom()
+         , error     := fun(() -> number())
+         , parent    => pid()
+         , init_val  => integer()
          }.
 
 -define(TICK_TIME, 100).
@@ -70,46 +71,41 @@ start_link(Conf = #{id := Id}) ->
 %%================================================================================
 
 -record(s,
-        { id       :: atom()
-        , parent   :: reference() | undefined
-        , current  :: float()
-        , config   :: config()
-        , last_t   :: integer()
-        , integral :: number()
-        , last_err :: number()
+        { id        :: atom()
+        , parent    :: reference() | undefined
+        , current   :: float()
+        , conf_root :: atom()
+        , error     :: fun(() -> number())
+        , last_t    :: integer()
+        , last_err  :: number()
         }).
 
-init(Config = #{id := Id}) ->
-  Min = maps:get(min, Config, 0),
-  Default = #{ k_p   => 1
-             , t_i   => 1000000
-             , t_d   => 0
-             , error => fun() -> 0 end
-             , min   => 0
-             , max   => 10_000
-             , max_control => 100
-             },
-  emqttb_metrics:new_gauge(?AUTORATE_RATE(Id),
-                           [ {help, <<"Dynamic rate">>}
-                           , {labels, [id]}
-                           ]),
-  [emqttb_metrics:new_gauge(?AUTORATE_CONTROL(Id, I),
-                            [ {help, <<"Change of rate">>}
-                            , {labels, [id, term]}
-                            ]) || I <- [sum, p, i, d]],
+init(Config = #{id := Id, conf_root := ConfRoot, error := ErrF}) ->
   MRef = case Config of
            #{parent := Parent} -> monitor(process, Parent);
            _                   -> undefined
          end,
-  Conf = maps:merge(Default, Config),
+  %% Create metrics:
+  emqttb_metrics:new_gauge(?AUTORATE_RATE(Id),
+                           [ {help, <<"Controlled value">>}
+                           , {labels, [id]}
+                           ]),
+  [emqttb_metrics:new_gauge(?AUTORATE_CONTROL(Id, I),
+                            [ {help, <<"Control output delta">>}
+                            , {labels, [id, term]}
+                            ]) || I <- [sum, p, i]],
+  %% Init PID:
+  Min = my_cfg(ConfRoot, [min]),
+  Current = maps:get(init_val, Config, Min),
+  Err = ErrF(),
   set_timer(),
-  {ok, #s{ id       = Id
-         , parent   = MRef
-         , config   = Conf
-         , integral = 0
-         , last_err = apply(maps:get(error, Conf), [])
-         , current  = Min
-         , last_t   = os:system_time(millisecond)
+  {ok, #s{ id        = Id
+         , parent    = MRef
+         , current   = Current
+         , conf_root = ConfRoot
+         , error     = ErrF
+         , last_err  = Err
+         , last_t    = os:system_time(millisecond)
          }}.
 
 handle_call(get_counter, _From, S) ->
@@ -132,44 +128,54 @@ handle_info(_, S) ->
 %% Internal functions
 %%================================================================================
 
-update_rate(S = #s{last_t = LastT, current = Curr0, integral = I0, last_err = LastErr, config = Conf, id = Id}) ->
-  #{k_p := Kp, t_i := Ti, t_d := Td, error := ErrF, min := Min, max := Max, max_control := MaxControl} = Conf,
+
+update_rate(S = #s{ last_t    = LastT
+                  , error     = ErrF
+                  , current   = CO0
+                  , last_err  = LastErr
+                  , conf_root = ConfRoot
+                  , id        = Id
+                  }) ->
+  %% 0. Get current error
   T = os:system_time(millisecond),
   Dt = (T - LastT) / timer:seconds(1),
   Err = ErrF(),
-  I1 = clamp(I0 + Dt * Err, MaxControl / Kp),
-  D = (LastErr - Err) / Dt,
-  CP = Err,
-  CI = I1 / Ti,
-  CD = Td * D,
-  {Control, I} = case Kp * (CP + CI + CD) of
-                    Ctr when Ctr > MaxControl ->
-                      {MaxControl, I0};
-                    Ctr when Ctr < -MaxControl ->
-                      {-MaxControl, I0};
-                    Ctr ->
-                      {Ctr, I1}
-                  end,
-  Curr = case Curr0 + Control * Dt of
-           C when C < Min ->
-             Min;
-           C when C > Max ->
-             Max;
-           C -> C
-         end,
-  emqttb_metrics:gauge_set(?AUTORATE_RATE(Id), round(Curr)),
-  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, sum), round(Control / Kp)),
-  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, p), round(CP)),
-  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, d), round(CD)),
-  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, i), round(CI)),
-  S#s{last_t = T, current = Curr, integral = I, last_err = Err}.
+  %% 1. Get config
+  Min = my_cfg(ConfRoot, [min]),
+  Max = my_cfg(ConfRoot, [max]),
+  MaxSpeed = my_cfg(ConfRoot, [speed]),
+  Kp = my_cfg(ConfRoot, [k_p]),
+  Ti = my_cfg(ConfRoot, [t_i]),
+  %% 2. Calculate the control output using velocity form:
+  %%    Per Euler method CO = CO_0 + DeltaC * Dt = CO_0 + (CO + CI) * Dt =
+  %%    = CO_0 + (Kp * De / Dt + Kp / Ti * Err) * Dt =
+  %%    = CO_0 + Kp * De + Kp * Err / Ti * Dt
+  De = LastErr - Err,
+  CP = Kp * De, %% Note: delta t is reduced here, see above comment
+  CI = Kp * Err / Ti * Dt,
+  DeltaC = clamp(CP + CI, MaxSpeed * Dt),
+  CO = clamp(CO0 + DeltaC, Min, Max),
+  %% 3. Update metrics
+  emqttb_metrics:gauge_set(?AUTORATE_RATE(Id), round(CO)),
+  %% Note: Kp tends to be small, and the below metrics are only used for grafana,
+  %% so for aesthetic reasons we divide by Kp here:
+  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, sum), round(DeltaC / Kp)),
+  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, p), round(CP / Kp)),
+  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, i), round(CI / Kp)),
+  S#s{last_t = T, current = CO, last_err = Err}.
 
 set_timer() ->
   erlang:send_after(?TICK_TIME, self(), tick).
 
-clamp(Val, Max) when Val > Max ->
+clamp(Val, Max) ->
+  clamp(Val, -Max, Max).
+
+clamp(Val, _Min, Max) when Val > Max ->
   Max;
-clamp(Val, Max) when Val < -Max ->
-  -Max;
-clamp(Val, _) ->
+clamp(Val, Min, _Max) when Val < Min ->
+  Min;
+clamp(Val, _, _) ->
   Val.
+
+my_cfg(ConfRoot, Key) ->
+  ?CFG([autorate, {ConfRoot} | Key]).

@@ -1,0 +1,23 @@
+<lee>
+  <node id="autorate">
+    <doc lang="en">
+      <para>
+        When the loadgen creates too much traffic, the system may get overloaded.
+        In this case, the test usually has to be restarted all over again with different parameters.
+        This can be very expensive in man-hours and computing resources.
+      </para>
+      <para>
+        In order to prevent that, emqttb can tune some parameters (such as message publishing interval)
+        automatically using
+        <link xlink:href="https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/">PI contoller</link>
+      </para>
+    </doc>
+  </node>
+  <node id="autorate/{}/id">
+    <doc lang="en">
+      <para>
+        Autorate configuration can be referred by id.
+      </para>
+    </doc>
+  </node>
+</lee>

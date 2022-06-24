@@ -18,7 +18,7 @@
 %% API:
 -export([set_stage/1, set_stage/2, stage/1, complete/1, loiter/0,
          model/0, list_enabled_scenarios/0, run/1, stop/1,
-         my_scenario/0, my_scenario_module/0, my_conf/1]).
+         my_scenario/0, my_scenario_module/0, my_conf_key/1, my_conf/1]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2, terminate/2]).
@@ -70,10 +70,14 @@ my_scenario() ->
   Mod = my_scenario_module(),
   Mod:name().
 
+-spec my_conf_key(lee:key()) -> lee:key().
+my_conf_key(Key) ->
+  [?SK(my_scenario_module()) | Key].
+
 %% Get configuartion parameter of the scenario
 -spec my_conf(lee:key()) -> term().
 my_conf(Key) ->
-  ?CFG([?SK(my_scenario_module()) | Key]).
+  ?CFG(my_conf_key(Key)).
 
 -spec stage(emqttb:scenario()) -> emqttb:stage().
 stage(Scenario) ->

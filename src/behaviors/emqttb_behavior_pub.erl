@@ -42,20 +42,20 @@ init_per_group(Group,
                 , pubinterval := PubInterval
                 , msg_size    := MsgSize
                 , qos         := QoS
-                }) when is_binary(Topic),
-                        is_integer(MsgSize) ->
+                , set_latency := SetLatencyKey
+                } = Conf) when is_binary(Topic),
+                               is_integer(MsgSize),
+                               is_list(SetLatencyKey) ->
+  AutorateConf = maps:get(autorate, Conf, default),
   PubCnt = emqttb_metrics:new_counter(?CNT_PUB_MESSAGES(Group),
                                       [ {help, <<"Number of published messages">>}
                                       , {labels, [group]}
                                       ]),
   emqttb_worker:new_opstat(Group, ?AVG_PUB_TIME),
-  {auto, PubRate} = emqttb_autorate:ensure(#{ id    => my_autorate(Group)
-                                            , min   => PubInterval
-                                            , error => fun() -> error_fun(Group) end
-                                            , t_i   => 100
-                                            , t_d   => 5
-                                            , k_p   => 0.00001
-                                            , max_control => 5
+  {auto, PubRate} = emqttb_autorate:ensure(#{ id        => my_autorate(Group)
+                                            , error     => fun() -> error_fun(SetLatencyKey, Group) end
+                                            , init_val  => PubInterval
+                                            , conf_root => AutorateConf
                                             }),
   #{ topic => Topic
    , message => message(MsgSize)
@@ -88,10 +88,17 @@ terminate(_Shared, Conn) ->
 %% Internal functions
 %%================================================================================
 
-error_fun(Group) ->
-  (emqttb_metrics:get_rolling_average(?GROUP_OP_TIME(Group, ?AVG_PUB_TIME)) -
-     erlang:convert_time_unit(50, millisecond, microsecond)).
-  %emqttb_metrics:get_counter(?GROUP_N_PENDING(Group, ?AVG_PUB_TIME)) - 30.
+error_fun(SetLatencyKey, Group) ->
+  SetLatency = ?CFG(SetLatencyKey),
+  AvgWindow = 250,
+  %% Note that dependency of latency on publish interval is inverse:
+  %% lesser interval -> messages are sent more often -> more load -> more latency
+  %%
+  %% So the control must be reversed, and error is the negative of what one usually
+  %% expects:
+  %% Current - Target instead of Target - Current.
+  (emqttb_metrics:get_rolling_average(?GROUP_OP_TIME(Group, ?AVG_PUB_TIME), AvgWindow) -
+     erlang:convert_time_unit(SetLatency, millisecond, microsecond)).
 
 my_autorate(Group) ->
   list_to_atom("emqttb_pub_rate_" ++ atom_to_list(Group)).

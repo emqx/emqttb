@@ -108,9 +108,52 @@ Enable REST API, see: [\[restapi,enabled\]](#[restapi,enabled])
 REST API listening interface/port, see:
 [\[restapi,listen\_port\]](#[restapi,listen_port])
 
+## @a
+
+Autorate configuration
+
+When the loadgen creates too much traffic, the system may get
+overloaded. In this case, the test usually has to be restarted all over
+again with different parameters. This can be very expensive in man-hours
+and computing resources.
+
+In order to prevent that, emqttb can tune some parameters (such as
+message publishing interval) automatically using [PI
+contoller](https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/)
+
+### \-a
+
+ID of the autorate configuration, see:
+[\[autorate,{},id\]](#[autorate,{},id])
+
+### \-p
+
+Controller gain, see: [\[autorate,{},k\_p\]](#[autorate,{},k_p])
+
+### \-M
+
+Maximum value of the controlled parameter, see:
+[\[autorate,{},max\]](#[autorate,{},max])
+
+### \-m
+
+Minimum value of the controlled parameter, see:
+[\[autorate,{},min\]](#[autorate,{},min])
+
+### \-V
+
+Maximum rate of change of the controlled parameter, see:
+[\[autorate,{},speed\]](#[autorate,{},speed])
+
+### \-I
+
+Controller reset time, see: [\[autorate,{},t\_i\]](#[autorate,{},t_i])
+
 ## @g
 
 Configuration for client groups
+
+*Description:*
 
 It is possible to override client configuration for the group.
 
@@ -187,6 +230,11 @@ Client private key for authentication, if required by the server, see:
 
 Run scenario make-docs
 
+### \--src
+
+Path to the external documentation source file, see:
+[\[scenarios,emqttb\_scenario\_make\_docs,{},external\_doc\]](#[scenarios,emqttb_scenario_make_docs,{},external_doc])
+
 ### \--loiter
 
 Keep running scenario stages for this period of time (sec), see:
@@ -221,6 +269,11 @@ Size of the published message in bytes, see:
 Number of clients, see:
 [\[scenarios,emqttb\_scenario\_pub,{},n\_clients\]](#[scenarios,emqttb_scenario_pub,{},n_clients])
 
+### \--pubautorate
+
+ID of the autorate config used to tune publish interval, see:
+[\[scenarios,emqttb\_scenario\_pub,{},pub\_autorate\]](#[scenarios,emqttb_scenario_pub,{},pub_autorate])
+
 ### \--pubinterval, -i
 
 Message publishing interval, see:
@@ -230,6 +283,11 @@ Message publishing interval, see:
 
 QoS of the published messages, see:
 [\[scenarios,emqttb\_scenario\_pub,{},qos\]](#[scenarios,emqttb_scenario_pub,{},qos])
+
+### \--publatency
+
+Try to keep publishing time at this value (ms), see:
+[\[scenarios,emqttb\_scenario\_pub,{},set\_pub\_latency\]](#[scenarios,emqttb_scenario_pub,{},set_pub_latency])
 
 ### \--topic, -t
 
@@ -349,6 +407,104 @@ Priority: -110
 # Values
 
 This section lists all configurable values.
+
+## \[autorate,{},id\]
+
+ID of the autorate configuration
+
+*Type:*
+
+``` erlang
+atom()
+```
+
+*Default value:*
+
+``` erlang
+default
+```
+
+Autorate configuration can be referred by id.
+
+## \[autorate,{},k\_p\]
+
+Controller gain
+
+*Type:*
+
+``` erlang
+number()
+```
+
+*Default value:*
+
+``` erlang
+5.0e-5
+```
+
+## \[autorate,{},max\]
+
+Maximum value of the controlled parameter
+
+*Type:*
+
+``` erlang
+integer()
+```
+
+*Default value:*
+
+``` erlang
+100000
+```
+
+## \[autorate,{},min\]
+
+Minimum value of the controlled parameter
+
+*Type:*
+
+``` erlang
+integer()
+```
+
+*Default value:*
+
+``` erlang
+0
+```
+
+## \[autorate,{},speed\]
+
+Maximum rate of change of the controlled parameter
+
+*Type:*
+
+``` erlang
+integer()
+```
+
+*Default value:*
+
+``` erlang
+0
+```
+
+## \[autorate,{},t\_i\]
+
+Controller reset time
+
+*Type:*
+
+``` erlang
+number()
+```
+
+*Default value:*
+
+``` erlang
+1
+```
 
 ## \[convenience,again\]
 
@@ -548,7 +704,7 @@ non_neg_integer() | infinity when
 *Default value:*
 
 ``` erlang
-infinity
+10
 ```
 
 ## \[groups,{},connection,proto\_ver\]
@@ -840,6 +996,18 @@ listen_port_ip4() when
 0.0.0.0:8017
 ```
 
+## \[scenarios,emqttb\_scenario\_make\_docs,{},external\_doc\]
+
+Path to the external documentation source file
+
+*Type:*
+
+``` erlang
+string() when
+  char() :: 0..1114111,
+  string() :: [char()].
+```
+
 ## \[scenarios,emqttb\_scenario\_make\_docs,{},loiter\]
 
 Keep running scenario stages for this period of time (sec)
@@ -936,6 +1104,22 @@ Number of clients
 
 See [\[n\_clients\]](#[n_clients])
 
+## \[scenarios,emqttb\_scenario\_pub,{},pub\_autorate\]
+
+ID of the autorate config used to tune publish interval
+
+*Type:*
+
+``` erlang
+atom()
+```
+
+*Default value:*
+
+``` erlang
+default
+```
+
 ## \[scenarios,emqttb\_scenario\_pub,{},pubinterval\]
 
 Message publishing interval
@@ -968,6 +1152,22 @@ emqttb:qos() when
 
 ``` erlang
 0
+```
+
+## \[scenarios,emqttb\_scenario\_pub,{},set\_pub\_latency\]
+
+Try to keep publishing time at this value (ms)
+
+*Type:*
+
+``` erlang
+integer()
+```
+
+*Default value:*
+
+``` erlang
+100000
 ```
 
 ## \[scenarios,emqttb\_scenario\_pub,{},topic\]

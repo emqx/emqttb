@@ -198,6 +198,13 @@ model() ->
          , key_elements => [[id]]
          },
         group_model()}
+   , autorate =>
+       {[map, cli_action, default_instance],
+        #{ oneliner     => "Autorate configuration"
+         , cli_operand  => "a"
+         , key_elements => [[id]]
+         },
+       autorate_model()}
    }.
 
 %%================================================================================
@@ -336,6 +343,57 @@ group_model() ->
               , cli_operand => "keyfile"
               }}
         }
+   }.
+
+autorate_model() ->
+  #{ id =>
+       {[value, cli_param],
+        #{ oneliner  => "ID of the autorate configuration"
+         , type      => atom()
+         , default   => default
+         , cli_param => "autorate"
+         , cli_short => $a
+         }}
+   , min =>
+       {[value, cli_param],
+        #{ oneliner  => "Minimum value of the controlled parameter"
+         , type      => integer()
+         , default   => 0
+         , cli_param => "min"
+         , cli_short => $m
+         }}
+   , max =>
+       {[value, cli_param],
+        #{ oneliner  => "Maximum value of the controlled parameter"
+         , type      => integer()
+         , default   => 100000
+         , cli_param => "max"
+         , cli_short => $M
+         }}
+   , speed =>
+       {[value, cli_param],
+        #{ oneliner  => "Maximum rate of change of the controlled parameter"
+         , type      => integer()
+         , default   => 0
+         , cli_param => "speed"
+         , cli_short => $V
+         }}
+   , k_p =>
+       {[value, cli_param],
+        #{ oneliner  => "Controller gain"
+         , type      => number()
+         , default   => 0.00005
+         , cli_param => "Kp"
+         , cli_short => $p
+         }}
+   , t_i =>
+       {[value, cli_param],
+        #{ oneliner  => "Controller reset time"
+         , type      => number()
+         , default   => 1
+         , cli_param => "Ti"
+         , cli_short => $I
+         }}
    }.
 
 intro() ->

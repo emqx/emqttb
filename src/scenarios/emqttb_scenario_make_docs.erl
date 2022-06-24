@@ -39,8 +39,18 @@ name() ->
   'make-docs'.
 
 model() ->
-  #{}.
+  #{ external_doc =>
+       {[value, cli_param],
+        #{ oneliner => "Path to the external documentation source file"
+         , type => string()
+         , cli_operand => "src"
+         }}
+   }.
 
 run() ->
   DocumentedMTs = [cli_param, os_env, system_wide_conf, value],
-  lee_doc:make_docs(?MYMODEL, #{metatypes => DocumentedMTs, run_pandoc => true}).
+  External = emqttb_scenario:my_conf([external_doc]),
+  lee_doc:make_docs(?MYMODEL, #{ metatypes => DocumentedMTs
+                               , run_pandoc => true
+                               , doc_xml => External
+                               }).

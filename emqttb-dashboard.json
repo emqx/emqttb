@@ -181,7 +181,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(group_n_workers{}[2s])",
+          "expr": "rate(group_n_workers{}[5s])",
           "interval": "",
           "legendFormat": "{{group}}",
           "refId": "A"
@@ -703,7 +703,7 @@
           "exemplar": true,
           "expr": "autorate_control",
           "interval": "",
-          "legendFormat": "{{id}}",
+          "legendFormat": "{{id}}/{{term}}",
           "refId": "A"
         }
       ],
@@ -740,5 +740,5 @@
   "timezone": "",
   "title": "emqttb",
   "uid": "6ALcrDC7k",
-  "version": 3
+  "version": 2
 }
