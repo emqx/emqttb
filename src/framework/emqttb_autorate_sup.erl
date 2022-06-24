@@ -2,7 +2,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, start_worker/1]).
+-export([start_link/0, ensure/1]).
 
 -export([init/1]).
 
@@ -13,13 +13,24 @@
 start_link() ->
   supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-start_worker(Options = #{id := Id}) ->
-  {ok, _} = supervisor:start_child(?SERVER,
-                                   #{ id => Id
-                                    , type => worker
-                                    , start => {emqttb_autorate, start_link, [Options]}
-                                    , shutdown => timer:seconds(1)
-                                    }).
+
+-spec ensure(emqttb_autorate:config()) -> {ok, pid()}.
+ensure(Options = #{id := Id}) ->
+  Result = supervisor:start_child(?SERVER,
+                                  #{ id => Id
+                                   , type => worker
+                                   , restart => temporary
+                                   , start => {emqttb_autorate, start_link, [Options]}
+                                   , shutdown => timer:seconds(1)
+                                   }),
+  case Result of
+    {ok, _} = Ok ->
+      Ok;
+    {error, {already_started, Pid}} ->
+      {ok, Pid};
+    {error, already_present} ->
+      supervisor:restart_child(?SERVER, Id)
+  end.
 
 init([]) ->
   SupFlags = #{ strategy => one_for_one

@@ -29,5 +29,7 @@
 -define(GROUP_N_WORKERS(GRP), {group_n_workers, GRP}).
 -define(GROUP_OP_TIME(GRP, OP), {group_op_time, {GRP, OP}}).
 -define(GROUP_N_PENDING(GRP, OP), {group_n_pending, {GRP, OP}}).
+-define(AUTORATE_RATE(ID), {autorate_rate, ID}).
+-define(AUTORATE_CONTROL(ID, TERM), {autorate_control, {ID, TERM}}).
 
 -endif.

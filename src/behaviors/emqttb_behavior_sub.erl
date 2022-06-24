@@ -18,7 +18,7 @@
 -behavior(emqttb_worker).
 
 %% behavior callbacks:
--export([create_settings/2, init/1, handle_message/3, terminate/2]).
+-export([init_per_group/2, init/1, handle_message/3, terminate/2]).
 
 -export_type([]).
 
@@ -33,11 +33,11 @@
 %% behavior callbacks
 %%================================================================================
 
-create_settings(Group,
-                #{ topic  := Topic
-                 , qos    := QoS
-                 , expiry := Expiry
-                 }) when is_binary(Topic) ->
+init_per_group(Group,
+               #{ topic  := Topic
+                , qos    := QoS
+                , expiry := Expiry
+                }) when is_binary(Topic) ->
   SubCnt = emqttb_metrics:new_counter(?CNT_SUB_MESSAGES(Group),
                                       [ {help, <<"Number of received messages">>}
                                       , {labels, [group]}

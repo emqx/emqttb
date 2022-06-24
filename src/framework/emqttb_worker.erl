@@ -22,7 +22,7 @@
          new_opstat/2, call_with_counter/4]).
 
 %% internal exports:
--export([entrypoint/3, loop/1, start/3, create_settings/3]).
+-export([entrypoint/3, loop/1, start/3, init_per_group/3]).
 
 -export_type([]).
 
@@ -38,11 +38,11 @@
 
 %% Called once, during initializtion of the group. This callback
 %% allows to create a static, shared behavior state.
--callback create_settings(emqttb:group(), _BehaviorSettings) -> _Shared.
+-callback init_per_group(emqttb:group(), _BehaviorSettings) -> _Shared.
 
 %% Called when the worker is started. For example, you can start an
 %% MQTT client here. Avoid keeping static and shared terms in the
-%% state, move it to `create_settings' instead.
+%% state, move it to `init_per_group' instead.
 -callback init(map()) -> _State.
 
 %% Self-explanotary. Called every time when worker receives a message
@@ -64,9 +64,9 @@ start(Behavior, Group, Number) ->
   Options = [],
   spawn_opt(?MODULE, entrypoint, [Behavior, Group, Number], Options).
 
--spec create_settings(module(), emqttb:group(), term()) -> term().
-create_settings(Module, GroupID, Opts) ->
-  Module:create_settings(GroupID, Opts).
+-spec init_per_group(module(), emqttb:group(), term()) -> term().
+init_per_group(Module, GroupID, Opts) ->
+  Module:init_per_group(GroupID, Opts).
 
 -spec my_group() -> emqttb:group().
 my_group() ->
@@ -93,19 +93,19 @@ connect(Properties, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
   Username = my_cfg([client, username]),
   Password = my_cfg([client, password]),
   SSL      = my_cfg([ssl, enable]),
-  Options = [ {username,   Username} || Username =/= undefined]
-         ++ [ {password,   Password} || Password =/= undefined]
-         ++ [ {ssl_opts,   CustomSslOptions ++ ssl_opts()} || SSL]
-         ++ [ {clientid,   my_clientid()}
-            , {inflight,   my_cfg([connection, inflight])}
-            , {hosts,      broker_hosts()}
-            , {port,       get_port()}
-            , {proto_ver,  my_cfg([connection, proto_ver])}
-            , {low_mem,    my_cfg([lowmem])}
-            , {owner,      self()}
-            , {ssl,        SSL}
-            , {tcp_opts,   CustomTcpOptions ++ tcp_opts()}
-            , {properties, Properties}
+  Options = [ {username,     Username} || Username =/= undefined]
+         ++ [ {password,     Password} || Password =/= undefined]
+         ++ [ {ssl_opts,     CustomSslOptions ++ ssl_opts()} || SSL]
+         ++ [ {clientid,     my_clientid()}
+            , {max_inflight, my_cfg([connection, inflight])}
+            , {hosts,        broker_hosts()}
+            , {port,         get_port()}
+            , {proto_ver,    my_cfg([connection, proto_ver])}
+            , {low_mem,      my_cfg([lowmem])}
+            , {owner,        self()}
+            , {ssl,          SSL}
+            , {tcp_opts,     CustomTcpOptions ++ tcp_opts()}
+            , {properties,   Properties}
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
   ConnectFun = connect_fun(),
@@ -143,15 +143,15 @@ call_with_counter(Operation, Mod, Fun, Args) ->
   after
     T = os:system_time(microsecond),
     emqttb_metrics:counter_dec(?GROUP_N_PENDING(Grp, Operation), 1),
-    emqttb_metrics:gauge_observe(?GROUP_OP_TIME(Grp, Operation), T - T0)
+    emqttb_metrics:rolling_average_observe(?GROUP_OP_TIME(Grp, Operation), T - T0)
   end.
 
 -spec new_opstat(emqttb:group(), atom()) -> ok.
 new_opstat(Group, Operation) ->
-  emqttb_metrics:new_gauge(?GROUP_OP_TIME(Group, Operation),
-                           [ {help, <<"Average run time of an operation (microseconds)">>}
-                           , {labels, [group, operation]}
-                           ]),
+  emqttb_metrics:new_rolling_average(?GROUP_OP_TIME(Group, Operation),
+                                     [ {help, <<"Average run time of an operation (microseconds)">>}
+                                     , {labels, [group, operation]}
+                                     ]),
   emqttb_metrics:new_counter(?GROUP_N_PENDING(Group, Operation),
                              [ {help, <<"Number of pending operations">>}
                              , {labels, [group, operation]}

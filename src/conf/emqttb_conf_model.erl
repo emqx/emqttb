@@ -264,7 +264,7 @@ group_model() ->
             {[value, cli_param],
              #{ oneliner    => "maximum inflight messages for QoS 1 and 2"
               , type        => union(non_neg_integer(), infinity)
-              , default     => infinity
+              , default     => 10
               , cli_operand => "inflight"
               , cli_short   => $F
               }}
