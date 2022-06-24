@@ -89,7 +89,7 @@ model() ->
        {[value, cli_param],
         #{ oneliner => "Try to keep publishing time at this value (ms)"
          , type => integer()
-         , default => 100000
+         , default => 100
          , cli_operand => "publatency"
          }}
    , n_clients =>

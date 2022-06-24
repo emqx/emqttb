@@ -19,9 +19,11 @@
 -define(APP, emqttb).
 
 -define(CONF_STORE, lee_conf_store).
--define(MODEL_STORE, lee_model).
+-define(MODEL_STORE, lee_model_store).
 
--define(MYCONF, persistent_term:get(?CONF_STORE)).
+-include_lib("lee/include/lee.hrl").
+
+-define(MYCONF, ?lee_persistent_term_storage(?CONF_STORE)).
 -define(MYMODEL, persistent_term:get(?MODEL_STORE)).
 
 -define(DEFAULT_PORT, 8017).
