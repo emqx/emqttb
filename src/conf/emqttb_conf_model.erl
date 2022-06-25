@@ -18,9 +18,6 @@
 %% API:
 -export([model/0]).
 
-%% internal exports:
--export([parse_hosts/1, parse_addresses/1]).
-
 -export_type([]).
 
 -include("emqttb.hrl").
@@ -31,12 +28,6 @@
 %%================================================================================
 %% Type declarations
 %%================================================================================
-
--type net_port() :: 1..65535.
-
--type hosts() :: [{string(), net_port()} | string()].
-
--reflect_type([net_port/0, hosts/0]).
 
 %%================================================================================
 %% API funcions
@@ -197,7 +188,14 @@ model() ->
          , cli_operand  => "g"
          , key_elements => [[id]]
          },
-        group_model()}
+        emqttb_worker:model()}
+   , autorate =>
+       {[map, cli_action, default_instance],
+        #{ oneliner     => "Autorate configuration"
+         , cli_operand  => "a"
+         , key_elements => [[id]]
+         },
+        emqttb_autorate:model()}
    }.
 
 %%================================================================================
@@ -208,142 +206,12 @@ model() ->
 %% Internal functions
 %%================================================================================
 
-group_model() ->
-  #{ id =>
-       {[value, cli_param],
-        #{ oneliner    => "ID of the group"
-         , type        => atom()
-         , default     => default
-         , cli_operand => "group"
-         , cli_short   => $g
-         }}
-   , lowmem =>
-       {[value, cli_param],
-        #{ oneliner    => "Reduce memory useage at the cost of CPU wherever possible"
-         , type        => boolean()
-         , default     => false
-         , cli_operand => "lowmem"
-         }}
-   , broker =>
-       #{ hosts =>
-            {[value, cli_param],
-             #{ oneliner    => "Hostname of the target broker"
-              , type        => hosts()
-              , default     => ["localhost"]
-              , cli_operand => "host"
-              , cli_short   => $h
-              , from_string => fun parse_hosts/1
-              }}
-        , port =>
-            {[value, cli_param],
-             #{ oneliner    => "Hostname of the target broker"
-              , type        => union(net_port(), default)
-              , default     => default
-              , cli_operand => "port"
-              , cli_short   => $p
-              }}
-        }
-   , connection =>
-       #{ proto_ver =>
-            {[value, cli_param],
-             #{ oneliner    => "MQTT protocol version"
-              , type        => emqttb:proto_ver()
-              , default     => v5
-              , cli_operand => "version"
-              , cli_short   => $V
-              }}
-        , transport =>
-            {[value, cli_param],
-             #{ oneliner    => "Transport protocol"
-              , type        => emqttb:transport()
-              , default     => sock
-              , cli_operand => "transport"
-              , cli_short   => $T
-              }}
-        , inflight =>
-            {[value, cli_param],
-             #{ oneliner    => "maximum inflight messages for QoS 1 and 2"
-              , type        => union(non_neg_integer(), infinity)
-              , default     => infinity
-              , cli_operand => "inflight"
-              , cli_short   => $F
-              }}
-        }
-   , client =>
-       #{ clientid =>
-            {[value, cli_param],
-             #{ oneliner    => "Clientid pattern"
-              , doc         => [ p("A pattern used to generate clientids.
-                                   The following substitutions are supported:")
-                               , {itemlist,
-                                  [ li("%h", ["Hostname of emqttb"])
-                                  , li("%g", ["Group ID"])
-                                  , li("%n", ["Worker number"])
-                                  ]}
-                               ]
-              , type        => binary()
-              , default     => <<"%h-%g-%n">>
-              , cli_operand => "clientid"
-              , cli_short   => $i
-              }}
-        , username =>
-            {[value, cli_param],
-             #{ oneliner    => "Username of the client"
-              , type        => union(undefined, string())
-              , default     => undefined
-              , cli_operand => "username"
-              , cli_short   => $u
-              }}
-        , password =>
-            {[value, cli_param],
-             #{ oneliner    => "Password for connecting to the broker"
-              , type        => union(undefined, string())
-              , default     => undefined
-              , cli_operand => "password"
-              , cli_short   => $P
-              }}
-        }
-   , net =>
-       #{ ifaddr =>
-            {[value, cli_param],
-             #{ oneliner    => "Local IP addresses"
-              , type        => nonempty_list(typerefl:ip_address())
-              , default     => [{0, 0, 0, 0}]
-              , from_string => fun parse_addresses/1
-              , cli_operand => "ifaddr"
-              }}
-        }
-   , ssl =>
-       #{ enable =>
-            {[value, cli_param],
-             #{ oneliner    => "Enable SSL for the connections"
-              , type        => boolean()
-              , default     => false
-              , cli_operand => "ssl"
-              }}
-        , certfile =>
-            {[value, cli_param],
-             #{ oneliner    => "Client certificate for authentication, if required by the server"
-              , type        => string()
-              , default     => ""
-              , cli_operand => "certfile"
-              }}
-        , keyfile =>
-            {[value, cli_param],
-             #{ oneliner    => "Client private key for authentication, if required by the server"
-              , type        => string()
-              , default     => ""
-              , cli_operand => "keyfile"
-              }}
-        }
-   }.
-
 intro() ->
   [ sect("intro-running", "Invokation",
          [ p("Generally speaking, this script can work in either script mode or in deamon mode.
               The mode is determined by whether REST API is enabled or not.")
          , p("Basic usage: emqttb <gloabal parameters> @<scenario1> <scenario parameters> [@<scenario2> <scenario parameters> ...]")
-         , p("Repeat the last run: <code>emqttb --again</code>")
+         , p("Repeat the last run: emqttb --again")
          ])
   , sect("concepts", "Core concepts",
          [{itemlist,
@@ -373,28 +241,3 @@ intro() ->
                   emqttb_http:doc()}])
          ])
   ].
-
-parse_addresses(Str) ->
-  L = [inet:parse_address(I) || I <- string:tokens(Str, ", ")],
-  case lists:keyfind(error, 1, L) of
-    false ->
-      {ok, [I || {ok, I} <- L]};
-    _ ->
-      error
-  end.
-
-parse_hosts(Str) ->
-  try
-    {ok, [parse_host(I) || I <- string:tokens(Str, ", ")]}
-  catch
-    _:_ ->
-      error
-  end.
-
-parse_host(Str) ->
-  case string:tokens(Str, ":") of
-    [Host] ->
-      Host;
-    [Host, Port] ->
-      {Host, list_to_integer(Port)}
-  end.

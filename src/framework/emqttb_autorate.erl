@@ -14,32 +14,219 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 -module(emqttb_autorate).
+%% This module uses velocity PI controller to automatically adjust
+%% rate of something to minimize error function.
+%%
+%% See for the explanation of the theory:
+%% https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/
 
 %% API:
--export([]).
+-export([ensure/1, get_counter/1]).
 
 %% behavior callbacks:
--export([]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 %% internal exports:
--export([]).
+-export([start_link/1, model/0]).
+
+-include("emqttb_internal.hrl").
+-include_lib("typerefl/include/types.hrl").
 
 %%================================================================================
 %% Type declarations
 %%================================================================================
 
+-type config() ::
+        #{ id        := atom()
+         , conf_root := atom()
+         , error     := fun(() -> number())
+         , parent    => pid()
+         , init_val  => integer()
+         }.
+
+-define(TICK_TIME, 100).
+
 %%================================================================================
 %% API funcions
 %%================================================================================
 
-%%================================================================================
-%% behavior callbacks
-%%================================================================================
+-spec ensure(config()) -> {auto, counter:counters_ref()}.
+ensure(Conf) ->
+  {ok, Pid} = emqttb_autorate_sup:ensure(Conf#{parent => self()}),
+  {auto, get_counter(Pid)}.
+
+-spec get_counter(atom() | pid()) -> counters:counters_ref().
+get_counter(Id) ->
+  gen_server:call(Id, get_counter).
+
 
 %%================================================================================
 %% Internal exports
 %%================================================================================
 
+start_link(Conf = #{id := Id}) ->
+  gen_server:start_link({local, Id}, ?MODULE, Conf, []).
+
+model() ->
+  #{ id =>
+       {[value, cli_param],
+        #{ oneliner    => "ID of the autorate configuration"
+         , type        => atom()
+         , default     => default
+         , cli_operand => "autorate"
+         , cli_short   => $a
+         }}
+   , min               =>
+       {[value, cli_param],
+        #{ oneliner    => "Minimum value of the controlled parameter"
+         , type        => integer()
+         , default     => 0
+         , cli_operand => "min"
+         , cli_short   => $m
+         }}
+   , max =>
+       {[value, cli_param],
+        #{ oneliner    => "Maximum value of the controlled parameter"
+         , type        => integer()
+         , default     => 100000
+         , cli_operand => "max"
+         , cli_short   => $M
+         }}
+   , speed =>
+       {[value, cli_param],
+        #{ oneliner    => "Maximum rate of change of the controlled parameter"
+         , type        => integer()
+         , default     => 0
+         , cli_operand => "speed"
+         , cli_short   => $V
+         }}
+   , k_p =>
+       {[value, cli_param],
+        #{ oneliner    => "Controller gain"
+         , type        => number()
+         , default     => 0.00005
+         , cli_operand => "Kp"
+         , cli_short   => $p
+         }}
+   , t_i =>
+       {[value, cli_param],
+        #{ oneliner    => "Controller reset time"
+         , type        => number()
+         , default     => 1
+         , cli_operand => "Ti"
+         , cli_short   => $I
+         }}
+   }.
+
+%%================================================================================
+%% behavior callbacks
+%%================================================================================
+
+-record(s,
+        { id        :: atom()
+        , parent    :: reference() | undefined
+        , current   :: float()
+        , conf_root :: atom()
+        , error     :: fun(() -> number())
+        , last_t    :: integer()
+        , last_err  :: number()
+        }).
+
+init(Config = #{id := Id, conf_root := ConfRoot, error := ErrF}) ->
+  MRef = case Config of
+           #{parent := Parent} -> monitor(process, Parent);
+           _                   -> undefined
+         end,
+  %% Create metrics:
+  emqttb_metrics:new_gauge(?AUTORATE_RATE(Id),
+                           [ {help, <<"Controlled value">>}
+                           , {labels, [id]}
+                           ]),
+  [emqttb_metrics:new_gauge(?AUTORATE_CONTROL(Id, I),
+                            [ {help, <<"Control output delta">>}
+                            , {labels, [id, term]}
+                            ]) || I <- [sum, p, i]],
+  %% Init PID:
+  Min = my_cfg(ConfRoot, [min]),
+  Current = maps:get(init_val, Config, Min),
+  Err = ErrF(),
+  set_timer(),
+  {ok, #s{ id        = Id
+         , parent    = MRef
+         , current   = Current
+         , conf_root = ConfRoot
+         , error     = ErrF
+         , last_err  = Err
+         , last_t    = os:system_time(millisecond)
+         }}.
+
+handle_call(get_counter, _From, S) ->
+  {reply, emqttb_metrics:gauge_ref(?AUTORATE_RATE(S#s.id)), S};
+handle_call(_, _From, S) ->
+  {reply, {error, unknown_call}, S}.
+
+handle_cast(_, S) ->
+  {noreply, S}.
+
+handle_info(tick, S) ->
+  set_timer(),
+  {noreply, update_rate(S)};
+handle_info({'DOWN', MRef, _, _, _}, S = #s{parent = MRef}) ->
+  {stop, normal, S};
+handle_info(_, S) ->
+  {noreply, S}.
+
 %%================================================================================
 %% Internal functions
 %%================================================================================
+
+update_rate(S = #s{ last_t    = LastT
+                  , error     = ErrF
+                  , current   = CO0
+                  , last_err  = LastErr
+                  , conf_root = ConfRoot
+                  , id        = Id
+                  }) ->
+  %% 0. Get current error
+  T = os:system_time(millisecond),
+  Dt = (T - LastT) / timer:seconds(1),
+  Err = ErrF(),
+  %% 1. Get config
+  Min = my_cfg(ConfRoot, [min]),
+  Max = my_cfg(ConfRoot, [max]),
+  MaxSpeed = my_cfg(ConfRoot, [speed]),
+  Kp = my_cfg(ConfRoot, [k_p]),
+  Ti = my_cfg(ConfRoot, [t_i]),
+  %% 2. Calculate the control output using velocity form:
+  %%    Per Euler method CO = CO_0 + DeltaC * Dt = CO_0 + (CO + CI) * Dt =
+  %%    = CO_0 + (Kp * De / Dt + Kp / Ti * Err) * Dt =
+  %%    = CO_0 + Kp * De + Kp * Err / Ti * Dt
+  De = LastErr - Err,
+  CP = Kp * De, %% Note: delta t is reduced here, see above comment
+  CI = Kp * Err / Ti * Dt,
+  DeltaC = clamp(CP + CI, MaxSpeed * Dt),
+  CO = clamp(CO0 + DeltaC, Min, Max),
+  %% 3. Update metrics
+  emqttb_metrics:gauge_set(?AUTORATE_RATE(Id), round(CO)),
+  %% Note: Kp tends to be small, and the below metrics are only used for grafana,
+  %% so for aesthetic reasons we divide by Kp here:
+  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, sum), round(DeltaC / Kp)),
+  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, p), round(CP / Kp)),
+  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, i), round(CI / Kp)),
+  S#s{last_t = T, current = CO, last_err = Err}.
+
+set_timer() ->
+  erlang:send_after(?TICK_TIME, self(), tick).
+
+clamp(Val, Max) ->
+  clamp(Val, -Max, Max).
+
+clamp(Val, _Min, Max) when Val > Max ->
+  Max;
+clamp(Val, Min, _Max) when Val < Min ->
+  Min;
+clamp(Val, _, _) ->
+  Val.
+
+my_cfg(ConfRoot, Key) ->
+  ?CFG([autorate, {ConfRoot} | Key]).

@@ -18,7 +18,7 @@
 -behavior(emqttb_worker).
 
 %% behavior callbacks:
--export([create_settings/2, init/1, handle_message/3, terminate/2]).
+-export([init_per_group/2, init/1, handle_message/3, terminate/2]).
 
 -include_lib("snabbkaffe/include/trace.hrl").
 
@@ -28,7 +28,7 @@
 %% behavior callbacks
 %%================================================================================
 
-create_settings(Group, Cfg) ->
+init_per_group(Group, Cfg) ->
   Cfg#{group => Group}.
 
 init(Shared) ->

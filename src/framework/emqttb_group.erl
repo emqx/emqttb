@@ -122,7 +122,7 @@ init([Conf]) ->
   persistent_term:put(?GROUP_LEADER_TO_GROUP_ID(self()), ID),
   persistent_term:put(?GROUP_BEHAVIOR(self()), Behavior),
   persistent_term:put(?GROUP_CONF_ID(self()), ConfID),
-  BehSharedState = emqttb_worker:create_settings(Behavior, ID, BehSettings),
+  BehSharedState = emqttb_worker:init_per_group(Behavior, ID, BehSettings),
   persistent_term:put(?GROUP_BEHAVIOR_SHARED_STATE(self()), BehSharedState),
   declare_metrics(ID),
   S = #s{ id          = ID

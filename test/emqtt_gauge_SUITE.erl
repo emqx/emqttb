@@ -38,18 +38,18 @@ end_per_testcase(_, _Config) ->
   snabbkaffe:stop(),
   ok.
 
-t_gauge(Config) ->
+t_rolling_average(Config) ->
   N = 10,
-  G = emqttb_metrics:new_gauge({foo, []}, [{help, <<"">>}]),
-  ?assertEqual(0, emqttb_metrics:get_gauge(G)),
-  [emqttb_metrics:gauge_observe(G, 10) || _ <- lists:seq(1, N)],
-  ?assertEqual(10, emqttb_metrics:get_gauge(G)),
+  G = emqttb_metrics:new_rolling_average({foo, []}, [{help, <<"">>}]),
+  ?assertEqual(0, emqttb_metrics:get_rolling_average(G)),
+  [emqttb_metrics:rolling_average_observe(G, 10) || _ <- lists:seq(1, N)],
+  ?assertEqual(10, emqttb_metrics:get_rolling_average(G)),
   timer:sleep(1000),
-  ?assertEqual(0, emqttb_metrics:get_gauge(G, 500)),
+  ?assertEqual(0, emqttb_metrics:get_rolling_average(G, 500)),
   %% Check value with a larger window:
-  ?assertEqual(10, emqttb_metrics:get_gauge(G, 5000)),
+  ?assertEqual(10, emqttb_metrics:get_rolling_average(G, 5000)),
   %% Add more samples:
-  [emqttb_metrics:gauge_observe(G, 20) || _ <- lists:seq(1, N)],
-  ?assertEqual(20, emqttb_metrics:get_gauge(G, 500)),
+  [emqttb_metrics:rolling_average_observe(G, 20) || _ <- lists:seq(1, N)],
+  ?assertEqual(20, emqttb_metrics:get_rolling_average(G, 500)),
   %% Large window must produce the average of 20 and 10:
-  ?assertEqual(15, emqttb_metrics:get_gauge(G, 5000)).
+  ?assertEqual(15, emqttb_metrics:get_rolling_average(G, 5000)).

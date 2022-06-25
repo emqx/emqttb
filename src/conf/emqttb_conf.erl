@@ -33,11 +33,10 @@
 %%================================================================================
 
 load_conf() ->
-  Storage = lee_storage:new(lee_persistent_term_storage),
+  Storage = lee_storage:new(lee_persistent_term_storage, ?CONF_STORE),
   MTs = metamodel(),
   case lee_model:compile(MTs, [emqttb_conf_model:model()]) of
     {ok, Model} ->
-      persistent_term:put(?CONF_STORE, Storage),
       persistent_term:put(?MODEL_STORE, Model),
       case lee:init_config(Model, Storage) of
         {ok, _Data, _Warnings} ->

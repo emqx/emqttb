@@ -32,7 +32,7 @@
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
 
--import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, set_stage/2, set_stage/1]).
+-import(emqttb_scenario, [complete/1, loiter/0, my_conf_key/1, my_conf/1, set_stage/2, set_stage/1]).
 
 %%================================================================================
 %% Type declarations
@@ -85,6 +85,13 @@ model() ->
          , cli_operand => "pubinterval"
          , cli_short => $i
          }}
+   , set_pub_latency =>
+       {[value, cli_param],
+        #{ oneliner => "Try to keep publishing time at this value (ms)"
+         , type => integer()
+         , default => 100
+         , cli_operand => "publatency"
+         }}
    , n_clients =>
        {[value, cli_param],
         #{ oneliner => "Number of clients"
@@ -101,6 +108,13 @@ model() ->
          , cli_operand => "group"
          , cli_short => $g
          }}
+   , pub_autorate =>
+       {[value, cli_param],
+        #{ oneliner    => "ID of the autorate config used to tune publish interval"
+         , type        => atom()
+         , default     => default
+         , cli_operand => "pubautorate"
+         }}
    }.
 
 run() ->
@@ -108,6 +122,7 @@ run() ->
              , pubinterval => my_conf([pubinterval])
              , msg_size    => my_conf([msg_size])
              , qos         => my_conf([qos])
+             , set_latency => my_conf_key([set_pub_latency])
              },
   emqttb_group:ensure(#{ id            => pub_group
                        , client_config => my_conf([group])
