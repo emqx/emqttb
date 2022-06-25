@@ -22,7 +22,7 @@
 -export([]).
 
 %% internal exports:
--export([n_clients/0]).
+-export([n_clients/0, parse_hosts/1, parse_addresses/1]).
 
 -export_type([n_clients/0]).
 
@@ -51,7 +51,15 @@
 
 -type qos() :: 0..2.
 
--reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0, qos/0]).
+-type net_port() :: 1..65535.
+
+-type hosts() :: [{string(), net_port()} | string()].
+-typerefl_from_string({hosts/0, ?MODULE, parse_hosts}).
+
+-type ifaddr_list() :: nonempty_list(typerefl:ip_address()).
+-typerefl_from_string({ifaddr_list/0, ?MODULE, parse_addresses}).
+
+-reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0, qos/0, net_port/0, hosts/0, ifaddr_list/0]).
 
 %%================================================================================
 %% API funcions
@@ -98,4 +106,29 @@ terminate() ->
       logger:critical("Run unsuccessful due to ~p", [Reason]),
       timer:sleep(100), %% Ugly: give logger time to flush events...
       halt(1)
+  end.
+
+parse_addresses(Str) ->
+  L = [inet:parse_address(I) || I <- string:tokens(Str, ", ")],
+  case lists:keyfind(error, 1, L) of
+    false ->
+      {ok, [I || {ok, I} <- L]};
+    _ ->
+      error
+  end.
+
+parse_hosts(Str) ->
+  try
+    {ok, [parse_host(I) || I <- string:tokens(Str, ", ")]}
+  catch
+    _:_ ->
+      error
+  end.
+
+parse_host(Str) ->
+  case string:tokens(Str, ":") of
+    [Host] ->
+      Host;
+    [Host, Port] ->
+      {Host, list_to_integer(Port)}
   end.

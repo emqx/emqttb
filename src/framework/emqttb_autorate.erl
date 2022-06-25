@@ -27,9 +27,10 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 %% internal exports:
--export([start_link/1]).
+-export([start_link/1, model/0]).
 
 -include("emqttb_internal.hrl").
+-include_lib("typerefl/include/types.hrl").
 
 %%================================================================================
 %% Type declarations
@@ -65,6 +66,57 @@ get_counter(Id) ->
 
 start_link(Conf = #{id := Id}) ->
   gen_server:start_link({local, Id}, ?MODULE, Conf, []).
+
+model() ->
+  #{ id =>
+       {[value, cli_param],
+        #{ oneliner    => "ID of the autorate configuration"
+         , type        => atom()
+         , default     => default
+         , cli_operand => "autorate"
+         , cli_short   => $a
+         }}
+   , min               =>
+       {[value, cli_param],
+        #{ oneliner    => "Minimum value of the controlled parameter"
+         , type        => integer()
+         , default     => 0
+         , cli_operand => "min"
+         , cli_short   => $m
+         }}
+   , max =>
+       {[value, cli_param],
+        #{ oneliner    => "Maximum value of the controlled parameter"
+         , type        => integer()
+         , default     => 100000
+         , cli_operand => "max"
+         , cli_short   => $M
+         }}
+   , speed =>
+       {[value, cli_param],
+        #{ oneliner    => "Maximum rate of change of the controlled parameter"
+         , type        => integer()
+         , default     => 0
+         , cli_operand => "speed"
+         , cli_short   => $V
+         }}
+   , k_p =>
+       {[value, cli_param],
+        #{ oneliner    => "Controller gain"
+         , type        => number()
+         , default     => 0.00005
+         , cli_operand => "Kp"
+         , cli_short   => $p
+         }}
+   , t_i =>
+       {[value, cli_param],
+        #{ oneliner    => "Controller reset time"
+         , type        => number()
+         , default     => 1
+         , cli_operand => "Ti"
+         , cli_short   => $I
+         }}
+   }.
 
 %%================================================================================
 %% behavior callbacks
@@ -127,7 +179,6 @@ handle_info(_, S) ->
 %%================================================================================
 %% Internal functions
 %%================================================================================
-
 
 update_rate(S = #s{ last_t    = LastT
                   , error     = ErrF

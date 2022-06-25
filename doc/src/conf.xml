@@ -20,4 +20,114 @@
       </para>
     </doc>
   </node>
+  <node id="scenarios/emqttb_scenario_pub">
+    <doc lang="en">
+      <section>
+        <title>Description</title>
+        <para>
+          This scenario starts <code>-N</code> workers, which publish messages to the specified topic at period <code>--pubinterval</code>.
+          The only mandatory parameter is <code>--topic</code>, which supports pattern substitutions.
+        </para>
+        <para>
+          Configuration of the publishers (such as broker hostname and port, tcp settings, etc.) is delegated to
+          <link linkend='groups'/>.
+        </para>
+      </section>
+      <section>
+        <title>Examples</title>
+        <section>
+          <title>Basic usage</title>
+          <programlisting language="bash"><![CDATA[emqttb @pub -t foo/%n -N 100 -i 10]]>
+          </programlisting>
+          <para>
+            In this example the loadgen connects to the default broker <link xlink:href="mqtt://localhost:1883"/>,
+            starts 100 publishers which send messages to topic with the suffix of the worker id every 10 milliseconds.
+          </para>
+        </section>
+        <section>
+          <title>Changing client settings</title>
+          <programlisting language="bash"><![CDATA[emqttb @pub -t foo/%n @g --ssl --transport ws -h 127.0.0.1]]></programlisting>
+          <para>
+            In this example settings of the default client group has been changed: TLS encryption is enabled, and WebSocket transport is used.
+            Also the hostname of the broker is specified explicitly.
+          </para>
+          <programlisting language="bash"><![CDATA[emqttb @pub -t foo/%n -q 1 -g pub @g -g pub --ssl --transport ws -h 127.0.0.1]]></programlisting>
+          <para>
+            The below example is similar to the previous one, except QoS of the messages is set to 1,
+            and a dedicated client configuration with id <code>pub</code> is used for the publishers.
+            It's useful for running multiple scenarios (e.g. <code>@pub</code> and <code>@sub</code>) in parallel, when they must use
+            different settings. For example, it can be used for testing MQTT bridge.
+          </para>
+        </section>
+        <section>
+          <title>Tuning publishing rate automatically</title>
+          <para>
+            By default, <code>@pub</code> scenario keeps <code>pubinterval</code> constant.
+            However, in some situations it should be tuned dynamically: suppose one wants to measure what publishing rate the broker can sustain while keeping
+            publish latency under <code>--publatency</code>.
+          </para>
+          <para>
+            This is also useful for preventing system overload.
+            Generating too much load can bring the system down, and the test has to be started all over again with different parameters.
+            Sometimes finding the correct rate takes many attempts, wasting human and machine time.
+            Dynamic tuning of the publishing rate for keeping the latency constant can help in this situation.
+          </para>
+          <para>
+            By default the maximum speed of rate adjustment is set to 0, effectively locking the <code>pubinterval</code> at a constant value.
+            To enable automatic tuning, the autorate speed <code>-V</code> must be set to a non-zero value, also it makes sense to set
+            the minimum (<code>-m</code>) and maximum (<code>-M</code>) values of the <code>pubinterval</code>:
+          </para>
+          <programlisting language="bash"><![CDATA[emqttb @pub -t foo -i 1000 -q 1 --publatency 50 @a -V 10 -m 0 -M 10000]]></programlisting>
+          <para>
+            Once automatic adjustment of the publishing interval is enabled, <code>-i</code> parameter sets the starting value of the publish interval,
+            rather than the constant value. So the above example reads like this:
+          </para>
+          <para>
+            Publish messages to topic <code>foo</code> with QoS 1, starting at the publishing interval of 1000 milliseconds, dynamically adjusting it
+            so to keep the publishing latency around 50 milliseconds. The publishing interval is kept between 0 and 10 seconds,
+            and the maximum rate of its change is 10 milliseconds per second.
+          </para>
+          <para>
+            For more information about the automatic parameter tuning see <link linkend="autorate"/>.
+          </para>
+        </section>
+      </section>
+    </doc>
+  </node>
+  <node id="scenarios/emqttb_scenario_pub/{}/topic">
+    <doc lang="en">
+      <para>
+        Topic is a mandatory parameter. It supports the following substitutions:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para><code>%n</code> is replaced with the worker ID (integer)</para>
+        </listitem>
+        <listitem>
+          <para><code>%g</code> is replaced with the group ID</para>
+        </listitem>
+        <listitem>
+          <para><code>%h</code> is replaced with the hostname</para>
+        </listitem>
+      </itemizedlist>
+    </doc>
+  </node>
+  <node id="groups/{}/client/clientid">
+    <doc lang="en">
+      <para>
+        A pattern used to generate ClientID. The following substitutions are supported:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para><code>%n</code> is replaced with the worker ID (integer)</para>
+        </listitem>
+        <listitem>
+          <para><code>%g</code> is replaced with the group ID</para>
+        </listitem>
+        <listitem>
+          <para><code>%h</code> is replaced with the hostname</para>
+        </listitem>
+      </itemizedlist>
+    </doc>
+  </node>
 </lee>

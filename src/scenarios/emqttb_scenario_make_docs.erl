@@ -48,7 +48,7 @@ model() ->
    }.
 
 run() ->
-  DocumentedMTs = [cli_param, os_env, system_wide_conf, value],
+  DocumentedMTs = [cli_param, os_env, system_wide_conf, map, value],
   External = emqttb_scenario:my_conf([external_doc]),
   lee_doc:make_docs(?MYMODEL, #{ metatypes => DocumentedMTs
                                , run_pandoc => true
