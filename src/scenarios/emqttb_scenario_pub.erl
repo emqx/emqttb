@@ -101,19 +101,21 @@ model() ->
          , cli_short => $N
          }}
    , group =>
-       {[value, cli_param],
+       {[value, cli_param, pointer],
         #{ oneliner => "ID of the client group"
          , type => atom()
          , default => default
          , cli_operand => "group"
          , cli_short => $g
+         , target_node => [groups]
          }}
    , pub_autorate =>
-       {[value, cli_param],
+       {[value, cli_param, pointer],
         #{ oneliner    => "ID of the autorate config used to tune publish interval"
          , type        => atom()
          , default     => default
          , cli_operand => "pubautorate"
+         , target_node => [autorate]
          }}
    }.
 
