@@ -21,7 +21,7 @@
 %% https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/
 
 %% API:
--export([ensure/1, get_counter/1]).
+-export([ensure/1, get_counter/1, reset/2]).
 
 %% behavior callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
@@ -59,6 +59,10 @@ ensure(Conf) ->
 get_counter(Id) ->
   gen_server:call(Id, get_counter).
 
+%% Set the current value to the specified value
+-spec reset(atom() | pid(), integer()) -> ok.
+reset(Id, Val) ->
+  gen_server:call(Id, {reset, Val}).
 
 %%================================================================================
 %% Internal exports
@@ -162,6 +166,8 @@ init(Config = #{id := Id, conf_root := ConfRoot, error := ErrF}) ->
 
 handle_call(get_counter, _From, S) ->
   {reply, emqttb_metrics:gauge_ref(?AUTORATE_RATE(S#s.id)), S};
+handle_call({reset, Val}, _From, S) ->
+  {reply, ok, update_rate(S#s{current = Val})};
 handle_call(_, _From, S) ->
   {reply, {error, unknown_call}, S}.
 
