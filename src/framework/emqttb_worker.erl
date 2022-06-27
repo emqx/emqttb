@@ -17,6 +17,7 @@
 
 %% Worker API:
 -export([my_group/0, my_id/0, my_clientid/0, my_hostname/0, my_cfg/1,
+         send_after/2, send_after_rand/2,
          connect/1, connect/4,
          format_topic/1,
          new_opstat/2, call_with_counter/4]).
@@ -60,6 +61,10 @@
 %% API funcions
 %%================================================================================
 
+%%--------------------------------------------------------------------------------
+%% Worker start/stop
+%%--------------------------------------------------------------------------------
+
 -spec start(module(), pid(), non_neg_integer()) -> pid().
 start(Behavior, Group, Number) ->
   Options = [],
@@ -68,6 +73,20 @@ start(Behavior, Group, Number) ->
 -spec init_per_group(module(), emqttb:group(), term()) -> term().
 init_per_group(Module, GroupID, Opts) ->
   Module:init_per_group(GroupID, Opts).
+
+%%--------------------------------------------------------------------------------
+%% Getters/utilities
+%%--------------------------------------------------------------------------------
+
+-spec send_after(counters:counters_ref(), _Message) -> reference().
+send_after(CRef, Message) ->
+  I = counters:get(CRef, 1),
+  erlang:send_after(I, self(), Message).
+
+-spec send_after_rand(counters:counters_ref(), _Message) -> reference().
+send_after_rand(CRef, Message) ->
+  I = counters:get(CRef, 1),
+  erlang:send_after(rand:uniform(I + 1), self(), Message).
 
 -spec my_group() -> emqttb:group().
 my_group() ->
@@ -84,6 +103,29 @@ format_topic(Pattern) ->
   Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
   Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
   binary:replace(Id1, <<"%h">>, my_hostname(), [global]).
+
+%% @doc Get group-specific configuration (as opposed to global)
+-spec my_cfg(lee:key()) -> term().
+my_cfg(Key) ->
+  ConfId = ?GROUP_CONF_ID(group_leader()),
+  ?CFG([groups, ConfId | Key]).
+
+-spec my_clientid() -> binary().
+my_clientid() ->
+  Group = my_group(),
+  ID = my_id(),
+  Pattern = my_cfg([client, clientid]),
+  Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
+  Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
+  binary:replace(Id1, <<"%h">>, my_hostname(), [global]).
+
+-spec my_hostname() -> binary().
+my_hostname() ->
+  atom_to_binary(node()).
+
+%%--------------------------------------------------------------------------------
+%% MQTT
+%%--------------------------------------------------------------------------------
 
 -spec connect(map()) -> gen_statem:start_ret().
 connect(Properties) ->
@@ -113,24 +155,9 @@ connect(Properties, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
   {ok, _Properties} = call_with_counter(connect, emqtt, ConnectFun, [Client]),
   {ok, Client}.
 
-%% @doc Get group-specific configuration (as opposed to global)
--spec my_cfg(lee:key()) -> term().
-my_cfg(Key) ->
-  ConfId = ?GROUP_CONF_ID(group_leader()),
-  ?CFG([groups, ConfId | Key]).
-
--spec my_clientid() -> binary().
-my_clientid() ->
-  Group = my_group(),
-  ID = my_id(),
-  Pattern = my_cfg([client, clientid]),
-  Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
-  Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
-  binary:replace(Id1, <<"%h">>, my_hostname(), [global]).
-
--spec my_hostname() -> binary().
-my_hostname() ->
-  atom_to_binary(node()).
+%%--------------------------------------------------------------------------------
+%% Instrumentation
+%%--------------------------------------------------------------------------------
 
 -spec call_with_counter(atom(), module(), atom(), list()) -> _.
 call_with_counter(Operation, Mod, Fun, Args) ->

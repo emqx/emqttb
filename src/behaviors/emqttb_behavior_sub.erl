@@ -55,7 +55,7 @@ init(#{topic := T, qos := QoS, expiry := Expiry}) ->
             _         -> #{'Session-Expiry-Interval' => Expiry}
           end,
   {ok, Conn} = emqttb_worker:connect(Props),
-  emqttb_worker:call_with_counter(?AVG_SUB_TIME, emqtt, subscribe, [Conn, T, QoS]),
+  emqttb_worker:call_with_counter(?AVG_SUB_TIME, emqtt, subscribe, [Conn, emqttb_worker:format_topic(T), QoS]),
   Conn.
 
 handle_message(#{sub_counter := Cnt}, Conn, {publish, #{client_pid := Pid}}) when

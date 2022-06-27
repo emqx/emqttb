@@ -22,7 +22,8 @@
 
 -export_type([]).
 
--import(emqttb_worker, [my_group/0, my_id/0, my_clientid/0, my_cfg/1, connect/2]).
+-import(emqttb_worker, [send_after/2, send_after_rand/2,
+                        my_group/0, my_id/0, my_clientid/0, my_cfg/1, connect/2]).
 
 -include("../framework/emqttb_internal.hrl").
 
@@ -64,17 +65,16 @@ init_per_group(Group,
    , pubinterval => PubRate
    }.
 
-init(#{pubinterval := IRef}) ->
-  {ok, Conn} = emqttb_worker:connect(#{}),
-  I = counters:get(IRef, 1),
+init(#{pubinterval := I}) ->
   rand:seed(default),
-  set_timer(rand:uniform(I + 1)),
+  send_after_rand(I, publish),
+  {ok, Conn} = emqttb_worker:connect(#{}),
   Conn.
 
 handle_message(Shared, Conn, publish) ->
-  #{topic := T, pubinterval := IRef, message := Msg, pub_counter := Cnt, qos := QoS} = Shared,
-  I = counters:get(IRef, 1),
-  set_timer(I),
+  #{topic := TP, pubinterval := I, message := Msg, pub_counter := Cnt, qos := QoS} = Shared,
+  send_after(I, publish),
+  T = emqttb_worker:format_topic(TP),
   emqttb_worker:call_with_counter(?AVG_PUB_TIME, emqtt, publish, [Conn, T, Msg, QoS]),
   emqttb_metrics:counter_inc(Cnt, 1),
   {ok, Conn};
@@ -102,9 +102,6 @@ error_fun(SetLatencyKey, Group) ->
 
 my_autorate(Group) ->
   list_to_atom("emqttb_pub_rate_" ++ atom_to_list(Group)).
-
-set_timer(I) ->
-  erlang:send_after(I, self(), publish).
 
 message(Size) ->
   list_to_binary([$A || _ <- lists:seq(1, Size)]).
