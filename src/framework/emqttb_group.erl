@@ -40,6 +40,7 @@
          , client_config := atom()
          , behavior      := {module(), map()}
          , parent        => pid()
+         , autorate      => atom()
          }.
 
 %%================================================================================
@@ -100,7 +101,7 @@ broadcast(Group, Message) ->
         , conf_prefix  :: lee:key()
         , scaling      :: #r{} | undefined
         , target       :: non_neg_integer() | undefined
-        , interval     :: emqttb:interval() | undefined
+        , interval     :: counters:counters_ref()
         , scale_timer  :: reference() | undefined
         , tick_timer   :: reference()
         , next_id = 0  :: non_neg_integer()
@@ -125,11 +126,13 @@ init([Conf]) ->
   BehSharedState = emqttb_worker:init_per_group(Behavior, ID, BehSettings),
   persistent_term:put(?GROUP_BEHAVIOR_SHARED_STATE(self()), BehSharedState),
   declare_metrics(ID),
+  {auto, Autorate} = create_autorate(ID, ConfID),
   S = #s{ id          = ID
         , behavior    = Behavior
         , conf_prefix = [groups, ConfID]
         , tick_timer  = set_tick_timer()
         , parent_ref  = maybe_monitor_parent(Conf)
+        , interval    = Autorate
         },
   {ok, S}.
 
@@ -200,7 +203,10 @@ wait_group_stop([MRef|Rest]) ->
       wait_group_stop(Rest)
   end.
 
-do_set_target(Target, Interval, OnComplete, S = #s{scaling = Scaling}) ->
+do_set_target(Target, InitInterval, OnComplete, S = #s{ scaling = Scaling
+                                                      , id = ID
+                                                      , interval = Interval
+                                                      }) ->
   N = n_clients(S),
   Direction = if Target > N   -> up;
                  Target =:= N -> stay;
@@ -212,6 +218,7 @@ do_set_target(Target, Interval, OnComplete, S = #s{scaling = Scaling}) ->
       OnComplete({ok, N}),
       S#s{scaling = undefined, target = Target, interval = Interval};
     _ ->
+      emqttb_autorate:reset(my_autorate(ID), InitInterval),
       start_scale(S, Direction, Target, Interval, OnComplete)
   end.
 
@@ -234,9 +241,10 @@ do_tick(S = #s{id = Id, target = Target}) ->
 
 do_scale(S0) ->
   #s{ target    = Target
-    , interval  = Interval
+    , interval  = IntervalCnt
     , id        = ID
     } = S0,
+  Interval = counters:get(IntervalCnt, 1),
   N = n_clients(S0),
   logger:debug("Scaling ~p; ~p -> ~p.", [ID, N, Target]),
   S = maybe_notify(N, S0),
@@ -261,7 +269,8 @@ scale_down(N, S0) ->
 set_tick_timer() ->
   erlang:send_after(?TICK_TIME, self(), tick).
 
-set_scale_timer(S = #s{scale_timer = undefined, interval = Interval}) ->
+set_scale_timer(S = #s{scale_timer = undefined, interval = IntervalCnt}) ->
+  Interval = counters:get(IntervalCnt, 1),
   S#s{scale_timer = erlang:send_after(Interval, self(), do_scale)};
 set_scale_timer(S) ->
   S.
@@ -321,3 +330,24 @@ declare_metrics(ID) ->
                              , {labels, [group]}
                              ]),
   emqttb_worker:new_opstat(ID, connect).
+
+create_autorate(ID, ConfID) ->
+  AutorateConf = #{ id        => my_autorate(ID)
+                  , conf_root => ?CFG([groups, {ConfID}, autoscale])
+                  , error     => fun() -> autoscale_error(ID) end
+                  },
+  emqttb_autorate:ensure(AutorateConf).
+
+autoscale_error(Group) ->
+  %% Note that dependency of number of pending operations on connect
+  %% interval is inverse: lesser interval -> clients connect more
+  %% often -> more load -> more pending operations
+  %%
+  %% So the control must be reversed, and error is the negative of what one usually
+  %% expects:
+  %% Current - Target instead of Target - Current.
+  Target = 100,
+  emqttb_metrics:get_counter(?GROUP_N_PENDING(Group, connect)) - Target.
+
+my_autorate(Group) ->
+  list_to_atom(atom_to_list(Group) ++ "_autoscale").

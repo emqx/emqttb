@@ -236,6 +236,15 @@ model() ->
          , cli_operand => "group"
          , cli_short   => $g
          }}
+   , autoscale =>
+       {[value, cli_param, pointer],
+        #{ oneliner    => "Pointer at autorate configuration"
+         , type        => atom()
+         , default     => default
+         , cli_operand => "autoscale"
+         , cli_short   => $A
+         , target_node => [autorate]
+         }}
    , lowmem =>
        {[value, cli_param],
         #{ oneliner    => "Reduce memory useage at the cost of CPU wherever possible"

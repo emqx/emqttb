@@ -74,6 +74,13 @@ model() ->
         , enabled =>
             {[value, os_env, cli_param],
              #{ oneliner    => "Enable REST API"
+              , doc         => [sect("rest", "REST API endpoints",
+                                     [ p("By default, REST API is disabled and emqttb runs in script mode.
+                                         To enable it, run the script with --restapi flag.")
+                                     , sect("rest-methods", "Methods",
+                                            [{itemlist,
+                                              emqttb_http:doc()}])
+                                     ])]
               , type        => boolean()
               , default     => false
               , cli_operand => "restapi"
@@ -233,11 +240,4 @@ intro() ->
            , li("Autoscale",
                 ["a function that scales the size of the group up or down."])
            ]}])
-  , sect("rest", "REST API endpoints",
-         [ p("By default, REST API is disabled and emqttb runs in script mode.
-              To enable it, run the script with --restapi flag.")
-         , sect("rest-methods", "Methods",
-                [{itemlist,
-                  emqttb_http:doc()}])
-         ])
   ].
