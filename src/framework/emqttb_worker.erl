@@ -78,15 +78,19 @@ init_per_group(Module, GroupID, Opts) ->
 %% Getters/utilities
 %%--------------------------------------------------------------------------------
 
--spec send_after(counters:counters_ref(), _Message) -> reference().
+-spec send_after(counters:counters_ref() | non_neg_integer(), _Message) -> reference().
+send_after(I, Message) when is_integer(I) ->
+  erlang:send_after(I, self(), Message);
 send_after(CRef, Message) ->
   I = counters:get(CRef, 1),
   erlang:send_after(I, self(), Message).
 
--spec send_after_rand(counters:counters_ref(), _Message) -> reference().
+-spec send_after_rand(counters:counters_ref() | non_neg_integer(), _Message) -> reference().
+send_after_rand(I, Message) when is_integer(I) ->
+  erlang:send_after(rand:uniform(I + 1), self(), Message);
 send_after_rand(CRef, Message) ->
   I = counters:get(CRef, 1),
-  erlang:send_after(rand:uniform(I + 1), self(), Message).
+  send_after_rand(I, Message).
 
 -spec my_group() -> emqttb:group().
 my_group() ->
