@@ -36,25 +36,27 @@
 init_per_group(Group,
                #{ topic  := Topic
                 , qos    := QoS
-                , expiry := Expiry
-                }) when is_binary(Topic) ->
+                } = Opts) when is_binary(Topic) ->
   SubCnt = emqttb_metrics:new_counter(?CNT_SUB_MESSAGES(Group),
                                       [ {help, <<"Number of received messages">>}
                                       , {labels, [group]}
                                       ]),
   emqttb_worker:new_opstat(Group, ?AVG_SUB_TIME),
+  Expiry = maps:get(expiry, Opts, 0),
+  CleanStart = maps:get(clean_start, Opts, true),
   #{ topic       => Topic
    , sub_counter => SubCnt
    , qos         => QoS
    , expiry      => Expiry
+   , clean_start => CleanStart
    }.
 
-init(#{topic := T, qos := QoS, expiry := Expiry}) ->
+init(#{topic := T, qos := QoS, expiry := Expiry, clean_start := CleanStart}) ->
   Props = case Expiry of
             undefined -> #{};
             _         -> #{'Session-Expiry-Interval' => Expiry}
           end,
-  {ok, Conn} = emqttb_worker:connect(Props),
+  {ok, Conn} = emqttb_worker:connect(Props, [{clean_start, CleanStart}], [], []),
   emqttb_worker:call_with_counter(?AVG_SUB_TIME, emqtt, subscribe, [Conn, emqttb_worker:format_topic(T), QoS]),
   Conn.
 

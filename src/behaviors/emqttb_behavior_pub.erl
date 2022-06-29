@@ -34,9 +34,6 @@
 %% Type declarations
 %%================================================================================
 
--define(CNT_PUB_MESSAGES(GRP), {emqttb_published_messages, GRP}).
--define(AVG_PUB_TIME, publish).
-
 -type config() :: #{ topic       := binary()
                    , pubinterval := counters:counters_ref()
                    , qos         := emqttb:qos()

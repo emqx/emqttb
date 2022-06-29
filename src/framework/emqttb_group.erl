@@ -18,7 +18,7 @@
 -behavior(gen_server).
 
 %% API:
--export([ensure/1, set_target/3, set_target_async/3, broadcast/2]).
+-export([ensure/1, stop/1, set_target/3, set_target_async/3, broadcast/2]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
@@ -50,6 +50,10 @@
 -spec ensure(group_config()) -> ok.
 ensure(Conf) ->
   emqttb_group_sup:ensure(Conf#{parent => self()}).
+
+-spec stop(atom()) -> ok.
+stop(ID) ->
+  emqttb_group_sup:stop(ID).
 
 %% @doc Autoscale the group to the target number of workers. Returns
 %% value when the target or a ratelimit has been reached, or error
