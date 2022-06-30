@@ -2,7 +2,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, ensure/1]).
+-export([start_link/0, ensure/1, stop/1]).
 
 -export([init/1]).
 
@@ -30,6 +30,10 @@ ensure(Options = #{id := Id}) ->
     {error, already_present} ->
       supervisor:restart_child(?SERVER, Id)
   end.
+
+-spec stop(atom()) -> ok.
+stop(ID) ->
+  supervisor:terminate_child(?SERVER, ID).
 
 init([]) ->
   SupFlags = #{ strategy => one_for_one

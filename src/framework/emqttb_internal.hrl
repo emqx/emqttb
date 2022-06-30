@@ -31,5 +31,11 @@
 -define(GROUP_N_PENDING(GRP, OP), {group_n_pending, {GRP, OP}}).
 -define(AUTORATE_RATE(ID), {autorate_rate, ID}).
 -define(AUTORATE_CONTROL(ID, TERM), {autorate_control, {ID, TERM}}).
+%%  Publisher
+-define(CNT_PUB_MESSAGES(GRP), {emqttb_published_messages, GRP}).
+-define(AVG_PUB_TIME, publish).
+%%  Subscriber
+-define(CNT_SUB_MESSAGES(GRP), {emqttb_received_messages, GRP}).
+-define(AVG_SUB_TIME, subscribe).
 
 -endif.
