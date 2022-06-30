@@ -128,7 +128,7 @@ model() ->
               }}
         , pub_time =>
             {[value, cli_param],
-             #{ oneliner => "Suffix of the topic to publish to"
+             #{ oneliner => "Period of time while publishing will last (ms)"
               , type => non_neg_integer()
               , default => 5_0000
               , cli_operand => "pubtime"
