@@ -111,8 +111,9 @@ format_topic(Pattern) ->
 %% @doc Get group-specific configuration (as opposed to global)
 -spec my_cfg(lee:key()) -> term().
 my_cfg(Key) ->
-  ConfId = ?GROUP_CONF_ID(group_leader()),
-  ?CFG([groups, ConfId | Key]).
+  ConfKey = ?GROUP_CONF_ID(group_leader()),
+  ConfId = persistent_term:get(ConfKey),
+  ?CFG([groups, {ConfId} | Key]).
 
 -spec my_clientid() -> binary().
 my_clientid() ->
