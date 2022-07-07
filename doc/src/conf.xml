@@ -94,6 +94,40 @@
       </section>
     </doc>
   </node>
+  <node id="scenarios/emqttb_scenario_pubsub_forward">
+    <doc lang="en">
+      <section>
+        <title>Description</title>
+        <para>
+          First all subscribers connect and subscribe to the brokers, then
+          the publishers start to connect and publish.  The default is to use
+          full forwarding of messages between the nodes: that is, each
+          publisher client publishes to a topic subscribed by a single
+          client, and both clients reside on distinct nodes.
+        </para>
+        <para>
+          Full forwarding of messages is the default and can be set by <link linkend="full_forwarding"/>.
+        </para>
+      </section>
+      <section>
+        <title>Examples</title>
+        <section>
+          <title>Basic usage</title>
+          <programlisting language="bash"><![CDATA[./emqttb --restapi @pubsub_fwd --publatency 10 --num-clients 400 -i 70 @g -h 172.25.0.2:1883,172.25.0.3:1883,172.25.0.4:1883]]>
+          </programlisting>
+          <para>
+            In this example the loadgen connects to a list of brokers
+            in a round-robin in the declared order.  First all the
+            subscribers, then the publishers, with the difference that
+            publishers will shift the given host list by one position
+            to ensure each publisher and subscriber pair will reside
+            on different hosts, thus forcing all messages to be
+            forwarded.
+          </para>
+        </section>
+      </section>
+    </doc>
+  </node>
   <node id="scenarios/emqttb_scenario_pub/{}/topic">
     <doc lang="en">
       <para>
