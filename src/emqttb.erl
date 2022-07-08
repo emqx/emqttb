@@ -51,6 +51,8 @@
 
 -type qos() :: 0..2.
 
+-type ssl_verify() :: verify_peer | verify_none.
+
 -type net_port() :: 1..65535.
 
 -type hosts() :: [{string(), net_port()} | string()].
@@ -59,7 +61,7 @@
 -type ifaddr_list() :: nonempty_list(typerefl:ip_address()).
 -typerefl_from_string({ifaddr_list/0, ?MODULE, parse_addresses}).
 
--reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0, qos/0, net_port/0, hosts/0, ifaddr_list/0]).
+-reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0, qos/0, net_port/0, hosts/0, ifaddr_list/0, ssl_verify/0]).
 
 %%================================================================================
 %% API funcions

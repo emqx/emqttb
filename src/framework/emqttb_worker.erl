@@ -387,6 +387,12 @@ model() ->
               , default     => ""
               , cli_operand => "keyfile"
               }}
+        , verify =>
+            {[value, undocumented],
+             #{ oneliner    => "If the client should validate the server identity"
+              , type        => emqttb:ssl_verify()
+              , default     => verify_none
+              }}
         }
    }.
 
@@ -476,7 +482,9 @@ ssl_opts() ->
   Keyfile = my_cfg([ssl, keyfile]),
   [{certfile, Cert} || Cert =/= []] ++
   [{keyfile, Keyfile} || Keyfile =/= []] ++
-  [{ciphers, all_ssl_ciphers()}].
+  [ {ciphers, all_ssl_ciphers()}
+  , {verify, my_cfg([ssl, verify])}
+  ].
 
 all_ssl_ciphers() ->
   Vers = ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3'],
