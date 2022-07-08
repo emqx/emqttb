@@ -80,13 +80,13 @@ init_per_group(Group,
                                             , conf_root => AutorateConf
                                             }),
   MetadataSize = case AddMetadata of
-                   true  -> 32 + 32 + 64;
+                   true  -> (32 + 32 + 64) div 8;
                    false -> 0
                  end,
   HostShift = maps:get(host_shift, Conf, 0),
   HostSelection = maps:get(host_selection, Conf, random),
   #{ topic => Topic
-   , message => message(MsgSize - MetadataSize)
+   , message => message(max(0, MsgSize - MetadataSize))
    , pub_counter => PubCnt
    , qos => QoS
    , pubinterval => PubRate
