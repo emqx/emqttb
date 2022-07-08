@@ -154,10 +154,12 @@ do_run() ->
 
 subscribe_stage() ->
   TopicPrefix = topic_prefix(),
-  SubOpts = #{ topic       => <<TopicPrefix/binary, "%n">>
-             , qos         => my_conf([sub, qos])
-             , expiry      => undefined
-             , clean_start => true
+  SubOpts = #{ topic          => <<TopicPrefix/binary, "%n">>
+             , qos            => my_conf([sub, qos])
+             , expiry         => undefined
+             , clean_start    => true
+             , host_shift     => 0
+             , host_selection => round_robin
              },
   emqttb_group:ensure(#{ id            => ?SUB_GROUP
                        , client_config => my_conf([group])
@@ -174,13 +176,14 @@ publish_stage() ->
                   true -> 1;
                   false -> 0
               end,
-  PubOpts = #{ topic       => <<TopicPrefix/binary, "%n">>
-             , pubinterval => my_conf([pub, pubinterval])
-             , msg_size    => my_conf([pub, msg_size])
-             , qos         => my_conf([pub, qos])
-             , set_latency => my_conf_key([pub, set_pub_latency])
-             , metadata    => true
-             , host_shift  => HostShift
+  PubOpts = #{ topic          => <<TopicPrefix/binary, "%n">>
+             , pubinterval    => my_conf([pub, pubinterval])
+             , msg_size       => my_conf([pub, msg_size])
+             , qos            => my_conf([pub, qos])
+             , set_latency    => my_conf_key([pub, set_pub_latency])
+             , metadata       => true
+             , host_shift     => HostShift
+             , host_selection => round_robin
              },
   emqttb_group:ensure(#{ id            => ?PUB_GROUP
                        , client_config => my_conf([group])

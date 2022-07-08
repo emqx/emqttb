@@ -44,17 +44,22 @@ init_per_group(Group,
   emqttb_worker:new_opstat(Group, ?AVG_SUB_TIME),
   Expiry = maps:get(expiry, Opts, 0),
   CleanStart = maps:get(clean_start, Opts, true),
+  HostShift = maps:get(host_shift, Opts, 0),
+  HostSelection = maps:get(host_selection, Opts, random),
   #{ topic       => Topic
    , sub_counter => SubCnt
    , qos         => QoS
    , expiry      => Expiry
    , clean_start => CleanStart
+   , host_shift => HostShift
+   , host_selection => HostSelection
    }.
 
-init(#{topic := T, qos := QoS, expiry := Expiry, clean_start := CleanStart}) ->
+init(SubOpts0 = #{topic := T, qos := QoS, expiry := Expiry, clean_start := CleanStart}) ->
+  SubOpts = maps:with([host_shift, host_selection], SubOpts0),
   Props = case Expiry of
-            undefined -> #{};
-            _         -> #{'Session-Expiry-Interval' => Expiry}
+            undefined -> SubOpts#{};
+            _         -> SubOpts#{'Session-Expiry-Interval' => Expiry}
           end,
   {ok, Conn} = emqttb_worker:connect(Props, [{clean_start, CleanStart}], [], []),
   emqttb_worker:call_with_counter(?AVG_SUB_TIME, emqtt, subscribe, [Conn, emqttb_worker:format_topic(T), QoS]),

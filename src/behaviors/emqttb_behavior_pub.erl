@@ -84,6 +84,7 @@ init_per_group(Group,
                    false -> 0
                  end,
   HostShift = maps:get(host_shift, Conf, 0),
+  HostSelection = maps:get(host_selection, Conf, random),
   #{ topic => Topic
    , message => message(MsgSize - MetadataSize)
    , pub_counter => PubCnt
@@ -91,13 +92,17 @@ init_per_group(Group,
    , pubinterval => PubRate
    , metadata => AddMetadata
    , host_shift => HostShift
+   , host_selection => HostSelection
    }.
 
 init(PubOpts = #{pubinterval := I}) ->
   rand:seed(default),
   send_after_rand(I, publish),
   HostShift = maps:get(host_shift, PubOpts, 0),
-  {ok, Conn} = emqttb_worker:connect(#{host_shift => HostShift}),
+  HostSelection = maps:get(host_selection, PubOpts, random),
+  {ok, Conn} = emqttb_worker:connect(#{ host_shift => HostShift
+                                      , host_selection => HostSelection
+                                      }),
   Conn.
 
 handle_message(Shared, Conn, publish) ->

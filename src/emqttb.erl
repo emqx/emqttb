@@ -58,10 +58,12 @@
 -type hosts() :: [{string(), net_port()} | string()].
 -typerefl_from_string({hosts/0, ?MODULE, parse_hosts}).
 
+-type host_selection() :: round_robin | random.
+
 -type ifaddr_list() :: nonempty_list(typerefl:ip_address()).
 -typerefl_from_string({ifaddr_list/0, ?MODULE, parse_addresses}).
 
--reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0, qos/0, net_port/0, hosts/0, ifaddr_list/0, ssl_verify/0]).
+-reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0, qos/0, net_port/0, hosts/0, ifaddr_list/0, ssl_verify/0, host_selection/0]).
 
 %%================================================================================
 %% API funcions

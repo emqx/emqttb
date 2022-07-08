@@ -139,7 +139,8 @@ connect(Properties) ->
 -spec connect(map(), [emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
 connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
   HostShift = maps:get(host_shift, Properties0, 0),
-  Properties = maps:without([host_shift], Properties0),
+  HostSelection = maps:get(host_selection, Properties0, random),
+  Properties = maps:without([host_shift, host_selection], Properties0),
   Username  = my_cfg([client, username]),
   Password  = my_cfg([client, password]),
   SSL       = my_cfg([ssl, enable]),
@@ -148,7 +149,7 @@ connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
          ++ [ {ssl_opts,     CustomSslOptions ++ ssl_opts()} || SSL]
          ++ [ {clientid,     my_clientid()}
             , {max_inflight, my_cfg([connection, inflight])}
-            , {hosts,        [broker_host(HostShift)]}
+            , {hosts,        [broker_host(HostSelection, HostShift)]}
             , {port,         get_port()}
             , {proto_ver,    my_cfg([connection, proto_ver])}
             , {low_mem,      my_cfg([lowmem])}
@@ -452,8 +453,11 @@ connect_fun()->
             connect
     end.
 
--spec broker_host(integer()) -> {string(), inet:port_number()}.
-broker_host(HostShift) ->
+-spec broker_host(emqttb:host_selection(), integer()) -> {string(), inet:port_number()}.
+broker_host(random, _HostShift) ->
+  Hosts = broker_hosts(),
+  lists:nth(rand:uniform(length(Hosts)), Hosts);
+broker_host(round_robin, HostShift) ->
   MyID = my_id(),
   Hosts = broker_hosts(),
   NHosts = length(Hosts),
