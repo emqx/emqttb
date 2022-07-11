@@ -137,16 +137,19 @@ connect(Properties) ->
   connect(Properties, [], [], []).
 
 -spec connect(map(), [emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
-connect(Properties, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
-  Username = my_cfg([client, username]),
-  Password = my_cfg([client, password]),
-  SSL      = my_cfg([ssl, enable]),
+connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
+  HostShift = maps:get(host_shift, Properties0, 0),
+  HostSelection = maps:get(host_selection, Properties0, random),
+  Properties = maps:without([host_shift, host_selection], Properties0),
+  Username  = my_cfg([client, username]),
+  Password  = my_cfg([client, password]),
+  SSL       = my_cfg([ssl, enable]),
   Options = [ {username,     Username} || Username =/= undefined]
          ++ [ {password,     Password} || Password =/= undefined]
          ++ [ {ssl_opts,     CustomSslOptions ++ ssl_opts()} || SSL]
          ++ [ {clientid,     my_clientid()}
             , {max_inflight, my_cfg([connection, inflight])}
-            , {hosts,        broker_hosts()}
+            , {hosts,        broker_hosts(HostSelection, HostShift)}
             , {port,         get_port()}
             , {proto_ver,    my_cfg([connection, proto_ver])}
             , {low_mem,      my_cfg([lowmem])}
@@ -295,7 +298,7 @@ model() ->
               }}
         , port =>
             {[value, cli_param],
-             #{ oneliner    => "Hostname of the target broker"
+             #{ oneliner    => "Port of the target broker"
               , type        => union(emqttb:net_port(), default)
               , default     => default
               , cli_operand => "port"
@@ -385,6 +388,12 @@ model() ->
               , default     => ""
               , cli_operand => "keyfile"
               }}
+        , verify =>
+            {[value, undocumented],
+             #{ oneliner    => "If the client should validate the server identity"
+              , type        => emqttb:ssl_verify()
+              , default     => verify_none
+              }}
         }
    }.
 
@@ -444,8 +453,18 @@ connect_fun()->
             connect
     end.
 
--spec broker_hosts() -> [{string(), inet:port_number()}].
-broker_hosts() ->
+-spec broker_hosts(emqttb:host_selection(), integer()) -> [{string(), inet:port_number()}].
+broker_hosts(random, _HostShift) ->
+  Hosts = all_broker_hosts(),
+  [X || {_Weight, X} <- lists:keysort(1, [{rand:uniform(), X} || X <- Hosts])];
+broker_hosts(round_robin, HostShift) ->
+  MyID = my_id(),
+  Hosts = all_broker_hosts(),
+  NHosts = length(Hosts),
+  [lists:nth(1 + ((HostShift + MyID) rem NHosts), Hosts)].
+
+-spec all_broker_hosts() -> [{string(), inet:port_number()}].
+all_broker_hosts() ->
   lists:map(
     fun({Host, Port}) -> {Host, Port};
        (Host)         -> {Host, get_port()}
@@ -467,7 +486,9 @@ ssl_opts() ->
   Keyfile = my_cfg([ssl, keyfile]),
   [{certfile, Cert} || Cert =/= []] ++
   [{keyfile, Keyfile} || Keyfile =/= []] ++
-  [{ciphers, all_ssl_ciphers()}].
+  [ {ciphers, all_ssl_ciphers()}
+  , {verify, my_cfg([ssl, verify])}
+  ].
 
 all_ssl_ciphers() ->
   Vers = ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3'],
