@@ -149,7 +149,7 @@ connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
          ++ [ {ssl_opts,     CustomSslOptions ++ ssl_opts()} || SSL]
          ++ [ {clientid,     my_clientid()}
             , {max_inflight, my_cfg([connection, inflight])}
-            , {hosts,        [broker_host(HostSelection, HostShift)]}
+            , {hosts,        broker_hosts(HostSelection, HostShift)}
             , {port,         get_port()}
             , {proto_ver,    my_cfg([connection, proto_ver])}
             , {low_mem,      my_cfg([lowmem])}
@@ -453,18 +453,18 @@ connect_fun()->
             connect
     end.
 
--spec broker_host(emqttb:host_selection(), integer()) -> {string(), inet:port_number()}.
-broker_host(random, _HostShift) ->
-  Hosts = broker_hosts(),
-  lists:nth(rand:uniform(length(Hosts)), Hosts);
-broker_host(round_robin, HostShift) ->
+-spec broker_hosts(emqttb:host_selection(), integer()) -> [{string(), inet:port_number()}].
+broker_hosts(random, _HostShift) ->
+  Hosts = all_broker_hosts(),
+  [X || {_Weight, X} <- lists:keysort(1, [{rand:uniform(), X} || X <- Hosts])];
+broker_hosts(round_robin, HostShift) ->
   MyID = my_id(),
-  Hosts = broker_hosts(),
+  Hosts = all_broker_hosts(),
   NHosts = length(Hosts),
-  lists:nth(1 + ((HostShift + MyID) rem NHosts), Hosts).
+  [lists:nth(1 + ((HostShift + MyID) rem NHosts), Hosts)].
 
--spec broker_hosts() -> [{string(), inet:port_number()}].
-broker_hosts() ->
+-spec all_broker_hosts() -> [{string(), inet:port_number()}].
+all_broker_hosts() ->
   lists:map(
     fun({Host, Port}) -> {Host, Port};
        (Host)         -> {Host, get_port()}
