@@ -262,10 +262,16 @@ do_scale(S0) ->
       S
   end.
 
-scale_up(N, S = #s{behavior = Behavior, id = Id, next_id = WorkerId}) ->
-  _Pid = emqttb_worker:start(Behavior, self(), WorkerId),
-  ?tp(start_worker, #{group => Id, pid => _Pid}),
-  S#s{next_id = WorkerId + 1}.
+scale_up(N, S = #s{behavior = Behavior, id = Id}) ->
+  lists:foldl(
+   fun(_, Acc = #s{next_id = WorkerId}) ->
+     _Pid = emqttb_worker:start(Behavior, self(), WorkerId),
+     ?tp(start_worker, #{group => Id, pid => _Pid}),
+     Acc#s{next_id = WorkerId + 1}
+   end,
+   S,
+   lists:seq(1, 100)).
+
 
 scale_down(N, S0) ->
   S0.
