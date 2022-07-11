@@ -280,6 +280,13 @@ model() ->
          , cli_short   => $A
          , target_node => [autorate]
          }}
+   , spawn_multiplier =>
+      {[value, cli_param],
+        #{ oneliner    => "Amount to multiply the spawn rate with"
+         , type        => pos_integer()
+         , default     => 1
+         , cli_operand => "spawn-multiplier"
+         }}
    , lowmem =>
        {[value, cli_param],
         #{ oneliner    => "Reduce memory useage at the cost of CPU wherever possible"

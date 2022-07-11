@@ -100,16 +100,17 @@ broadcast(Group, Message) ->
         }).
 
 -record(s,
-        { id           :: atom()
-        , behavior     :: module()
-        , conf_prefix  :: lee:key()
-        , scaling      :: #r{} | undefined
-        , target       :: non_neg_integer() | undefined
-        , interval     :: counters:counters_ref()
-        , scale_timer  :: reference() | undefined
-        , tick_timer   :: reference()
-        , next_id = 0  :: non_neg_integer()
-        , parent_ref   :: reference() | undefined
+        { id               :: atom()
+        , behavior         :: module()
+        , conf_prefix      :: lee:key()
+        , scaling          :: #r{} | undefined
+        , target           :: non_neg_integer() | undefined
+        , interval         :: counters:counters_ref()
+        , scale_timer      :: reference() | undefined
+        , tick_timer       :: reference()
+        , next_id = 0      :: non_neg_integer()
+        , parent_ref       :: reference() | undefined
+        , spawn_multiplier :: pos_integer()
         }).
 
 -define(TICK_TIME, 1000).
@@ -131,12 +132,14 @@ init([Conf]) ->
   persistent_term:put(?GROUP_BEHAVIOR_SHARED_STATE(self()), BehSharedState),
   declare_metrics(ID),
   {auto, Autorate} = create_autorate(ID, ConfID),
+  SpawnMultiplier = ?CFG([groups, {ConfID}, spawn_multiplier]),
   S = #s{ id          = ID
         , behavior    = Behavior
         , conf_prefix = [groups, ConfID]
         , tick_timer  = set_tick_timer()
         , parent_ref  = maybe_monitor_parent(Conf)
         , interval    = Autorate
+        , spawn_multiplier = SpawnMultiplier
         },
   {ok, S}.
 
@@ -262,10 +265,15 @@ do_scale(S0) ->
       S
   end.
 
-scale_up(N, S = #s{behavior = Behavior, id = Id, next_id = WorkerId}) ->
-  _Pid = emqttb_worker:start(Behavior, self(), WorkerId),
-  ?tp(start_worker, #{group => Id, pid => _Pid}),
-  S#s{next_id = WorkerId + 1}.
+scale_up(N, S = #s{behavior = Behavior, id = Id, spawn_multiplier = SpawnMultiplier}) ->
+  lists:foldl(
+   fun(_, Acc = #s{next_id = WorkerId}) ->
+     _Pid = emqttb_worker:start(Behavior, self(), WorkerId),
+     ?tp(start_worker, #{group => Id, pid => _Pid}),
+     Acc#s{next_id = WorkerId + 1}
+   end,
+   S,
+   lists:seq(1, SpawnMultiplier)).
 
 scale_down(N, S0) ->
   S0.
