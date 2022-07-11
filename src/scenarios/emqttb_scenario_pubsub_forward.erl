@@ -130,7 +130,7 @@ model() ->
          }}
    , full_forwarding =>
        {[value, cli_param],
-        #{ oneliner => "Wheter all messages should be forwarded between nodes"
+        #{ oneliner => "Whether all messages should be forwarded between nodes"
          , type => boolean()
          , default => true
          , cli_operand => "full-forwarding"
