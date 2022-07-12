@@ -64,23 +64,23 @@ model() ->
    , msg_size =>
        {[value, cli_param],
         #{ oneliner => "Size of the published message in bytes"
-         , type => non_neg_integer()
+         , type => emqttb:byte_size()
          , cli_operand => "size"
          , cli_short => $s
          , default => 256
          }}
    , conninterval =>
        {[value, cli_param],
-        #{ oneliner => "Client connection interval"
-         , type => emqttb:interval()
+        #{ oneliner => "Client connection interval (μs)"
+         , type => emqttb:duration_us()
          , default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
          }}
    , pubinterval =>
        {[value, cli_param],
-        #{ oneliner => "Message publishing interval"
-         , type => emqttb:interval()
+        #{ oneliner => "Message publishing interval (μs)"
+         , type => emqttb:duration_us()
          , default_ref => [interval]
          , cli_operand => "pubinterval"
          , cli_short => $i
@@ -141,7 +141,7 @@ run() ->
   Interval = my_conf([conninterval]),
   set_stage(ramp_up),
   N = my_conf([n_clients]),
-  {ok, N} = emqttb_group:set_target(pub_group, N, Interval),
+  {ok, _} = emqttb_group:set_target(pub_group, N, Interval),
   set_stage(run_traffic),
   loiter(),
   complete(ok).

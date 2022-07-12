@@ -17,7 +17,7 @@
 
 %% Worker API:
 -export([my_group/0, my_id/0, my_clientid/0, my_hostname/0, my_cfg/1,
-         send_after/2, send_after_rand/2,
+         send_after/2, send_after_rand/2, repeat/2,
          connect/1, connect/4,
          format_topic/1,
          new_opstat/2, call_with_counter/4]).
@@ -78,19 +78,20 @@ init_per_group(Module, GroupID, Opts) ->
 %% Getters/utilities
 %%--------------------------------------------------------------------------------
 
--spec send_after(counters:counters_ref() | non_neg_integer(), _Message) -> reference().
-send_after(I, Message) when is_integer(I) ->
-  erlang:send_after(I, self(), Message);
-send_after(CRef, Message) ->
-  I = counters:get(CRef, 1),
+-spec repeat(non_neg_integer(), fun(() -> _)) -> ok.
+repeat(0, _) ->
+  ok;
+repeat(N, Fun) ->
+  Fun(),
+  repeat(N - 1, Fun).
+
+-spec send_after(non_neg_integer(), _Message) -> reference().
+send_after(I, Message) ->
   erlang:send_after(I, self(), Message).
 
--spec send_after_rand(counters:counters_ref() | non_neg_integer(), _Message) -> reference().
+-spec send_after_rand(non_neg_integer(), _Message) -> reference().
 send_after_rand(I, Message) when is_integer(I) ->
-  erlang:send_after(rand:uniform(I + 1), self(), Message);
-send_after_rand(CRef, Message) ->
-  I = counters:get(CRef, 1),
-  send_after_rand(I, Message).
+  erlang:send_after(rand:uniform(I + 1), self(), Message).
 
 -spec my_group() -> emqttb:group().
 my_group() ->

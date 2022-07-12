@@ -16,13 +16,14 @@
 -module(emqttb).
 
 %% API:
--export([main/1, terminate/0, setfail/1]).
+-export([main/1, terminate/0, setfail/1, get_duration_and_repeats/1, duration_to_sleep/1]).
 
 %% behavior callbacks:
 -export([]).
 
 %% internal exports:
--export([n_clients/0, parse_hosts/1, parse_addresses/1]).
+-export([n_clients/0, parse_hosts/1, parse_addresses/1, parse_duration_us/1, parse_duration_ms/1,
+         parse_byte_size/1]).
 
 -export_type([n_clients/0]).
 
@@ -34,7 +35,10 @@
 %%================================================================================
 
 -type duration_us() :: integer().
--typerefl_from_string({duration_us/0, ?MODULE, parse_duration}).
+-typerefl_from_string({duration_us/0, ?MODULE, parse_duration_us}).
+
+-type duration_ms() :: integer().
+-typerefl_from_string({duration_ms/0, ?MODULE, parse_duration_ms}).
 
 -type scenario() :: atom().
 
@@ -46,8 +50,6 @@
 
 -type autorate() :: atom().
 
--type interval() :: non_neg_integer() | {auto, autorate()}.
-
 -type transport() :: sock | ws | quic.
 
 -type proto_ver() :: v3 | v4 | v5.
@@ -58,6 +60,9 @@
 
 -type net_port() :: 1..65535.
 
+-type byte_size() :: non_neg_integer().
+-typerefl_from_string({byte_size/0, ?MODULE, parse_byte_size}).
+
 -type hosts() :: [{string(), net_port()} | string()].
 -typerefl_from_string({hosts/0, ?MODULE, parse_hosts}).
 
@@ -66,7 +71,9 @@
 -type ifaddr_list() :: nonempty_list(typerefl:ip_address()).
 -typerefl_from_string({ifaddr_list/0, ?MODULE, parse_addresses}).
 
--reflect_type([scenario/0, stage/0, group/0, interval/0, transport/0, proto_ver/0, qos/0, net_port/0, hosts/0, ifaddr_list/0, ssl_verify/0, host_selection/0]).
+-reflect_type([scenario/0, stage/0, group/0, transport/0, proto_ver/0, qos/0,
+               net_port/0, hosts/0, ifaddr_list/0, ssl_verify/0, host_selection/0,
+               duration_ms/0, duration_us/0, byte_size/0]).
 
 %%================================================================================
 %% API funcions
@@ -90,6 +97,21 @@ main(Args) ->
 setfail(Reason) ->
   application:set_env(emqttb, fail_reason, Reason),
   application:set_env(emqttb, is_fail, true).
+
+-spec duration_to_sleep(duration_us()) -> {non_neg_integer(), 1..1000}.
+duration_to_sleep(0) ->
+  {0, 1_000};
+duration_to_sleep(DurationUs) when DurationUs >= 1_000 ->
+  {DurationUs div 1_000, 1};
+duration_to_sleep(DurationUs) ->
+  {0, 1_000 div DurationUs}.
+
+-spec get_duration_and_repeats(counters:counters_ref() | non_neg_integer()) ->
+        {non_neg_integer(), 1..1000}.
+get_duration_and_repeats(I) when is_integer(I) ->
+  duration_to_sleep(I);
+get_duration_and_repeats(CRef) ->
+  get_duration_and_repeats(counters:get(CRef, 1)).
 
 %%================================================================================
 %% Internal exports
@@ -124,15 +146,35 @@ parse_addresses(Str) ->
       error
   end.
 
-parse_duration(Str) ->
+parse_duration_us(Str) ->
+  {Int, Unit0} = string:to_integer(Str),
+  Unit = string:trim(Unit0),
+  case Unit of
+    ""   -> {ok, Int * 1_000};
+    "us" -> {ok, Int};
+    "μs" -> {ok, Int};
+    "ms" -> {ok, Int * 1_000};
+    "s"  -> {ok, Int * 1_000_000};
+    _    -> error
+  end.
+
+parse_duration_ms(Str) ->
   {Int, Unit0} = string:to_integer(Str),
   Unit = string:trim(Unit0),
   case Unit of
     ""   -> {ok, Int};
-    "us" -> {ok, Int};
-    "ms" -> {ok, Int * 1_000};
-    "s"  -> {ok, Int * 1_000_000};
+    "ms" -> {ok, Int};
+    "s"  -> {ok, Int * 1_000};
     _    -> error
+  end.
+
+parse_byte_size(Str) ->
+  {Int, Unit0} = string:to_integer(Str),
+  Unit = string:trim(Unit0),
+  case string:to_lower(Unit) of
+    ""   -> {ok, Int};
+    "kb" -> {ok, Int * 1024};
+    "mb" -> {ok, Int * 1024 * 1024}
   end.
 
 parse_hosts(Str) ->

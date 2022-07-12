@@ -230,9 +230,9 @@ start_scale(S0, Direction, Target, Interval, OnComplete) ->
   Scaling = #r{ direction   = Direction
               , on_complete = OnComplete
               },
-  S = S0#s{scaling = Scaling, target = Target, interval = Interval},
+  S = S0#s{scaling = Scaling, target = Target},
   logger:info("Group ~p is scaling ~p...", [S0#s.id, Direction]),
-  set_scale_timer(S).
+  set_scale_timer(0, S).
 
 do_tick(S = #s{id = Id, target = Target}) ->
   N = n_clients(S),
@@ -248,24 +248,27 @@ do_scale(S0) ->
     , interval  = IntervalCnt
     , id        = ID
     } = S0,
-  Interval = counters:get(IntervalCnt, 1),
   N = n_clients(S0),
+  {SleepTime, NRepeats0} = emqttb:get_duration_and_repeats(IntervalCnt),
+  NRepeats = min(abs(Target - N), NRepeats0),
   logger:debug("Scaling ~p; ~p -> ~p.", [ID, N, Target]),
   S = maybe_notify(N, S0),
   if N < Target ->
-      S1 = set_scale_timer(S),
-      scale_up(N, S1);
+      S1 = set_scale_timer(SleepTime, S),
+      scale_up(NRepeats, S1);
      N > Target ->
-      S1 = set_scale_timer(S),
-      scale_down(N, S1);
+      S1 = set_scale_timer(SleepTime, S),
+      scale_down(NRepeats, S1);
      true ->
       S
   end.
 
-scale_up(N, S = #s{behavior = Behavior, id = Id, next_id = WorkerId}) ->
+scale_up(0, S) ->
+  S;
+scale_up(NRepeats, S = #s{behavior = Behavior, id = Id, next_id = WorkerId}) ->
   _Pid = emqttb_worker:start(Behavior, self(), WorkerId),
   ?tp(start_worker, #{group => Id, pid => _Pid}),
-  S#s{next_id = WorkerId + 1}.
+  scale_up(NRepeats - 1, S#s{next_id = WorkerId + 1}).
 
 scale_down(N, S0) ->
   S0.
@@ -273,10 +276,9 @@ scale_down(N, S0) ->
 set_tick_timer() ->
   erlang:send_after(?TICK_TIME, self(), tick).
 
-set_scale_timer(S = #s{scale_timer = undefined, interval = IntervalCnt}) ->
-  Interval = counters:get(IntervalCnt, 1),
-  S#s{scale_timer = erlang:send_after(Interval, self(), do_scale)};
-set_scale_timer(S) ->
+set_scale_timer(SleepTime, S = #s{scale_timer = undefined}) ->
+  S#s{scale_timer = erlang:send_after(SleepTime, self(), do_scale)};
+set_scale_timer(_SleepTime, S) ->
   S.
 
 maybe_notify(_, S = #s{scaling = undefined}) ->
