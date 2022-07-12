@@ -33,6 +33,9 @@
 %% Type declarations
 %%================================================================================
 
+-type duration_us() :: integer().
+-typerefl_from_string({duration_us/0, ?MODULE, parse_duration}).
+
 -type scenario() :: atom().
 
 -type stage() :: atom().
@@ -119,6 +122,17 @@ parse_addresses(Str) ->
       {ok, [I || {ok, I} <- L]};
     _ ->
       error
+  end.
+
+parse_duration(Str) ->
+  {Int, Unit0} = string:to_integer(Str),
+  Unit = string:trim(Unit0),
+  case Unit of
+    ""   -> {ok, Int};
+    "us" -> {ok, Int};
+    "ms" -> {ok, Int * 1_000};
+    "s"  -> {ok, Int * 1_000_000};
+    _    -> error
   end.
 
 parse_hosts(Str) ->
