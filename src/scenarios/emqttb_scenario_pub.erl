@@ -117,6 +117,13 @@ model() ->
          , cli_operand => "pubautorate"
          , target_node => [autorate]
          }}
+   , metadata =>
+       {[value, cli_param],
+        #{ oneliner    => "Add metadata to the messages"
+         , type        => boolean()
+         , default     => false
+         , cli_operand => "metadata"
+         }}
    }.
 
 run() ->
@@ -125,6 +132,7 @@ run() ->
              , msg_size    => my_conf([msg_size])
              , qos         => my_conf([qos])
              , set_latency => my_conf_key([set_pub_latency])
+             , metadata    => my_conf([metadata])
              },
   emqttb_group:ensure(#{ id            => pub_group
                        , client_config => my_conf([group])
