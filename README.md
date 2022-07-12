@@ -4,6 +4,8 @@
 
 A scriptable load generator for MQTT
 
+*Description:*
+
 ## Invokation
 
 Generally speaking, this script can work in either script mode or in
@@ -34,24 +36,6 @@ traffic, disconnect clients, etc. Behaviors can depend on the stage.
 some static and dynamic parameters, e.g. available RAM or CPU load.
 
 *Autoscale*: a function that scales the size of the group up or down.
-
-## REST API endpoints
-
-By default, REST API is disabled and emqttb runs in script mode. To
-enable it, run the script with --restapi flag.
-
-### Methods
-
-[/healthcheck](http://localhost:8017/healthcheck): Healthcheck endpoint.
-Just returns 200 all the time.
-
-[/metrics](http://localhost:8017/metrics): Prometheus metrics endpoiont
-
-[/scenario/:scenario/stage](http://localhost:8017/scenario/:scenario/stage):
-Returns the currently running stage of a scenario.
-
-[/conf/reload](http://localhost:8017/conf/reload): Reload configuration
-in the runtime.
 
 # CLI arguments
 
@@ -159,6 +143,11 @@ It is possible to override client configuration for the group.
 
 ### CLI arguments
 
+#### \--autoscale, -A
+
+Pointer at autorate configuration, see:
+[groups/{}/autoscale](#groups/{}/autoscale)
+
 #### \--host, -h
 
 Hostname of the target broker, see:
@@ -166,7 +155,7 @@ Hostname of the target broker, see:
 
 #### \--port, -p
 
-Hostname of the target broker, see:
+Port of the target broker, see:
 [groups/{}/broker/port](#groups/{}/broker/port)
 
 #### \--clientid, -i
@@ -243,6 +232,87 @@ Path to the external documentation source file, see:
 Keep running scenario stages for this period of time (sec), see:
 [scenarios/emqttb\_scenario\_make\_docs/{}/loiter](#scenarios/emqttb_scenario_make_docs/{}/loiter)
 
+## @persistent\_session
+
+Run scenario persistent\_session
+
+### CLI arguments
+
+#### \--conninterval, -I
+
+Client connection interval (microsecond), see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/conninterval](#scenarios/emqttb_scenario_persistent_session/{}/conninterval)
+
+#### \--group, -g
+
+ID of the client group, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/group](#scenarios/emqttb_scenario_persistent_session/{}/group)
+
+#### \--loiter
+
+Keep running scenario stages for this period of time (sec), see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/loiter](#scenarios/emqttb_scenario_persistent_session/{}/loiter)
+
+#### \--cycles, -C
+
+How many times to repeat publish/consume cycle, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/n\_cycles](#scenarios/emqttb_scenario_persistent_session/{}/n_cycles)
+
+#### \--size, -s
+
+Size of the published message in bytes, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/pub/msg\_size](#scenarios/emqttb_scenario_persistent_session/{}/pub/msg_size)
+
+#### \--num-publishers, -P
+
+Number of publishers, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/pub/n](#scenarios/emqttb_scenario_persistent_session/{}/pub/n)
+
+#### \--pubautorate
+
+ID of the autorate config used to tune publish interval, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/pub/pub\_autorate](#scenarios/emqttb_scenario_persistent_session/{}/pub/pub_autorate)
+
+#### \--pubtime, -T
+
+Period of time while publishing will last (ms), see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/pub/pub\_time](#scenarios/emqttb_scenario_persistent_session/{}/pub/pub_time)
+
+#### \--pubinterval, -i
+
+Message publishing interval (microsecond), see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/pub/pubinterval](#scenarios/emqttb_scenario_persistent_session/{}/pub/pubinterval)
+
+#### \--pub-qos
+
+QoS of the published messages, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/pub/qos](#scenarios/emqttb_scenario_persistent_session/{}/pub/qos)
+
+#### \--publatency
+
+Try to keep publishing time at this value (ms), see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/pub/set\_pub\_latency](#scenarios/emqttb_scenario_persistent_session/{}/pub/set_pub_latency)
+
+#### \--topic, -t
+
+Suffix of the topic to publish to, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/pub/topic\_suffix](#scenarios/emqttb_scenario_persistent_session/{}/pub/topic_suffix)
+
+#### \--expiry
+
+Session expiry interval, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/sub/expiry](#scenarios/emqttb_scenario_persistent_session/{}/sub/expiry)
+
+#### \--num-subscribers, -S
+
+Number of subscribers, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/sub/n](#scenarios/emqttb_scenario_persistent_session/{}/sub/n)
+
+#### \--sub-qos
+
+Subscription QoS, see:
+[scenarios/emqttb\_scenario\_persistent\_session/{}/sub/qos](#scenarios/emqttb_scenario_persistent_session/{}/sub/qos)
+
 ## @pub
 
 Run scenario pub
@@ -261,13 +331,13 @@ settings, etc.) is delegated to [\#groups](#groups).
 #### Basic usage
 
 ``` bash
-emqttb @pub -t foo/%n -N 100 -i 10
-          
+emqttb @pub -t foo/%n -N 100 -i 10ms -s 1kb
 ```
 
 In this example the loadgen connects to the default broker
 <mqtt://localhost:1883>, starts 100 publishers which send messages to
-topic with the suffix of the worker id every 10 milliseconds.
+topic with the suffix of the worker id every 10 milliseconds. Size of
+the messages is 1kb.
 
 #### Changing client settings
 
@@ -310,7 +380,7 @@ makes sense to set the minimum (`-m`) and maximum (`-M`) values of the
 `pubinterval`:
 
 ``` bash
-emqttb @pub -t foo -i 1000 -q 1 --publatency 50 @a -V 10 -m 0 -M 10000
+emqttb @pub -t foo -i 1s -q 1 --publatency 50ms @a -V 10 -m 0 -M 10000
 ```
 
 Once automatic adjustment of the publishing interval is enabled, `-i`
@@ -330,7 +400,7 @@ For more information about the automatic parameter tuning see
 
 #### \--conninterval, -I
 
-Client connection interval, see:
+Client connection interval (microsecond), see:
 [scenarios/emqttb\_scenario\_pub/{}/conninterval](#scenarios/emqttb_scenario_pub/{}/conninterval)
 
 #### \--group, -g
@@ -342,6 +412,11 @@ ID of the client group, see:
 
 Keep running scenario stages for this period of time (sec), see:
 [scenarios/emqttb\_scenario\_pub/{}/loiter](#scenarios/emqttb_scenario_pub/{}/loiter)
+
+#### \--metadata
+
+Add metadata to the messages, see:
+[scenarios/emqttb\_scenario\_pub/{}/metadata](#scenarios/emqttb_scenario_pub/{}/metadata)
 
 #### \--size, -s
 
@@ -360,7 +435,7 @@ ID of the autorate config used to tune publish interval, see:
 
 #### \--pubinterval, -i
 
-Message publishing interval, see:
+Message publishing interval (microsecond), see:
 [scenarios/emqttb\_scenario\_pub/{}/pubinterval](#scenarios/emqttb_scenario_pub/{}/pubinterval)
 
 #### \--qos, -q
@@ -377,6 +452,93 @@ Try to keep publishing time at this value (ms), see:
 
 Topic where the clients shall publish messages, see:
 [scenarios/emqttb\_scenario\_pub/{}/topic](#scenarios/emqttb_scenario_pub/{}/topic)
+
+## @pubsub\_fwd
+
+Run scenario pubsub\_fwd
+
+### Description
+
+First all subscribers connect and subscribe to the brokers, then the
+publishers start to connect and publish. The default is to use full
+forwarding of messages between the nodes: that is, each publisher client
+publishes to a topic subscribed by a single client, and both clients
+reside on distinct nodes.
+
+Full forwarding of messages is the default and can be set by
+[\#full\_forwarding](#full_forwarding).
+
+### Examples
+
+#### Basic usage
+
+``` bash
+./emqttb --restapi @pubsub_fwd --publatency 10ms --num-clients 400 -i 70ms @g -h 172.25.0.2:1883,172.25.0.3:1883,172.25.0.4:1883
+```
+
+In this example the loadgen connects to a list of brokers in a
+round-robin in the declared order. First all the subscribers, then the
+publishers, with the difference that publishers will shift the given
+host list by one position to ensure each publisher and subscriber pair
+will reside on different hosts, thus forcing all messages to be
+forwarded.
+
+### CLI arguments
+
+#### \--conninterval, -I
+
+Client connection interval (microsecond), see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/conninterval](#scenarios/emqttb_scenario_pubsub_forward/{}/conninterval)
+
+#### \--full-forwarding
+
+Whether all messages should be forwarded between nodes, see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/full\_forwarding](#scenarios/emqttb_scenario_pubsub_forward/{}/full_forwarding)
+
+#### \--group, -g
+
+ID of the client group, see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/group](#scenarios/emqttb_scenario_pubsub_forward/{}/group)
+
+#### \--loiter
+
+Keep running scenario stages for this period of time (sec), see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/loiter](#scenarios/emqttb_scenario_pubsub_forward/{}/loiter)
+
+#### \--num-clients, -n
+
+Total number of connections (pub + sub), see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/num\_clients](#scenarios/emqttb_scenario_pubsub_forward/{}/num_clients)
+
+#### \--size, -s
+
+Size of the published message in bytes, see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/msg\_size](#scenarios/emqttb_scenario_pubsub_forward/{}/pub/msg_size)
+
+#### \--pubautorate
+
+ID of the autorate config used to tune publish interval, see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/pub\_autorate](#scenarios/emqttb_scenario_pubsub_forward/{}/pub/pub_autorate)
+
+#### \--pubinterval, -i
+
+Message publishing interval (microsecond), see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/pubinterval](#scenarios/emqttb_scenario_pubsub_forward/{}/pub/pubinterval)
+
+#### \--pub-qos
+
+QoS of the published messages, see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/qos](#scenarios/emqttb_scenario_pubsub_forward/{}/pub/qos)
+
+#### \--publatency
+
+Try to keep publishing time at this value (ms), see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/set\_pub\_latency](#scenarios/emqttb_scenario_pubsub_forward/{}/pub/set_pub_latency)
+
+#### \--sub-qos
+
+Subscription QoS, see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/sub/qos](#scenarios/emqttb_scenario_pubsub_forward/{}/sub/qos)
 
 ## @sub
 
@@ -529,6 +691,12 @@ Run scenario make-docs
 
 *Key elements:*
 
+## scenarios/emqttb\_scenario\_persistent\_session
+
+Run scenario persistent\_session
+
+*Key elements:*
+
 ## scenarios/emqttb\_scenario\_pub
 
 Run scenario pub
@@ -549,13 +717,13 @@ settings, etc.) is delegated to [\#groups](#groups).
 #### Basic usage
 
 ``` bash
-emqttb @pub -t foo/%n -N 100 -i 10
-          
+emqttb @pub -t foo/%n -N 100 -i 10ms -s 1kb
 ```
 
 In this example the loadgen connects to the default broker
 <mqtt://localhost:1883>, starts 100 publishers which send messages to
-topic with the suffix of the worker id every 10 milliseconds.
+topic with the suffix of the worker id every 10 milliseconds. Size of
+the messages is 1kb.
 
 #### Changing client settings
 
@@ -598,7 +766,7 @@ makes sense to set the minimum (`-m`) and maximum (`-M`) values of the
 `pubinterval`:
 
 ``` bash
-emqttb @pub -t foo -i 1000 -q 1 --publatency 50 @a -V 10 -m 0 -M 10000
+emqttb @pub -t foo -i 1s -q 1 --publatency 50ms @a -V 10 -m 0 -M 10000
 ```
 
 Once automatic adjustment of the publishing interval is enabled, `-i`
@@ -613,6 +781,38 @@ milliseconds per second.
 
 For more information about the automatic parameter tuning see
 [\#autorate](#autorate).
+
+## scenarios/emqttb\_scenario\_pubsub\_forward
+
+Run scenario pubsub\_fwd
+
+*Key elements:*
+
+### Description
+
+First all subscribers connect and subscribe to the brokers, then the
+publishers start to connect and publish. The default is to use full
+forwarding of messages between the nodes: that is, each publisher client
+publishes to a topic subscribed by a single client, and both clients
+reside on distinct nodes.
+
+Full forwarding of messages is the default and can be set by
+[\#full\_forwarding](#full_forwarding).
+
+### Examples
+
+#### Basic usage
+
+``` bash
+./emqttb --restapi @pubsub_fwd --publatency 10ms --num-clients 400 -i 70ms @g -h 172.25.0.2:1883,172.25.0.3:1883,172.25.0.4:1883
+```
+
+In this example the loadgen connects to a list of brokers in a
+round-robin in the declared order. First all the subscribers, then the
+publishers, with the difference that publishers will shift the given
+host list by one position to ensure each publisher and subscriber pair
+will reside on different hosts, thus forcing all messages to be
+forwarded.
 
 ## scenarios/emqttb\_scenario\_sub
 
@@ -751,7 +951,6 @@ Name of the repeat file or \`undefined\`
 
 ``` erlang
 string() | undefined when
-  char() :: 0..1114111,
   string() :: [char()].
 ```
 
@@ -810,6 +1009,22 @@ timeout() when
 infinity
 ```
 
+## groups/{}/autoscale
+
+Pointer at autorate configuration
+
+*Type:*
+
+``` erlang
+atom()
+```
+
+*Default value:*
+
+``` erlang
+default
+```
+
 ## groups/{}/broker/hosts
 
 Hostname of the target broker
@@ -818,7 +1033,6 @@ Hostname of the target broker
 
 ``` erlang
 emqttb:hosts() when
-  char() :: 0..1114111,
   emqttb:hosts() :: [string() | {string(), emqttb:net_port()}],
   emqttb:net_port() :: 1..65535,
   string() :: [char()].
@@ -832,7 +1046,7 @@ emqttb:hosts() when
 
 ## groups/{}/broker/port
 
-Hostname of the target broker
+Port of the target broker
 
 *Type:*
 
@@ -880,7 +1094,6 @@ Password for connecting to the broker
 
 ``` erlang
 undefined | string() when
-  char() :: 0..1114111,
   string() :: [char()].
 ```
 
@@ -898,7 +1111,6 @@ Username of the client
 
 ``` erlang
 undefined | string() when
-  char() :: 0..1114111,
   string() :: [char()].
 ```
 
@@ -1019,7 +1231,6 @@ Client certificate for authentication, if required by the server
 
 ``` erlang
 string() when
-  char() :: 0..1114111,
   string() :: [char()].
 ```
 
@@ -1053,7 +1264,6 @@ Client private key for authentication, if required by the server
 
 ``` erlang
 string() when
-  char() :: 0..1114111,
   string() :: [char()].
 ```
 
@@ -1070,17 +1280,17 @@ Default interval between events
 *Type:*
 
 ``` erlang
-emqttb:interval() when
-  emqttb:autorate() :: atom(),
-  emqttb:interval() :: {auto, emqttb:autorate()} | non_neg_integer(),
-  non_neg_integer() :: 0..inf.
+emqttb:duration_us() when
+  emqttb:duration_us() :: integer().
 ```
 
 *Default value:*
 
 ``` erlang
-100
+100000
 ```
+
+It is possible to specify time unit as *ms*, *us* or *s*.
 
 ## logging/default\_handler\_level
 
@@ -1137,8 +1347,8 @@ Push interval (ms)
 *Type:*
 
 ``` erlang
-non_neg_integer() when
-  non_neg_integer() :: 0..inf.
+emqttb:duration_ms() when
+  emqttb:duration_ms() :: integer().
 ```
 
 *Default value:*
@@ -1155,7 +1365,6 @@ URL of pushgateway server
 
 ``` erlang
 string() when
-  char() :: 0..1114111,
   string() :: [char()].
 ```
 
@@ -1197,6 +1406,26 @@ boolean()
 false
 ```
 
+*Description:*
+
+### REST API endpoints
+
+By default, REST API is disabled and emqttb runs in script mode. To
+enable it, run the script with --restapi flag.
+
+#### Methods
+
+[/healthcheck](http://localhost:8017/healthcheck): Healthcheck endpoint.
+Just returns 200 all the time.
+
+[/metrics](http://localhost:8017/metrics): Prometheus metrics endpoiont
+
+[/scenario/:scenario/stage](http://localhost:8017/scenario/:scenario/stage):
+Returns the currently running stage of a scenario.
+
+[/conf/reload](http://localhost:8017/conf/reload): Reload configuration
+in the runtime.
+
 ## restapi/listen\_port
 
 REST API listening interface/port
@@ -1223,7 +1452,6 @@ Path to the external documentation source file
 
 ``` erlang
 string() when
-  char() :: 0..1114111,
   string() :: [char()].
 ```
 
@@ -1243,17 +1471,262 @@ timeout() when
 
 See [convenience/loiter](#convenience/loiter)
 
-## scenarios/emqttb\_scenario\_pub/{}/conninterval
+## scenarios/emqttb\_scenario\_persistent\_session/{}/conninterval
 
-Client connection interval
+Client connection interval (microsecond)
 
 *Type:*
 
 ``` erlang
-emqttb:interval() when
-  emqttb:autorate() :: atom(),
-  emqttb:interval() :: {auto, emqttb:autorate()} | non_neg_integer(),
+emqttb:duration_us() when
+  emqttb:duration_us() :: integer().
+```
+
+*Default value:*
+
+``` erlang
+0
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/group
+
+ID of the client group
+
+*Type:*
+
+``` erlang
+atom()
+```
+
+*Default value:*
+
+``` erlang
+default
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/loiter
+
+Keep running scenario stages for this period of time (sec)
+
+*Type:*
+
+``` erlang
+timeout() when
+  non_neg_integer() :: 0..inf,
+  timeout() :: non_neg_integer() | infinity.
+```
+
+*Default value:*
+
+See [convenience/loiter](#convenience/loiter)
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/n\_cycles
+
+How many times to repeat publish/consume cycle
+
+*Type:*
+
+``` erlang
+non_neg_integer() | inifinity when
   non_neg_integer() :: 0..inf.
+```
+
+*Default value:*
+
+``` erlang
+10
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/msg\_size
+
+Size of the published message in bytes
+
+*Type:*
+
+``` erlang
+non_neg_integer() when
+  non_neg_integer() :: 0..inf.
+```
+
+*Default value:*
+
+``` erlang
+256
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/n
+
+Number of publishers
+
+*Type:*
+
+``` erlang
+0..16777116
+```
+
+*Default value:*
+
+``` erlang
+10
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/pub\_autorate
+
+ID of the autorate config used to tune publish interval
+
+*Type:*
+
+``` erlang
+atom()
+```
+
+*Default value:*
+
+``` erlang
+default
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/pub\_time
+
+Period of time while publishing will last (ms)
+
+*Type:*
+
+``` erlang
+non_neg_integer() when
+  non_neg_integer() :: 0..inf.
+```
+
+*Default value:*
+
+``` erlang
+50000
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/pubinterval
+
+Message publishing interval (microsecond)
+
+*Type:*
+
+``` erlang
+emqttb:duration_us() when
+  emqttb:duration_us() :: integer().
+```
+
+*Default value:*
+
+See [interval](#interval)
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/qos
+
+QoS of the published messages
+
+*Type:*
+
+``` erlang
+emqttb:qos() when
+  emqttb:qos() :: 0..2.
+```
+
+*Default value:*
+
+``` erlang
+1
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/set\_pub\_latency
+
+Try to keep publishing time at this value (ms)
+
+*Type:*
+
+``` erlang
+emqttb:duration_ms() when
+  emqttb:duration_ms() :: integer().
+```
+
+*Default value:*
+
+``` erlang
+100
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/topic\_suffix
+
+Suffix of the topic to publish to
+
+*Type:*
+
+``` erlang
+binary()
+```
+
+*Default value:*
+
+``` erlang
+<<"%h/%n">>
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/sub/expiry
+
+Session expiry interval
+
+*Type:*
+
+``` erlang
+non_neg_integer() when
+  non_neg_integer() :: 0..inf.
+```
+
+*Default value:*
+
+``` erlang
+4294967295
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/sub/n
+
+Number of subscribers
+
+*Type:*
+
+``` erlang
+0..16777116
+```
+
+*Default value:*
+
+``` erlang
+10
+```
+
+## scenarios/emqttb\_scenario\_persistent\_session/{}/sub/qos
+
+Subscription QoS
+
+*Type:*
+
+``` erlang
+emqttb:qos() when
+  emqttb:qos() :: 0..2.
+```
+
+*Default value:*
+
+``` erlang
+2
+```
+
+## scenarios/emqttb\_scenario\_pub/{}/conninterval
+
+Client connection interval (microsecond)
+
+*Type:*
+
+``` erlang
+emqttb:duration_us() when
+  emqttb:duration_us() :: integer().
 ```
 
 *Default value:*
@@ -1292,6 +1765,22 @@ timeout() when
 
 See [convenience/loiter](#convenience/loiter)
 
+## scenarios/emqttb\_scenario\_pub/{}/metadata
+
+Add metadata to the messages
+
+*Type:*
+
+``` erlang
+boolean()
+```
+
+*Default value:*
+
+``` erlang
+false
+```
+
 ## scenarios/emqttb\_scenario\_pub/{}/msg\_size
 
 Size of the published message in bytes
@@ -1299,7 +1788,8 @@ Size of the published message in bytes
 *Type:*
 
 ``` erlang
-non_neg_integer() when
+emqttb:byte_size() when
+  emqttb:byte_size() :: non_neg_integer(),
   non_neg_integer() :: 0..inf.
 ```
 
@@ -1341,15 +1831,13 @@ default
 
 ## scenarios/emqttb\_scenario\_pub/{}/pubinterval
 
-Message publishing interval
+Message publishing interval (microsecond)
 
 *Type:*
 
 ``` erlang
-emqttb:interval() when
-  emqttb:autorate() :: atom(),
-  emqttb:interval() :: {auto, emqttb:autorate()} | non_neg_integer(),
-  non_neg_integer() :: 0..inf.
+emqttb:duration_us() when
+  emqttb:duration_us() :: integer().
 ```
 
 *Default value:*
@@ -1380,7 +1868,8 @@ Try to keep publishing time at this value (ms)
 *Type:*
 
 ``` erlang
-integer()
+emqttb:duration_ms() when
+  emqttb:duration_ms() :: integer().
 ```
 
 *Default value:*
@@ -1407,6 +1896,186 @@ Topic is a mandatory parameter. It supports the following substitutions:
 
   - `%h` is replaced with the hostname
 
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/conninterval
+
+Client connection interval (microsecond)
+
+*Type:*
+
+``` erlang
+emqttb:duration_us() when
+  emqttb:duration_us() :: integer().
+```
+
+*Default value:*
+
+``` erlang
+0
+```
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/full\_forwarding
+
+Whether all messages should be forwarded between nodes
+
+*Type:*
+
+``` erlang
+boolean()
+```
+
+*Default value:*
+
+``` erlang
+true
+```
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/group
+
+ID of the client group
+
+*Type:*
+
+``` erlang
+atom()
+```
+
+*Default value:*
+
+``` erlang
+default
+```
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/loiter
+
+Keep running scenario stages for this period of time (sec)
+
+*Type:*
+
+``` erlang
+timeout() when
+  non_neg_integer() :: 0..inf,
+  timeout() :: non_neg_integer() | infinity.
+```
+
+*Default value:*
+
+See [convenience/loiter](#convenience/loiter)
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/num\_clients
+
+Total number of connections (pub + sub)
+
+*Type:*
+
+``` erlang
+0..16777116
+```
+
+*Default value:*
+
+``` erlang
+100
+```
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/msg\_size
+
+Size of the published message in bytes
+
+*Type:*
+
+``` erlang
+non_neg_integer() when
+  non_neg_integer() :: 0..inf.
+```
+
+*Default value:*
+
+``` erlang
+256
+```
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/pub\_autorate
+
+ID of the autorate config used to tune publish interval
+
+*Type:*
+
+``` erlang
+atom()
+```
+
+*Default value:*
+
+``` erlang
+default
+```
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/pubinterval
+
+Message publishing interval (microsecond)
+
+*Type:*
+
+``` erlang
+emqttb:duration_us() when
+  emqttb:duration_us() :: integer().
+```
+
+*Default value:*
+
+See [interval](#interval)
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/qos
+
+QoS of the published messages
+
+*Type:*
+
+``` erlang
+emqttb:qos() when
+  emqttb:qos() :: 0..2.
+```
+
+*Default value:*
+
+``` erlang
+1
+```
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/set\_pub\_latency
+
+Try to keep publishing time at this value (ms)
+
+*Type:*
+
+``` erlang
+emqttb:duration_ms() when
+  emqttb:duration_ms() :: integer().
+```
+
+*Default value:*
+
+``` erlang
+100
+```
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/sub/qos
+
+Subscription QoS
+
+*Type:*
+
+``` erlang
+emqttb:qos() when
+  emqttb:qos() :: 0..2.
+```
+
+*Default value:*
+
+``` erlang
+1
+```
+
 ## scenarios/emqttb\_scenario\_sub/{}/conninterval
 
 Client connection interval
@@ -1414,10 +2083,8 @@ Client connection interval
 *Type:*
 
 ``` erlang
-emqttb:interval() when
-  emqttb:autorate() :: atom(),
-  emqttb:interval() :: {auto, emqttb:autorate()} | non_neg_integer(),
-  non_neg_integer() :: 0..inf.
+emqttb:duration_us() when
+  emqttb:duration_us() :: integer().
 ```
 
 *Default value:*

@@ -44,8 +44,8 @@ model() ->
    , interval          =>
        {[value, cli_param],
         #{ oneliner    => "Default interval between events"
-         , type        => emqttb:interval()
-         , default     => 100
+         , type        => emqttb:duration_us()
+         , default     => 100_000
          , cli_operand => "max-rate"
          , cli_short   => $R
          }}
@@ -120,7 +120,7 @@ model() ->
              , interval          =>
                  {[value, os_env],
                   #{ oneliner    => "Push interval (ms)"
-                   , type        => non_neg_integer()
+                   , type        => emqttb:duration_ms()
                    , default     => timer:seconds(1)
                    }}
              }

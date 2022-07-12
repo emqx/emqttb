@@ -56,7 +56,7 @@ model() ->
    , conninterval =>
        {[value, cli_param],
         #{ oneliner => "Client connection interval"
-         , type => emqttb:interval()
+         , type => emqttb:duration_us()
          , default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
@@ -107,7 +107,7 @@ run() ->
   Interval = my_conf([conninterval]),
   set_stage(ramp_up),
   N = my_conf([n_clients]),
-  {ok, N} = emqttb_group:set_target(sub_group, N, Interval),
+  {ok, _} = emqttb_group:set_target(sub_group, N, Interval),
   set_stage(run_traffic),
   loiter(),
   complete(ok).

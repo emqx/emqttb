@@ -25,7 +25,7 @@
 
 -export_type([]).
 
--import(emqttb_worker, [send_after/2, send_after_rand/2,
+-import(emqttb_worker, [send_after/2, send_after_rand/2, repeat/2,
                         my_group/0, my_id/0, my_clientid/0, my_cfg/1, connect/2]).
 
 -include("../framework/emqttb_internal.hrl").
@@ -97,7 +97,8 @@ init_per_group(Group,
 
 init(PubOpts = #{pubinterval := I}) ->
   rand:seed(default),
-  send_after_rand(I, publish),
+  {SleepTime, N} = emqttb:get_duration_and_repeats(I),
+  send_after_rand(SleepTime, {publish, N}),
   HostShift = maps:get(host_shift, PubOpts, 0),
   HostSelection = maps:get(host_selection, PubOpts, random),
   {ok, Conn} = emqttb_worker:connect(#{ host_shift => HostShift
@@ -105,18 +106,21 @@ init(PubOpts = #{pubinterval := I}) ->
                                       }),
   Conn.
 
-handle_message(Shared, Conn, publish) ->
+handle_message(Shared, Conn, {publish, N}) ->
   #{ topic := TP, pubinterval := I, message := Msg0, pub_counter := Cnt
    , qos := QoS, metadata := AddMetadata
    } = Shared,
-  send_after(I, publish),
+  {SleepTime, N2} = emqttb:get_duration_and_repeats(I),
+  send_after(SleepTime, {publish, N2}),
   Msg = case AddMetadata of
           true  -> [message_metadata(), Msg0];
           false -> Msg0
         end,
   T = emqttb_worker:format_topic(TP),
-  emqttb_worker:call_with_counter(?AVG_PUB_TIME, emqtt, publish, [Conn, T, Msg, QoS]),
-  emqttb_metrics:counter_inc(Cnt, 1),
+  repeat(N, fun() ->
+                emqttb_worker:call_with_counter(?AVG_PUB_TIME, emqtt, publish, [Conn, T, Msg, QoS]),
+                emqttb_metrics:counter_inc(Cnt, 1)
+            end),
   {ok, Conn};
 handle_message(_, Conn, _) ->
   {ok, Conn}.
