@@ -73,7 +73,7 @@ model() ->
               }}
         , pubinterval =>
             {[value, cli_param],
-             #{ oneliner => "Message publishing interval (μs)"
+             #{ oneliner => "Message publishing interval (microsecond)"
               , type => emqttb:duration_us()
               , default_ref => [interval]
               , cli_operand => "pubinterval"
@@ -82,7 +82,7 @@ model() ->
         , set_pub_latency =>
             {[value, cli_param],
              #{ oneliner => "Try to keep publishing time at this value (ms)"
-              , type => integer()
+              , type => emqttb:duration_ms()
               , default => 100
               , cli_operand => "publatency"
               }}
@@ -106,7 +106,7 @@ model() ->
         }
    , conninterval =>
        {[value, cli_param],
-        #{ oneliner => "Client connection interval (μs)"
+        #{ oneliner => "Client connection interval (microsecond)"
          , type => emqttb:duration_us()
          , default => 0
          , cli_operand => "conninterval"
