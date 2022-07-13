@@ -164,7 +164,7 @@ subscribe_stage() ->
                        }),
   N = my_conf([num_clients]) div 2,
   Interval = my_conf([conninterval]),
-  {ok, N} = emqttb_group:set_target(?SUB_GROUP, N, Interval),
+  {ok, _} = emqttb_group:set_target(?SUB_GROUP, N, Interval),
   ok.
 
 publish_stage() ->
@@ -188,7 +188,7 @@ publish_stage() ->
                        }),
   N = my_conf([num_clients]) div 2,
   Interval = my_conf([conninterval]),
-  {ok, N} = emqttb_group:set_target(?PUB_GROUP, N, Interval),
+  {ok, _} = emqttb_group:set_target(?PUB_GROUP, N, Interval),
   ok.
 
 topic_prefix() ->
