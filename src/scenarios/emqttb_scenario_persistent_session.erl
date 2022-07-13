@@ -129,8 +129,8 @@ model() ->
         , pub_time =>
             {[value, cli_param],
              #{ oneliner => "Period of time while publishing will last (ms)"
-              , type => non_neg_integer()
-              , default => 5_0000
+              , type => emqttb:duration_ms()
+              , default => 1_000
               , cli_operand => "pubtime"
               , cli_short => $T
               }}

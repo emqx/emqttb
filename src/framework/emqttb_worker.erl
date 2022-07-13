@@ -79,7 +79,7 @@ init_per_group(Module, GroupID, Opts) ->
 %%--------------------------------------------------------------------------------
 
 -spec repeat(non_neg_integer(), fun(() -> _)) -> ok.
-repeat(0, _) ->
+repeat(N, _) when N =< 0 ->
   ok;
 repeat(N, Fun) ->
   Fun(),
