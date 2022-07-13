@@ -61,6 +61,7 @@
         { produced = 0
         , consumed = 0
         , to_consume = 0
+        , pubinterval :: non_neg_integer()
         }).
 
 %%================================================================================
@@ -76,7 +77,7 @@ model() ->
             {[value, cli_param],
              #{ oneliner => "QoS of the published messages"
               , type => emqttb:qos()
-              , default => 1
+              , default => 2
               , cli_operand => "pub-qos"
               }}
         , msg_size =>
@@ -198,7 +199,7 @@ run() ->
   NCons = try emqttb_metrics:get_counter(?CNT_SUB_MESSAGES(?SUB_GROUP))
           catch _:_ -> 0
           end,
-  S = #s{produced = NProd, consumed = NCons},
+  S = #s{produced = NProd, consumed = NCons, pubinterval = my_conf([pub, pubinterval])},
   do_run(S, 0).
 
 %%================================================================================
@@ -237,11 +238,11 @@ consume_stage(Cycle, S) ->
      , consumed   = emqttb_metrics:get_counter(?CNT_SUB_MESSAGES(?SUB_GROUP))
      }.
 
-publish_stage(S = #s{produced = NPub0}) ->
+publish_stage(S = #s{produced = NPub0, pubinterval = PubInterval}) ->
   TopicPrefix = topic_prefix(),
   TopicSuffix = my_conf([pub, topic_suffix]),
   PubOpts = #{ topic       => <<TopicPrefix/binary, TopicSuffix/binary>>
-             , pubinterval => my_conf([pub, pubinterval])
+             , pubinterval => PubInterval
              , msg_size    => my_conf([pub, msg_size])
              , qos         => my_conf([pub, qos])
              , set_latency => my_conf_key([pub, set_pub_latency])
@@ -256,11 +257,16 @@ publish_stage(S = #s{produced = NPub0}) ->
   {ok, N} = emqttb_group:set_target(?PUB_GROUP, N, Interval),
   PubTime = my_conf([pub, pub_time]),
   timer:sleep(PubTime),
+  PubIntervalCref = emqttb_autorate:get_counter(emqttb_behavior_pub:my_autorate(?PUB_GROUP)),
+  PubInterval2 = counters:get(PubIntervalCref, 1),
   emqttb_group:stop(?PUB_GROUP),
   NPub = emqttb_metrics:get_counter(?CNT_PUB_MESSAGES(?PUB_GROUP)),
   %% TODO: it doesn't take ramp up/down into account:
-  prometheus_summary:observe(?PUB_THROUGHPUT, (NPub - NPub0) / PubTime * timer:seconds(1)),
-  S#s{produced = NPub, to_consume = NPub - NPub0}.
+  prometheus_summary:observe(?PUB_THROUGHPUT, (NPub - NPub0) * timer:seconds(1) div PubTime),
+  S#s{ produced = NPub
+     , to_consume = NPub - NPub0
+     , pubinterval = PubInterval2
+     }.
 
 wait_consume_all(Nsubs, #s{to_consume = Nmsgs, consumed = Consumed}) ->
   do_consume(Consumed + Nsubs * Nmsgs).
