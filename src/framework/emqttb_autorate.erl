@@ -92,7 +92,7 @@ model() ->
        {[value, cli_param],
         #{ oneliner    => "Maximum value of the controlled parameter"
          , type        => integer()
-         , default     => 100000
+         , default     => 100_000_000 % 100s
          , cli_operand => "max"
          , cli_short   => $M
          }}
@@ -108,7 +108,7 @@ model() ->
        {[value, cli_param],
         #{ oneliner    => "Controller gain"
          , type        => number()
-         , default     => 0.00005
+         , default     => 0.05
          , cli_operand => "Kp"
          , cli_short   => $p
          }}
@@ -155,14 +155,14 @@ init(Config = #{id := Id, conf_root := ConfRoot, error := ErrF}) ->
   Current = maps:get(init_val, Config, Min),
   Err = ErrF(),
   set_timer(),
-  {ok, #s{ id        = Id
-         , parent    = MRef
-         , current   = Current
-         , conf_root = ConfRoot
-         , error     = ErrF
-         , last_err  = Err
-         , last_t    = os:system_time(millisecond)
-         }}.
+  {ok, update_rate(#s{ id        = Id
+                     , parent    = MRef
+                     , current   = Current
+                     , conf_root = ConfRoot
+                     , error     = ErrF
+                     , last_err  = Err
+                     , last_t    = os:system_time(millisecond)
+                     })}.
 
 handle_call(get_counter, _From, S) ->
   {reply, emqttb_metrics:gauge_ref(?AUTORATE_RATE(S#s.id)), S};

@@ -106,7 +106,7 @@ init(PubOpts = #{pubinterval := I}) ->
                                       }),
   Conn.
 
-handle_message(Shared, Conn, {publish, N}) ->
+handle_message(Shared, Conn, {publish, N1}) ->
   #{ topic := TP, pubinterval := I, message := Msg0, pub_counter := Cnt
    , qos := QoS, metadata := AddMetadata
    } = Shared,
@@ -117,10 +117,10 @@ handle_message(Shared, Conn, {publish, N}) ->
           false -> Msg0
         end,
   T = emqttb_worker:format_topic(TP),
-  repeat(N, fun() ->
-                emqttb_worker:call_with_counter(?AVG_PUB_TIME, emqtt, publish, [Conn, T, Msg, QoS]),
-                emqttb_metrics:counter_inc(Cnt, 1)
-            end),
+  repeat(N1, fun() ->
+                 emqttb_worker:call_with_counter(?AVG_PUB_TIME, emqtt, publish, [Conn, T, Msg, QoS]),
+                 emqttb_metrics:counter_inc(Cnt, 1)
+             end),
   {ok, Conn};
 handle_message(_, Conn, _) ->
   {ok, Conn}.

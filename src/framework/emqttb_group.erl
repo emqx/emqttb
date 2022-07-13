@@ -53,6 +53,7 @@ ensure(Conf) ->
 
 -spec stop(atom()) -> ok.
 stop(ID) ->
+  logger:info("Stopping group ~p", [ID]),
   emqttb_group_sup:stop(ID).
 
 %% @doc Autoscale the group to the target number of workers. Returns
