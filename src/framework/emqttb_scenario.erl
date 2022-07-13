@@ -86,7 +86,9 @@ stage(Scenario) ->
 -spec set_stage(emqttb:stage()) -> ok.
 set_stage(Stage) ->
   Scenario = my_scenario(),
-  logger:notice(asciiart:visible($#, "~p entered stage ~p", [Scenario, Stage])),
+  Txt = lists:flatten(io_lib:format("~p entered stage ~p", [Scenario, Stage])),
+  logger:notice(asciiart:visible($#, Txt, [])),
+  emqttb_grafana:annotate(Txt, [Scenario]),
   persistent_term:put({emqttb_stage, Scenario}, Stage).
 
 -spec set_stage(emqttb:stage(), result()) -> ok.

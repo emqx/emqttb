@@ -16,10 +16,13 @@ start(_StartType, _StartArgs) ->
   Sup = emqttb_sup:start_link(),
   maybe_increase_fd_limit(),
   emqttb_conf:load_conf(),
+  CLIArgs = application:get_env(?APP, cli_args, []),
+  emqttb_grafana:annotate(["Start emqttb " | lists:join($ , CLIArgs)]),
   post_init(),
   Sup.
 
 stop(_State) ->
+  emqttb_grafana:annotate("Stop emqttb"),
   ok.
 
 %% internal functions
