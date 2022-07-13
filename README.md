@@ -855,7 +855,7 @@ number()
 *Default value:*
 
 ``` erlang
-5.0e-5
+0.05
 ```
 
 ## autorate/{}/max
@@ -871,7 +871,7 @@ integer()
 *Default value:*
 
 ``` erlang
-100000
+100000000
 ```
 
 ## autorate/{}/min
@@ -1593,14 +1593,14 @@ Period of time while publishing will last (ms)
 *Type:*
 
 ``` erlang
-non_neg_integer() when
-  non_neg_integer() :: 0..inf.
+emqttb:duration_ms() when
+  emqttb:duration_ms() :: integer().
 ```
 
 *Default value:*
 
 ``` erlang
-50000
+1000
 ```
 
 ## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/pubinterval
@@ -1632,8 +1632,12 @@ emqttb:qos() when
 *Default value:*
 
 ``` erlang
-1
+2
 ```
+
+Warning: changing QoS to any value other then 2 is likely to cause
+consume stage to hang, since it has to consume the exact number of
+messages as previously produced.
 
 ## scenarios/emqttb\_scenario\_persistent\_session/{}/pub/set\_pub\_latency
 
@@ -1717,6 +1721,10 @@ emqttb:qos() when
 ``` erlang
 2
 ```
+
+Warning: changing QoS to any value other then 2 is likely to cause
+consume stage to hang, since it has to consume the exact number of
+messages as previously produced.
 
 ## scenarios/emqttb\_scenario\_pub/{}/conninterval
 
