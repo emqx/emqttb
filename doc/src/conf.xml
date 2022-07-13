@@ -151,6 +151,22 @@
       </itemizedlist>
     </doc>
   </node>
+  <node id="scenarios/emqttb_scenario_persistent_session/{}/pub/qos">
+    <doc lang="en">
+      <para>
+        Warning: changing QoS to any value other then 2 is likely to cause consume stage to hang,
+        since it has to consume the exact number of messages as previously produced.
+      </para>
+    </doc>
+  </node>
+  <node id="scenarios/emqttb_scenario_persistent_session/{}/sub/qos">
+    <doc lang="en">
+      <para>
+        Warning: changing QoS to any value other then 2 is likely to cause consume stage to hang,
+        since it has to consume the exact number of messages as previously produced.
+      </para>
+    </doc>
+  </node>
   <node id="groups/{}/client/clientid">
     <doc lang="en">
       <para>

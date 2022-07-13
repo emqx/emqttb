@@ -18,7 +18,7 @@
 -behavior(emqttb_worker).
 
 %% API
--export([parse_metadata/1]).
+-export([parse_metadata/1, my_autorate/1]).
 
 %% behavior callbacks:
 -export([init_per_group/2, init/1, handle_message/3, terminate/2]).
