@@ -105,10 +105,11 @@ model() ->
    , metrics =>
        #{ pushgateway =>
             #{ url =>
-                 {[value, os_env],
+                 {[value, cli_param, os_env],
                   #{ oneliner    => "URL of pushgateway server"
                    , type        => string()
                    , default     => "http://localhost:9091"
+                   , cli_operand => "pushgw-url"
                    }}
              , enabled           =>
                  {[value, cli_param, os_env],
@@ -118,10 +119,46 @@ model() ->
                    , cli_operand => "pushgw"
                    }}
              , interval          =>
-                 {[value, os_env],
+                 {[value, cli_param, os_env],
                   #{ oneliner    => "Push interval (ms)"
                    , type        => emqttb:duration_ms()
                    , default     => timer:seconds(1)
+                   , cli_operand => "pushgw-interval"
+                   }}
+             }
+        , grafana =>
+            #{ url =>
+                 {[value, cli_param,  os_env],
+                  #{ oneliner    => "URL of Grafana server"
+                   , type        => string()
+                   , default     => "http://localhost:3000"
+                   , cli_operand => "grafana-url"
+                   }}
+             , enabled =>
+                 {[value, cli_param, os_env],
+                  #{ oneliner    => "Add annotations to Grafana"
+                   , type        => boolean()
+                   , default     => false
+                   , cli_operand => "grafana"
+                   }}
+             , login =>
+                 {[value, cli_param, os_env],
+                  #{ oneliner    => "Grafana login"
+                   , type        => union(false, string())
+                   , default     => false
+                   , cli_operand => "grafana-login"
+                   }}
+             , password =>
+                 {[value, os_env],
+                  #{ oneliner    => "Grafana password"
+                   , type        => string()
+                   , default     => ""
+                   }}
+             , api_key =>
+                 {[value, os_env],
+                  #{ oneliner    => "Grafana API key"
+                   , type        => union(false, string())
+                   , default     => false
                    }}
              }
         }
