@@ -151,7 +151,7 @@ handle_call(_, _, S) ->
   {reply, {error, unknown_call}, S}.
 
 handle_cast({set_target, Target, Interval}, S) ->
-  OnComplete = fun(Result) -> ok end,
+  OnComplete = fun(_Result) -> ok end,
   {noreply, do_set_target(Target, Interval, OnComplete, S)};
 handle_cast(_, S) ->
   {noreply, S}.
@@ -230,7 +230,7 @@ do_set_target(Target, InitInterval, OnComplete, S = #s{ scaling = Scaling
       start_scale(S, Direction, Target, Interval, OnComplete)
   end.
 
-start_scale(S0, Direction, Target, Interval, OnComplete) ->
+start_scale(S0, Direction, Target, _Interval, OnComplete) ->
   Scaling = #r{ direction   = Direction
               , on_complete = OnComplete
               },
@@ -269,12 +269,12 @@ do_scale(S0) ->
 
 scale_up(0, S) ->
   S;
-scale_up(NRepeats, S = #s{behavior = Behavior, id = Id, next_id = WorkerId}) ->
+scale_up(NRepeats, S = #s{behavior = Behavior, id = _Id, next_id = WorkerId}) ->
   _Pid = emqttb_worker:start(Behavior, self(), WorkerId),
-  ?tp(start_worker, #{group => Id, pid => _Pid}),
+  ?tp(start_worker, #{group => _Id, pid => _Pid}),
   scale_up(NRepeats - 1, S#s{next_id = WorkerId + 1}).
 
-scale_down(N, S0) ->
+scale_down(_N, S0) ->
   S0.
 
 set_tick_timer() ->
@@ -319,12 +319,12 @@ fold_workers(Fun, Acc, GroupId) when is_atom(GroupId) ->
   fold_workers(Fun, Acc, GL);
 fold_workers(Fun0, Acc, GL) ->
   PIDs = erlang:processes(),
-  Fun = fun(Pid, Acc) ->
+  Fun = fun(Pid, Acc0) ->
             case process_info(Pid, [group_leader, initial_call]) of
               [{group_leader, GL}, {initial_call, {emqttb_worker, entrypoint, _}}] ->
-                Fun0(Pid, Acc);
+                Fun0(Pid, Acc0);
               _ ->
-                Acc
+                Acc0
             end
         end,
   lists:foldl(Fun, Acc, PIDs).
