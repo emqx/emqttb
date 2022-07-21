@@ -135,6 +135,20 @@ model() ->
          , default => true
          , cli_operand => "full-forwarding"
          }}
+   , start_n =>
+       {[value, cli_param],
+        #{ oneliner => "Starting worker number for this bench (used for multi-loadgen test alignment)"
+         , type => integer()
+         , default => 0
+         , cli_operand => "start-n"
+         }}
+   , random_hosts =>
+       {[value, cli_param],
+        #{ oneliner => "Whether to use random hosts rather than 1-shifted round-robin"
+         , type => boolean()
+         , default => false
+         , cli_operand => "random-hosts"
+         }}
    }.
 
 run() ->
@@ -151,16 +165,22 @@ run() ->
 
 subscribe_stage() ->
   TopicPrefix = topic_prefix(),
+  RandomHosts = my_conf([random_hosts]),
+  HostSelection = case RandomHosts of
+                      true -> random;
+                      false -> round_robin
+                  end,
   SubOpts = #{ topic          => <<TopicPrefix/binary, "%n">>
              , qos            => my_conf([sub, qos])
              , expiry         => undefined
              , clean_start    => true
              , host_shift     => 0
-             , host_selection => round_robin
+             , host_selection => HostSelection
              },
   emqttb_group:ensure(#{ id            => ?SUB_GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_sub, SubOpts}
+                       , start_n       => my_conf([start_n])
                        }),
   N = my_conf([num_clients]) div 2,
   Interval = my_conf([conninterval]),
@@ -169,6 +189,11 @@ subscribe_stage() ->
 
 publish_stage() ->
   TopicPrefix = topic_prefix(),
+  RandomHosts = my_conf([random_hosts]),
+  HostSelection = case RandomHosts of
+                      true -> random;
+                      false -> round_robin
+                  end,
   HostShift = case my_conf([full_forwarding]) of
                   true -> 1;
                   false -> 0
@@ -180,11 +205,12 @@ publish_stage() ->
              , set_latency    => my_conf_key([pub, set_pub_latency])
              , metadata       => true
              , host_shift     => HostShift
-             , host_selection => round_robin
+             , host_selection => HostSelection
              },
   emqttb_group:ensure(#{ id            => ?PUB_GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_pub, PubOpts}
+                       , start_n       => my_conf([start_n])
                        }),
   N = my_conf([num_clients]) div 2,
   Interval = my_conf([conninterval]),

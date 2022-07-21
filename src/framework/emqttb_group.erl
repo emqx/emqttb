@@ -41,6 +41,7 @@
          , behavior      := {module(), map()}
          , parent        => pid()
          , autorate      => atom()
+         , start_n       => integer()
          }.
 
 %%================================================================================
@@ -125,6 +126,7 @@ init([Conf]) ->
       #{ id         => ID
        , group_conf => ConfID
        }),
+  StartN = maps:get(start_n, Conf, 0),
   persistent_term:put(?GROUP_LEADER_TO_GROUP_ID(self()), ID),
   persistent_term:put(?GROUP_BEHAVIOR(self()), Behavior),
   persistent_term:put(?GROUP_CONF_ID(self()), ConfID),
@@ -138,6 +140,7 @@ init([Conf]) ->
         , tick_timer  = set_tick_timer()
         , parent_ref  = maybe_monitor_parent(Conf)
         , interval    = Autorate
+        , next_id     = StartN
         },
   {ok, S}.
 
