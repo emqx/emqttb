@@ -93,6 +93,13 @@ model() ->
          , cli_operand => "qos"
          , cli_short => $q
          }}
+   , start_n =>
+       {[value, cli_param],
+        #{ oneliner => "Starting worker number for this bench (used for controlling clientid and target)"
+         , type => integer()
+         , default => 0
+         , cli_operand => "start-n"
+         }}
    }.
 
 run() ->
@@ -103,6 +110,7 @@ run() ->
   emqttb_group:ensure(#{ id            => sub_group
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_sub, SubOpts}
+                       , start_n       => my_conf([start_n])
                        }),
   Interval = my_conf([conninterval]),
   set_stage(ramp_up),
