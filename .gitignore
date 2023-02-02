@@ -19,3 +19,8 @@ rebar3.crashdump
 *~
 docs/
 TAGS
+/rebar.lock
+/.emqttb.repeat
+/*.tar.gz
+/emqttb
+/libquicer_nif.so
