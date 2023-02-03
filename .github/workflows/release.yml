@@ -21,23 +21,22 @@ jobs:
       fail-fast: false
       matrix:
         otp:
-          - "24"
+          - "24.3.4.2-1"
         quic_support:
-          - true
           - false
         os:
           - ubuntu22.04
           - ubuntu20.04
           - ubuntu18.04
           - ubuntu16.04
+          - debian11
           - debian10
           - debian9
-          - rockylinux8
-          - rockylinux9
-          - centos7
+          - el7
+          - el8
           - amzn2
     container:
-      image: erlang:${{ matrix.otp }}
+      image: ghcr.io/emqx/emqx-builder/5.0-27:1.13.4-${{ matrix.otp }}-${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v3
@@ -68,14 +67,25 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - id: prepare
+        shell: bash
         env:
           HOMEBREW_NO_AUTO_UPDATE: 1
           HOMEBREW_NO_INSTALL_UPGRADE: 1
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
-        run: brew install coreutils erlang@${{ matrix.otp }}
+        run: |
+          brew install coreutils erlang@${{ matrix.otp }}
+          brew link erlang@${{ matrix.otp }}
+          git clone --depth=1 https://github.com/erlang/rebar3.git
+          cd rebar3
+          ./bootstrap
+          ./rebar3 local install
+          echo "$HOME/.cache/rebar3/bin" >> $GITHUB_PATH
       - name: build
         shell: bash
-        run: make release
+        env:
+          BUILD_WITHOUT_QUIC: 1
+        run: |
+          make release
       - if: failure()
         run: cat rebar3.crashdump
       - run: ./_build/default/bin/emqttb
