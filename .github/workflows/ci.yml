@@ -1,29 +1,23 @@
 name: CI
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        otp: [24]
+        otp:
+          - 24
     container:
       image: erlang:${{ matrix.otp }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Compile and run tests
-      run: BUILD_WITHOUT_QUIC=true make
-
-    # services:
-    #   emqx:
-    #     image: emqx:4.4
-    #     ports:
-    #       - 1883:1883
+      env:
+        BUILD_WITHOUT_QUIC: "true"
+      run: make
