@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         otp:
-          - "24.3.4.2-1"
+          - "24.3.4.2-3"
         quic_support:
           - false
         os:
@@ -32,17 +32,21 @@ jobs:
           - debian11
           - debian10
           - debian9
-          - el7
+          - el9
           - el8
+          - el7
           - amzn2
     container:
-      image: ghcr.io/emqx/emqx-builder/5.0-27:1.13.4-${{ matrix.otp }}-${{ matrix.os }}
+      image: ghcr.io/emqx/emqx-builder/5.0-34:1.13.4-${{ matrix.otp }}-${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - shell: bash
         run: |
           [ "false" == ${{ matrix.quic_support }} ] && export BUILD_WITHOUT_QUIC=1
+          git config --global --add safe.directory $(pwd)
           make release
       - if: failure()
         run: cat rebar3.crashdump
@@ -66,25 +70,30 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - id: prepare
-        shell: bash
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: 1
-          HOMEBREW_NO_INSTALL_UPGRADE: 1
-          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+        with:
+          fetch-depth: 0
+      - name: prepare
         run: |
-          brew install coreutils erlang@${{ matrix.otp }}
-          brew link erlang@${{ matrix.otp }}
-          git clone --depth=1 https://github.com/erlang/rebar3.git
-          cd rebar3
-          ./bootstrap
-          ./rebar3 local install
-          echo "$HOME/.cache/rebar3/bin" >> $GITHUB_PATH
+          brew install coreutils
+          echo "/usr/local/bin" >> $GITHUB_PATH
+          git config --global credential.helper store
+      - uses: actions/cache@v2
+        id: cache
+        with:
+          path: ~/.kerl
+          key: otp-${{ matrix.otp }}-${{ matrix.macos }}
+      - name: build erlang
+        if: steps.cache.outputs.cache-hit != 'true'
+        timeout-minutes: 60
+        run: |
+          kerl build git https://github.com/emqx/otp.git OTP-${{ matrix.otp }} ${{ matrix.otp }}
+          kerl install ${{ matrix.otp }} $HOME/.kerl/${{ matrix.otp }}
       - name: build
         shell: bash
         env:
           BUILD_WITHOUT_QUIC: 1
         run: |
+          . $HOME/.kerl/${{ matrix.otp }}/activate
           make release
       - if: failure()
         run: cat rebar3.crashdump

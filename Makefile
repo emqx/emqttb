@@ -1,24 +1,26 @@
-REBAR ?= rebar3
+REBAR ?= $(CURDIR)/rebar3
+REBAR_VERSION ?= 3.19.0-emqx-1
 
 .PHONY: all
-all:
+all: $(REBAR)
 	$(REBAR) do compile, dialyzer, eunit, ct
 
 .PHONY: compile
-compile:
+compile: $(REBAR)
 	$(REBAR) compile
 
 .PHONY: dialyzer
-dialyzer:
+dialyzer: $(REBAR)
 	$(REBAR) do compile, dialyzer
 
 .PHONY: test
-test:
+test: $(REBAR)
 	$(REBAR) do eunit, ct
 
 .PHONY: release
-release:
-	$(REBAR) do compile, tar
+release: compile
+	@$(REBAR) as emqttb tar
+	@$(CURDIR)/scripts/rename-package.sh
 
 .PHONY: README.md
 README.md: compile
@@ -32,3 +34,8 @@ clean: distclean
 distclean:
 	@rm -rf _build erl_crash.dump rebar3.crashdump rebar.lock emqttb
 
+.PHONY: ensure-rebar3
+ensure-rebar3:
+	$(CURDIR)/scripts/ensure-rebar3.sh $(REBAR_VERSION)
+
+$(REBAR): ensure-rebar3

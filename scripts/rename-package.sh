@@ -35,7 +35,7 @@ case "$ARCH" in
         ;;
 esac
 
-VSN="$(grep -E ".+vsn.+" _build/default/lib/emqttb/ebin/emqttb.app | cut -d '"' -f2)"
-BASE=$(find ./_build/default/rel/emqttb -name "*.tar.gz" | tail -1)
-QUIC=$(find ./_build/default/rel/emqttb -name "quicer-*" | grep -q quicer && echo '-quic' || echo '')
+BASE=$(find ./_build/emqttb/rel/emqttb -name "*.tar.gz" | tail -1)
+VSN="$(echo "$BASE" | sed -E -e 's|.+emqttb-(.+)\.tar\.gz|\1|')"
+QUIC=$(find ./_build/emqttb/rel/emqttb -name "quicer-*" | grep -q quicer && echo '-quic' || echo '')
 cp "$BASE" "./emqttb-${VSN}-${SYSTEM}-${ARCH}${QUIC}.tar.gz"
