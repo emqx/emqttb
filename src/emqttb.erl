@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 %% internal exports:
 -export([n_clients/0, parse_hosts/1, parse_addresses/1, parse_duration_us/1, parse_duration_ms/1,
-         parse_byte_size/1]).
+         parse_byte_size/1, wait_time/0]).
 
 -export_type([n_clients/0]).
 
@@ -98,6 +98,16 @@ setfail(Reason) ->
   application:set_env(emqttb, fail_reason, Reason),
   application:set_env(emqttb, is_fail, true).
 
+%%================================================================================
+%% Internal exports
+%%================================================================================
+
+wait_time() ->
+  union(duration_ms(), infinity).
+
+n_clients() ->
+  typerefl:range(0, erlang:system_info(process_limit) - 100).
+
 -spec duration_to_sleep(duration_us()) -> {non_neg_integer(), 1..1000}.
 duration_to_sleep(0) ->
   {0, 1_000};
@@ -112,13 +122,6 @@ get_duration_and_repeats(I) when is_integer(I) ->
   duration_to_sleep(I);
 get_duration_and_repeats(CRef) ->
   get_duration_and_repeats(counters:get(CRef, 1)).
-
-%%================================================================================
-%% Internal exports
-%%================================================================================
-
-n_clients() ->
-  typerefl:range(0, erlang:system_info(process_limit) - 100).
 
 %%================================================================================
 %% Internal functions
