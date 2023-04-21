@@ -61,7 +61,6 @@ emqttb --foo --bar 1 positional1 positional2 @action1 --foo 1 positional1 @actio
        |regular args    positional args    |            action1 scope
        |___________________________________|
                  global scope
-)
 ```
 
 ## Core concepts
@@ -83,6 +82,43 @@ emqttb --foo --bar 1 positional1 positional2 @action1 --foo 1 positional1 @actio
     of workers in the group, or worker configuration) based on constants
     or dynamic parameters, e.g. available RAM or CPU load, observed
     latency and so on.
+
+## Client group configuration
+
+Load generation scenarios (such as `@pub` and `@sub`) don't explicitly
+specify how the clients should connect to the MQTT broker. These
+settings are delegated to [group configuration](#cli-command-g).
+
+Each group configuration has an id. EMQTTB always creates a default
+group with id=`default`. All scenarios use it by default.
+
+Scenarios use group configuration for each client group they create. For
+example, `@pub` scenario creates only one group for publishers which is
+specified by `--group` or `-g` CLI argument. Usually this scenario is
+invoked with implicit `default` group configuration:
+
+``` bash
+emqttb @pub -t foo @g -h localhost
+```
+
+It is equivalent to the following command:
+
+``` bash
+emqttb @pub -t foo --group default @g --group default -h localhost
+```
+
+Sometimes it is necessary to use different group configurations for
+different scenarios. For example, imagine we need to test pub/sub
+scenario where publishers use websocket connections and subscribers use
+MQTT, or we want to test bridging between MQTT brokers that have
+different hostnames. It can be achieved like this:
+
+``` bash
+emqttb @pub -t 'foo/%n' -g wss \
+       @sub -t 'foo/#' -g mqtt \
+       @g -g wss -h localhost --transport ws --ssl \
+       @g -g mqtt -h localhost --transport sock
+```
 
 ## Metrics
 
@@ -244,7 +280,7 @@ It is possible to override client configuration for the group.
 
 #### \--autoscale, -A
 
-Pointer at autorate configuration, see:
+Pointer to autorate configuration, see:
 [groups/{}/autoscale](#groups/{}/autoscale)
 
 #### \--host, -h
@@ -1143,7 +1179,7 @@ infinity
 
 ## groups/{}/autoscale
 
-Pointer at autorate configuration
+Pointer to autorate configuration
 
 *Type:*
 
