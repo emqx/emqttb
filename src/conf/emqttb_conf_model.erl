@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -199,7 +199,7 @@ model() ->
         , loiter =>
             {[value, os_env, cli_param],
              #{ oneliner    => "Default loiter time for the scenarios (sec)"
-              , type        => timeout()
+              , type        => emqttb:wait_time()
               , default     => infinity
               , cli_operand => "loiter"
               , cli_short   => $L

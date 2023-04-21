@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -109,10 +109,7 @@ set_stage(Stage, {error, Err}) ->
 
 -spec loiter() -> ok.
 loiter() ->
-  T = case my_conf([loiter]) of
-        infinity -> infinity;
-        Seconds  -> timer:seconds(Seconds)
-      end,
+  T = my_conf([loiter]),
   receive after T -> ok end.
 
 -spec complete(result()) -> no_return().
@@ -191,7 +188,7 @@ make_model(M) ->
      #{ loiter =>
           {[value, cli_param],
            #{ oneliner    => "Keep running scenario stages for this period of time (sec)"
-            , type        => timeout()
+            , type        => emqttb:wait_time()
             , default_ref => [convenience, loiter]
             , cli_operand => "loiter"
             }}
