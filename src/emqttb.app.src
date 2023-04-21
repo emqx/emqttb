@@ -12,6 +12,7 @@
     jsone,
     lee,
     snabbkaffe,
+    xmerl,
     emqtt
    ]},
   {env,[]},
