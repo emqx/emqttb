@@ -72,10 +72,33 @@ Default interval between events, see: [interval](#interval)
 
 Global log level, see: [logging/level](#logging/level)
 
+### \--grafana
+
+Add annotations to Grafana, see:
+[metrics/grafana/enabled](#metrics/grafana/enabled)
+
+### \--grafana-login
+
+Grafana login, see: [metrics/grafana/login](#metrics/grafana/login)
+
+### \--grafana-url
+
+URL of Grafana server, see: [metrics/grafana/url](#metrics/grafana/url)
+
 ### \--pushgw
 
 Enable sending metrics to pushgateway, see:
 [metrics/pushgateway/enabled](#metrics/pushgateway/enabled)
+
+### \--pushgw-interval
+
+Push interval (ms), see:
+[metrics/pushgateway/interval](#metrics/pushgateway/interval)
+
+### \--pushgw-url
+
+URL of pushgateway server, see:
+[metrics/pushgateway/url](#metrics/pushgateway/url)
 
 ### \--max-clients, -N
 
@@ -535,6 +558,17 @@ QoS of the published messages, see:
 Try to keep publishing time at this value (ms), see:
 [scenarios/emqttb\_scenario\_pubsub\_forward/{}/pub/set\_pub\_latency](#scenarios/emqttb_scenario_pubsub_forward/{}/pub/set_pub_latency)
 
+#### \--random-hosts
+
+Whether to use random hosts rather than 1-shifted round-robin, see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/random\_hosts](#scenarios/emqttb_scenario_pubsub_forward/{}/random_hosts)
+
+#### \--start-n
+
+Starting worker number for this bench (used for multi-loadgen test
+alignment), see:
+[scenarios/emqttb\_scenario\_pubsub\_forward/{}/start\_n](#scenarios/emqttb_scenario_pubsub_forward/{}/start_n)
+
 #### \--sub-qos
 
 Subscription QoS, see:
@@ -612,6 +646,29 @@ Log level for the default handler, see:
 ## EMQTTB\_LOGGING\_\_LEVEL
 
 Global log level, see: [logging/level](#logging/level)
+
+## EMQTTB\_METRICS\_\_GRAFANA\_\_API\_KEY
+
+Grafana API key, see:
+[metrics/grafana/api\_key](#metrics/grafana/api_key)
+
+## EMQTTB\_METRICS\_\_GRAFANA\_\_ENABLED
+
+Add annotations to Grafana, see:
+[metrics/grafana/enabled](#metrics/grafana/enabled)
+
+## EMQTTB\_METRICS\_\_GRAFANA\_\_LOGIN
+
+Grafana login, see: [metrics/grafana/login](#metrics/grafana/login)
+
+## EMQTTB\_METRICS\_\_GRAFANA\_\_PASSWORD
+
+Grafana password, see:
+[metrics/grafana/password](#metrics/grafana/password)
+
+## EMQTTB\_METRICS\_\_GRAFANA\_\_URL
+
+URL of Grafana server, see: [metrics/grafana/url](#metrics/grafana/url)
 
 ## EMQTTB\_METRICS\_\_PUSHGATEWAY\_\_ENABLED
 
@@ -998,9 +1055,8 @@ Default loiter time for the scenarios (sec)
 *Type:*
 
 ``` erlang
-timeout() when
-  non_neg_integer() :: 0..inf,
-  timeout() :: non_neg_integer() | infinity.
+emqttb:duration_ms() | infinity when
+  emqttb:duration_ms() :: integer().
 ```
 
 *Default value:*
@@ -1324,6 +1380,90 @@ lee_logger:level() when
 notice
 ```
 
+## metrics/grafana/api\_key
+
+Grafana API key
+
+*Type:*
+
+``` erlang
+false | string() when
+  string() :: [char()].
+```
+
+*Default value:*
+
+``` erlang
+false
+```
+
+## metrics/grafana/enabled
+
+Add annotations to Grafana
+
+*Type:*
+
+``` erlang
+boolean()
+```
+
+*Default value:*
+
+``` erlang
+false
+```
+
+## metrics/grafana/login
+
+Grafana login
+
+*Type:*
+
+``` erlang
+false | string() when
+  string() :: [char()].
+```
+
+*Default value:*
+
+``` erlang
+false
+```
+
+## metrics/grafana/password
+
+Grafana password
+
+*Type:*
+
+``` erlang
+string() when
+  string() :: [char()].
+```
+
+*Default value:*
+
+``` erlang
+[]
+```
+
+## metrics/grafana/url
+
+URL of Grafana server
+
+*Type:*
+
+``` erlang
+string() when
+  string() :: [char()].
+```
+
+*Default value:*
+
+``` erlang
+"http://localhost:3000"
+```
+
 ## metrics/pushgateway/enabled
 
 Enable sending metrics to pushgateway
@@ -1462,9 +1602,8 @@ Keep running scenario stages for this period of time (sec)
 *Type:*
 
 ``` erlang
-timeout() when
-  non_neg_integer() :: 0..inf,
-  timeout() :: non_neg_integer() | infinity.
+emqttb:duration_ms() | infinity when
+  emqttb:duration_ms() :: integer().
 ```
 
 *Default value:*
@@ -1511,9 +1650,8 @@ Keep running scenario stages for this period of time (sec)
 *Type:*
 
 ``` erlang
-timeout() when
-  non_neg_integer() :: 0..inf,
-  timeout() :: non_neg_integer() | infinity.
+emqttb:duration_ms() | infinity when
+  emqttb:duration_ms() :: integer().
 ```
 
 *Default value:*
@@ -1764,9 +1902,8 @@ Keep running scenario stages for this period of time (sec)
 *Type:*
 
 ``` erlang
-timeout() when
-  non_neg_integer() :: 0..inf,
-  timeout() :: non_neg_integer() | infinity.
+emqttb:duration_ms() | infinity when
+  emqttb:duration_ms() :: integer().
 ```
 
 *Default value:*
@@ -1960,9 +2097,8 @@ Keep running scenario stages for this period of time (sec)
 *Type:*
 
 ``` erlang
-timeout() when
-  non_neg_integer() :: 0..inf,
-  timeout() :: non_neg_integer() | infinity.
+emqttb:duration_ms() | infinity when
+  emqttb:duration_ms() :: integer().
 ```
 
 *Default value:*
@@ -2067,6 +2203,39 @@ emqttb:duration_ms() when
 100
 ```
 
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/random\_hosts
+
+Whether to use random hosts rather than 1-shifted round-robin
+
+*Type:*
+
+``` erlang
+boolean()
+```
+
+*Default value:*
+
+``` erlang
+false
+```
+
+## scenarios/emqttb\_scenario\_pubsub\_forward/{}/start\_n
+
+Starting worker number for this bench (used for multi-loadgen test
+alignment)
+
+*Type:*
+
+``` erlang
+integer()
+```
+
+*Default value:*
+
+``` erlang
+0
+```
+
 ## scenarios/emqttb\_scenario\_pubsub\_forward/{}/sub/qos
 
 Subscription QoS
@@ -2139,9 +2308,8 @@ Keep running scenario stages for this period of time (sec)
 *Type:*
 
 ``` erlang
-timeout() when
-  non_neg_integer() :: 0..inf,
-  timeout() :: non_neg_integer() | infinity.
+emqttb:duration_ms() | infinity when
+  emqttb:duration_ms() :: integer().
 ```
 
 *Default value:*
