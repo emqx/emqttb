@@ -4,38 +4,114 @@
 
 A scriptable load generator for MQTT
 
-*Description:*
+## Quick start
 
-## Invokation
+Start 100 clients connecting to localhost with 10ms pause in between.
+Clients publish a 1kb-size message every 10ms to topic `t/%clientid%`.
+Run steady traffic for 30s and then exit:
 
-Generally speaking, this script can work in either script mode or in
-deamon mode. The mode is determined by whether REST API is enabled or
-not.
+``` bash
+emqttb --loiter 30s @pub --topic 't/%n' --conninterval 10ms --pubinterval 10ms --num-clients 100 --size 1kb @g --host 127.0.0.1
+```
 
-Basic usage: emqttb \<gloabal parameters\> @\<scenario1\> \<scenario
-parameters\> \[@\<scenario2\> \<scenario parameters\> ...\]
+Same with shortened arguments:
 
-Repeat the last run: emqttb --again
+``` bash
+emqttb -L 30s @pub -t 't/%n' -I 10ms -i 10ms -N 100 -s 1kb @g -h 127.0.0.1
+```
+
+Start 10 clients that subscribe to a wildcard topic and run steady
+traffic for 30s:
+
+``` bash
+emqttb --loiter 30s  @sub --topic 't/#' --conninterval 10ms --num-clients 10 @g --host 127.0.0.1
+```
+
+Same with shortened arguments:
+
+``` bash
+emqttb -L 30s @sub -t 't/#' -I 10ms -N 10 @g -h 127.0.0.1
+```
+
+Combine the above scenarios in a single command:
+
+``` bash
+emqttb -L 30s  @pub -t 't/%n' -I 10ms -i 10ms -N 100 -s 1kb @sub -t 't/#' -I 10ms -N 10 @g -h 127.0.0.1
+```
+
+## Understanding EMQTTB CLI
+
+EMQTTB executable accepts named CLI arguments (such as `--foo` or `-f`),
+positional arguments and *actions*. Actions are special CLI arguments
+that start with `@` character (e.g. `@my-action`). Actions correspond to
+different load-generation scenarios, such as `@pub` and `@sub`, [client
+group](#groups) configurations and [autorates](#autorate).
+
+Each CLI action defines its own *scope* of named and positional CLI
+arguments. Positional arguments are always specified after named
+arguments within the scope. There is also a *global* scope of arguments
+that don't belong to any action. Global arguments are specified before
+the very first action.
+
+Example:
+
+``` bash
+emqttb --foo --bar 1 positional1 positional2 @action1 --foo 1 positional1 @action2 ...
+       |___________| |_____________________|          |_________________|
+       |regular args    positional args    |            action1 scope
+       |___________________________________|
+                 global scope
+)
+```
 
 ## Core concepts
 
-*Worker*: a process that corresponds to a single MQTT client
+  - *Worker* a process that corresponds to a single MQTT client
 
-*Behavior*: a callback module that defines which function worker runs in
-a loop
+  - *Behavior* a callback module containing functions that workers run
+    in a loop
 
-*Group*: a group of workers with the same behavior
+  - *Group* a supervised colletion of workers running the same behavior
+    and sharing the same configuration. Group manager controls the
+    number of workers, restarts failed workers and implements ramp
+    up/down logic.
 
-*Scenario*: a script that creates several worker groups and controls the
-number of clients in each group using autoscale (see below)
+  - *Scenario* a callback module that creates several worker groups and
+    manupulates group configuration using autorate.
 
-*Stage*: scenario can be split into stages, e.g. connect clients, run
-traffic, disconnect clients, etc. Behaviors can depend on the stage.
+  - *Autorate* a process that adjusts group parameters (such as number
+    of workers in the group, or worker configuration) based on constants
+    or dynamic parameters, e.g. available RAM or CPU load, observed
+    latency and so on.
 
-*Autorate*: a function that calculates the optimal rate value based on
-some static and dynamic parameters, e.g. available RAM or CPU load.
+## Metrics
 
-*Autoscale*: a function that scales the size of the group up or down.
+EMQTTB can export metrics to Prometheus using pushgateway or scraping
+REST endpoint. Scraping endpoint is enabled automatically when the
+script is started with `--restapi` global flag. Pushgateway should be
+enabled explicitly:
+
+``` bash
+emqttb --pushgw --pushgw-url http://localhost:9091
+```
+
+There is a ready-to-use grafana dashboard for emqttb:
+[emqttb-dashboard.json](https://github.com/ieQu1/grafana-dashboards/blob/master/grafana/dashboards/emqttb-dashboard.json).
+Also there is a fully ready docker images that include Grafana and
+Postgres with all the necessary schemas and dashboards for emqttb and
+emqx performance analysis:
+[github.com/ieQu1/grafana-dashboards](https://github.com/ieQu1?tab=packages&repo_name=grafana-dashboards)
+
+Additionally, EMQTTB can add annotations to grafana dashboards when
+scenarios start, advance to a next stage or finish. This requires a
+Grafana API key with `Editor` role. Once the key is obtained, it can be
+used like this:
+
+``` bash
+export EMQTTB_METRICS__GRAFANA__API_KEY="Bearer eyJrIjoiNmhSdTFnWGJlaE9tZXQ2YXI4WlEyUGNSMXFMb1oyUXkiLCJuIjoiZW1xdHRiIiwiaWQiOjF9"
+export EMQTTB_METRICS__GRAFANA__URL="http://localhost:3000"
+emqttb --grafana ...
+```
 
 # CLI arguments
 

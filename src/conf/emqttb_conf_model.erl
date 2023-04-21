@@ -38,7 +38,6 @@ model() ->
        {[doc_root],
         #{ oneliner    => "A scriptable load generator for MQTT"
          , app_name    => "EMQTT bench daemon"
-         , doc         => intro()
          , prog_name   => "emqttb"
          }}
    , interval          =>
@@ -243,38 +242,5 @@ model() ->
    }.
 
 %%================================================================================
-%% Internal exports
-%%================================================================================
-
-%%================================================================================
 %% Internal functions
 %%================================================================================
-
-intro() ->
-  [ sect("intro-running", "Invokation",
-         [ p("Generally speaking, this script can work in either script mode or in deamon mode.
-              The mode is determined by whether REST API is enabled or not.")
-         , p("Basic usage: emqttb <gloabal parameters> @<scenario1> <scenario parameters> [@<scenario2> <scenario parameters> ...]")
-         , p("Repeat the last run: emqttb --again")
-         ])
-  , sect("concepts", "Core concepts",
-         [{itemlist,
-           [ li("Worker",
-                ["a process that corresponds to a single MQTT client"])
-           , li("Behavior",
-                ["a callback module that defines which function worker runs in a loop"])
-           , li("Group",
-                ["a group of workers with the same behavior"])
-           , li("Scenario",
-                ["a script that creates several worker groups and controls the number
-                  of clients in each group using autoscale (see below)"])
-           , li("Stage",
-                ["scenario can be split into stages, e.g. connect clients, run traffic, disconnect clients, etc.
-                  Behaviors can depend on the stage."])
-           , li("Autorate",
-                ["a function that calculates the optimal rate value based on some
-                  static and dynamic parameters, e.g. available RAM or CPU load."])
-           , li("Autoscale",
-                ["a function that scales the size of the group up or down."])
-           ]}])
-  ].
