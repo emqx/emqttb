@@ -1,4 +1,126 @@
 <lee>
+  <node id="'$doc_root'">
+    <doc lang="en">
+      <section id="quick-start">
+        <title>Quick start</title>
+        <para>Start 100 clients connecting to localhost with 10ms pause in between. Clients publish a 1kb-size message every 10ms to topic <code>t/%clientid%</code>. Run steady traffic for 30s and then exit:</para>
+        <programlisting language="bash"><![CDATA[
+emqttb --loiter 30s @pub --topic 't/%n' --conninterval 10ms --pubinterval 10ms --num-clients 100 --size 1kb @g --host 127.0.0.1
+]]></programlisting>
+        <para>Same with shortened arguments:</para>
+        <programlisting language="bash"><![CDATA[
+emqttb -L 30s @pub -t 't/%n' -I 10ms -i 10ms -N 100 -s 1kb @g -h 127.0.0.1
+]]></programlisting>
+        <para>Start 10 clients that subscribe to a wildcard topic and run steady traffic for 30s:</para>
+        <programlisting language="bash"><![CDATA[
+emqttb --loiter 30s  @sub --topic 't/#' --conninterval 10ms --num-clients 10 @g --host 127.0.0.1
+]]></programlisting>
+        <para>Same with shortened arguments:</para>
+        <programlisting language="bash"><![CDATA[
+emqttb -L 30s @sub -t 't/#' -I 10ms -N 10 @g -h 127.0.0.1
+]]></programlisting>
+        <para>Combine the above scenarios in a single command:</para>
+        <programlisting language="bash"><![CDATA[
+emqttb -L 30s  @pub -t 't/%n' -I 10ms -i 10ms -N 100 -s 1kb @sub -t 't/#' -I 10ms -N 10 @g -h 127.0.0.1
+]]></programlisting>
+      </section>
+
+      <section id="intro-running">
+        <title>Understanding EMQTTB CLI</title>
+        <para>
+          EMQTTB executable accepts named CLI arguments (such as <code>--foo</code> or <code>-f</code>), positional arguments and <emphasis>actions</emphasis>.
+          Actions are special CLI arguments that start with <code>@</code> character (e.g. <code>@my-action</code>).
+          Actions correspond to different load-generation scenarios, such as <code>@pub</code> and <code>@sub</code>, <link linkend='groups'>client group</link> configurations and <link linkend="autorate">autorates</link>.
+        </para>
+        <para>
+          Each CLI action defines its own <emphasis>scope</emphasis> of named and positional CLI arguments.
+          Positional arguments are always specified after named arguments within the scope.
+          There is also a <emphasis>global</emphasis> scope of arguments that don't belong to any action.
+          Global arguments are specified before the very first action.
+        </para>
+        <para>
+          Example:
+          <programlisting language="bash"><![CDATA[
+emqttb --foo --bar 1 positional1 positional2 @action1 --foo 1 positional1 @action2 ...
+       |___________| |_____________________|          |_________________|
+       |regular args    positional args    |            action1 scope
+       |___________________________________|
+                 global scope
+)]]></programlisting>
+        </para>
+      </section>
+      <section id="concepts">
+        <title>Core concepts</title>
+        <para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <emphasis>Worker</emphasis> a process that corresponds
+                to a single MQTT client
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis>Behavior</emphasis> a callback module
+                containing functions that workers run in a loop
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis>Group</emphasis> a supervised colletion of
+                workers running the same behavior and sharing the same
+                configuration.  Group manager controls the number of
+                workers, restarts failed workers and implements ramp
+                up/down logic.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis>Scenario</emphasis> a callback module that
+                creates several worker groups and manupulates group
+                configuration using autorate.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis>Autorate</emphasis> a process that adjusts
+                group parameters (such as number of workers in the
+                group, or worker configuration) based on constants or
+                dynamic parameters, e.g. available RAM or CPU load,
+                observed latency and so on.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </para>
+      </section>
+      <section>
+        <title>Metrics</title>
+        <para>
+          EMQTTB can export metrics to Prometheus using pushgateway or scraping REST endpoint.
+          Scraping endpoint is enabled automatically when the script is started with <code>--restapi</code> global flag.
+          Pushgateway should be enabled explicitly:
+        <programlisting language="bash"><![CDATA[
+emqttb --pushgw --pushgw-url http://localhost:9091
+]]></programlisting>
+        </para>
+        <para>
+          There is a ready-to-use grafana dashboard for emqttb: <ulink url="https://github.com/ieQu1/grafana-dashboards/blob/master/grafana/dashboards/emqttb-dashboard.json">emqttb-dashboard.json</ulink>.
+          Also there is a fully ready docker images that include Grafana and Postgres with all the necessary schemas and dashboards for emqttb and emqx performance analysis:
+          <ulink url="https://github.com/ieQu1?tab=packages&amp;repo_name=grafana-dashboards">github.com/ieQu1/grafana-dashboards</ulink>
+        </para>
+        <para>
+          Additionally, EMQTTB can add annotations to grafana dashboards when scenarios start, advance to a next stage or finish.
+          This requires a Grafana API key with <code>Editor</code> role.
+          Once the key is obtained, it can be used like this:
+          <programlisting language="bash"><![CDATA[
+export EMQTTB_METRICS__GRAFANA__API_KEY="Bearer eyJrIjoiNmhSdTFnWGJlaE9tZXQ2YXI4WlEyUGNSMXFMb1oyUXkiLCJuIjoiZW1xdHRiIiwiaWQiOjF9"
+export EMQTTB_METRICS__GRAFANA__URL="http://localhost:3000"
+emqttb --grafana ...
+]]></programlisting>
+        </para>
+      </section>
+    </doc>
+  </node>
   <node id="autorate">
     <doc lang="en">
       <para>
