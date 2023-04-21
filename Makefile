@@ -1,5 +1,5 @@
 REBAR ?= $(CURDIR)/rebar3
-REBAR_VERSION ?= 3.19.0-emqx-1
+REBAR_URL ?= https://s3.amazonaws.com/rebar3/rebar3
 
 .PHONY: all
 all: $(REBAR)
@@ -34,8 +34,6 @@ clean: distclean
 distclean:
 	@rm -rf _build erl_crash.dump rebar3.crashdump rebar.lock emqttb
 
-.PHONY: ensure-rebar3
-ensure-rebar3:
-	$(CURDIR)/scripts/ensure-rebar3.sh $(REBAR_VERSION)
-
-$(REBAR): ensure-rebar3
+$(REBAR):
+	@curl -skfL "$(REBAR_URL)" -o $@
+	@chmod +x $@
