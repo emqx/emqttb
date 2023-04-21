@@ -46,7 +46,7 @@ emqttb --foo --bar 1 positional1 positional2 @action1 --foo 1 positional1 @actio
        |regular args    positional args    |            action1 scope
        |___________________________________|
                  global scope
-)]]></programlisting>
+]]></programlisting>
         </para>
       </section>
       <section id="concepts">
@@ -91,6 +91,51 @@ emqttb --foo --bar 1 positional1 positional2 @action1 --foo 1 positional1 @actio
               </para>
             </listitem>
           </itemizedlist>
+        </para>
+      </section>
+      <section>
+        <title>Client group configuration</title>
+        <para>
+          Load generation scenarios (such as <code>@pub</code> and
+          <code>@sub</code>) don't explicitly specify how the clients
+          should connect to the MQTT broker. These settings are
+          delegated to <link linkend="cli-command-g">group
+          configuration</link>.
+        </para>
+        <para>
+          Each group configuration has an id.
+          EMQTTB always creates a default group with id=<code>default</code>.
+          All scenarios use it by default.
+        </para>
+        <para>
+          Scenarios use group configuration for each client group they
+          create. For example, <code>@pub</code> scenario creates only
+          one group for publishers which is specified by
+          <code>--group</code> or <code>-g</code> CLI
+          argument. Usually this scenario is invoked with implicit
+          <code>default</code> group configuration:
+
+        <programlisting language="bash"><![CDATA[
+emqttb @pub -t foo @g -h localhost
+]]></programlisting>
+          It is equivalent to the following command:
+        <programlisting language="bash"><![CDATA[
+emqttb @pub -t foo --group default @g --group default -h localhost
+]]></programlisting>
+        </para>
+        <para>
+          Sometimes it is necessary to use different group
+          configurations for different scenarios.  For example,
+          imagine we need to test pub/sub scenario where publishers
+          use websocket connections and subscribers use MQTT, or we
+          want to test bridging between MQTT brokers that have
+          different hostnames. It can be achieved like this:
+        <programlisting language="bash"><![CDATA[
+emqttb @pub -t 'foo/%n' -g wss \
+       @sub -t 'foo/#' -g mqtt \
+       @g -g wss -h localhost --transport ws --ssl \
+       @g -g mqtt -h localhost --transport sock
+]]></programlisting>
         </para>
       </section>
       <section>

@@ -8,4 +8,6 @@ ERTS_VSN="{{ erts_vsn }}"
 
 ERTS_PATH=$RUNNER_ROOT_DIR/erts-$ERTS_VSN/bin
 
+ulimit -n $(ulimit -Hn)
+
 exec ${ERTS_PATH}/escript ${RUNNER_ESCRIPT_DIR}/emqttb $@
