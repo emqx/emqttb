@@ -1,5 +1,5 @@
 {application, emqttb,
- [{description, "An OTP application"},
+ [{description, "Load generator for MQTT protocol"},
   {vsn, "git"},
   {registered, []},
   {mod, {emqttb_app, []}},
@@ -12,6 +12,7 @@
     jsone,
     lee,
     snabbkaffe,
+    xmerl,
     emqtt
    ]},
   {env,[]},
