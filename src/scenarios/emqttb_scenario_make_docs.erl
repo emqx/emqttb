@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%%Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,18 +39,14 @@ name() ->
   'make-docs'.
 
 model() ->
-  #{ external_doc =>
+  #{ output_file =>
        {[value, cli_param],
-        #{ oneliner => "Path to the external documentation source file"
+        #{ oneliner => "Output DocBook file"
          , type => string()
-         , cli_operand => "src"
+         , cli_operand => "out"
+         , cli_short => $o
          }}
    }.
 
 run() ->
-  DocumentedMTs = [cli_param, os_env, system_wide_conf, map, value],
-  External = emqttb_scenario:my_conf([external_doc]),
-  lee_doc:make_docs(?MYMODEL, #{ metatypes => DocumentedMTs
-                               , run_pandoc => true
-                               , doc_xml => External
-                               }).
+  lee_doc:make_docs(?MYMODEL, #{output_file => emqttb_scenario:my_conf([output_file])}).

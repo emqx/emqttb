@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,10 @@
 load_conf() ->
   Storage = lee_storage:new(lee_persistent_term_storage, ?CONF_STORE),
   MTs = metamodel(),
-  case lee_model:compile(MTs, [emqttb_conf_model:model()]) of
+  AsciidocOptions =
+    #{root_directory => string:trim(os:cmd("git rev-parse --show-toplevel"))},
+  RawModel = lee_asciidoc:enrich_model(AsciidocOptions, emqttb_conf_model:model()),
+  case lee_model:compile(MTs, [RawModel]) of
     {ok, Model} ->
       persistent_term:put(?MODEL_STORE, Model),
       case lee:init_config(Model, Storage) of

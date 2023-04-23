@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,8 +75,7 @@ model() ->
   #{ pub =>
        #{ qos =>
             {[value, cli_param],
-             #{ oneliner => "QoS of the published messages"
-              , type => emqttb:qos()
+             #{ type => emqttb:qos()
               , default => 2
               , cli_operand => "pub-qos"
               }}

@@ -23,7 +23,7 @@
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
 
--import(lee_doc, [sect/3, p/1, li/2]).
+-import(lee_doc, [p/1, li/2]).
 
 %%================================================================================
 %% Type declarations
@@ -42,8 +42,7 @@ model() ->
          }}
    , interval          =>
        {[value, cli_param],
-        #{ oneliner    => "Default interval between events"
-         , type        => emqttb:duration_us()
+        #{ type        => emqttb:duration_us()
          , default     => 100_000
          , cli_operand => "max-rate"
          , cli_short   => $R
@@ -73,13 +72,8 @@ model() ->
         , enabled =>
             {[value, os_env, cli_param],
              #{ oneliner    => "Enable REST API"
-              , doc         => [sect("rest", "REST API endpoints",
-                                     [ p("By default, REST API is disabled and emqttb runs in script mode.
-                                         To enable it, run the script with --restapi flag.")
-                                     , sect("rest-methods", "Methods",
-                                            [{itemlist,
-                                              emqttb_http:doc()}])
-                                     ])]
+              , doc         => [p("By default, REST API is disabled and emqttb runs in script mode.
+                                   To enable it, run the script with --restapi flag.")]
               , type        => boolean()
               , default     => false
               , cli_operand => "restapi"
@@ -164,7 +158,7 @@ model() ->
    , convenience =>
        #{ again =>
             {[value, cli_param],
-             #{ oneliner    => "Repeat the last execution."
+             #{ oneliner    => "Repeat the last execution"
               , doc         => "<para>
                                   Note: it tries best to restore the previous environment,
                                   so it only makes sense to use this option alone, as
@@ -234,8 +228,7 @@ model() ->
         emqttb_worker:model()}
    , autorate =>
        {[map, cli_action, default_instance],
-        #{ oneliner     => "Autorate configuration"
-         , cli_operand  => "a"
+        #{ cli_operand  => "a"
          , key_elements => [[id]]
          },
         emqttb_autorate:model()}

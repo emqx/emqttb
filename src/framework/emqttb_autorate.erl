@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,8 +74,7 @@ start_link(Conf = #{id := Id}) ->
 model() ->
   #{ id =>
        {[value, cli_param],
-        #{ oneliner    => "ID of the autorate configuration"
-         , type        => atom()
+        #{ type        => atom()
          , default     => default
          , cli_operand => "autorate"
          , cli_short   => $a

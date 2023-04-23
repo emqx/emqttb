@@ -153,22 +153,26 @@ parse_duration_us(Str) ->
   {Int, Unit0} = string:to_integer(Str),
   Unit = string:trim(Unit0),
   case Unit of
-    ""   -> {ok, Int * 1_000};
-    "us" -> {ok, Int};
-    "μs" -> {ok, Int};
-    "ms" -> {ok, Int * 1_000};
-    "s"  -> {ok, Int * 1_000_000};
-    _    -> error
+    ""    -> {ok, Int * 1_000};
+    "us"  -> {ok, Int};
+    "μs"  -> {ok, Int};
+    "ms"  -> {ok, Int * 1_000};
+    "s"   -> {ok, Int * 1_000_000};
+    "min" -> {ok, Int * 60_000_000};
+    "h"   -> {ok, Int * 3600_000_000};
+    _     -> error
   end.
 
 parse_duration_ms(Str) ->
   {Int, Unit0} = string:to_integer(Str),
   Unit = string:trim(Unit0),
   case Unit of
-    ""   -> {ok, Int};
-    "ms" -> {ok, Int};
-    "s"  -> {ok, Int * 1_000};
-    _    -> error
+    ""    -> {ok, Int};
+    "ms"  -> {ok, Int};
+    "s"   -> {ok, Int * 1_000};
+    "min" -> {ok, Int * 60_000};
+    "h"   -> {ok, Int * 3600_000};
+    _     -> error
   end.
 
 parse_byte_size(Str) ->

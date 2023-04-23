@@ -335,8 +335,7 @@ model() ->
    , client =>
        #{ clientid =>
             {[value, cli_param],
-             #{ oneliner    => "Clientid pattern"
-              , type        => binary()
+             #{ type        => binary()
               , default     => <<"%h-%g-%n">>
               , cli_operand => "clientid"
               , cli_short   => $i
