@@ -143,3 +143,16 @@ export EMQTTB_METRICS__GRAFANA__API_KEY="Bearer eyJrIjoiNmhSdTFnWGJlaE9tZXQ2YXI4
 export EMQTTB_METRICS__GRAFANA__URL="http://localhost:3000"
 emqttb --grafana ...
 ----
+
+== Getting more help
+
+It is possible to get information about CLI actions by running `emqttb --help <command>`.
+For example, the following command will show manual page about `@pub` scenario:
+
+[source,bash]
+----
+emqttb --help pub
+----
+
+emqttb also serves the documentation in HTML format directly from the REST endpoint (`emqttb --restapi`).
+It is available at the following URL: http://localhost:8017/doc/index.html

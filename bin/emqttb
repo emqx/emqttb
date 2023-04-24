@@ -10,4 +10,12 @@ ERTS_PATH=$RUNNER_ROOT_DIR/erts-$ERTS_VSN/bin
 
 ulimit -n $(ulimit -Hn)
 
-exec ${ERTS_PATH}/escript ${RUNNER_ESCRIPT_DIR}/emqttb $@
+if [ $# -eq 2 ] && [ $1 = "--help" ]; then
+    man -l "${RUNNER_ROOT_DIR}/doc/man/emqttb-${2}.1"
+elif [ $# -eq 1 ] && [ $1 = "--help" ]; then
+    man -l "${RUNNER_ROOT_DIR}/doc/man/emqttb.1"
+elif [ $# -eq 0 ]; then
+    man -l "${RUNNER_ROOT_DIR}/doc/man/emqttb.1"
+else
+    exec ${ERTS_PATH}/escript ${RUNNER_ESCRIPT_DIR}/emqttb "$@"
+fi
