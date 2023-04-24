@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,8 +72,10 @@ dispatch() ->
   cowboy_router:compile([{'_', routes()}]).
 
 routes() ->
+  RootDir = os:getenv("ROOTDIR"),
   [ {"/healthcheck",              emqttb_http_healthcheck, []}
   , {"/metrics",                  emqttb_http_metrics,     []}
   , {"/scenario/:scenario/stage", emqttb_http_stage,       []}
   , {"/conf/reload",              emqttb_http_sighup,      []}
+  , {"/doc/[...]", cowboy_static, {dir, filename:join(RootDir, "doc/html")}}
   ].
