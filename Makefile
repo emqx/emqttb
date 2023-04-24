@@ -4,6 +4,7 @@ XSLTNG := _build/lee_doc/docbook-xslTNG-2.1.2/libs/docbook-xslTNG-2.1.2.jar
 DOCBOOK := _build/lee_doc/src/output.xml
 MANPAGE_STYLESHEET ?= /usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl
 WWW := _build/lee_doc/html/index.html
+CAN_BUILD_DOCS ?= true
 
 .PHONY: all
 all: $(REBAR)
@@ -26,11 +27,16 @@ release: compile docs
 	@$(REBAR) as emqttb tar
 	@$(CURDIR)/scripts/rename-package.sh
 
-$(DOCBOOK): scripts/docgen.escript $(shell find src -name *.erl) $(shell find src -name *.hrl)
+$(DOCBOOK): scripts/docgen.escript compile
 	escript	scripts/docgen.escript $@
 
 .PHONY: docs
+ifeq ($(CAN_BUILD_DOCS), true)
 docs: _build/lee_doc/man/emqttb.1 $(WWW)
+else
+docs:
+	@echo "!! Docs are not being built"
+endif
 
 _build/lee_doc/man/emqttb.1: $(DOCBOOK)
 	xsltproc -o "$$(dirname $<)/../man/" $(MANPAGE_STYLESHEET) "$<"
