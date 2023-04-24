@@ -1,0 +1,158 @@
+:!sectids:
+= EMQTT bench daemon
+
+A scriptable load generator for MQTT
+
+== Quick start
+
+Start 100 clients connecting to localhost with 10ms pause in between.
+Clients publish a 1kb-size message every 10ms to topic `t/%clientid%`.
+Run steady traffic for 30s and then exit:
+
+[source,bash]
+----
+emqttb --loiter 30s \
+       @pub --topic 't/%n' --conninterval 10ms --pubinterval 10ms --num-clients 100 --size 1kb \
+       @g --host 127.0.0.1
+----
+
+Same with shortened arguments:
+
+[source,bash]
+----
+emqttb -L 30s @pub -t 't/%n' -I 10ms -i 10ms -N 100 -s 1kb @g -h 127.0.0.1
+----
+
+Start 10 clients that subscribe to a wildcard topic and run steady traffic for 30s:
+
+[source,bash]
+----
+emqttb --loiter 30s \
+       @sub --topic 't/#' --conninterval 10ms --num-clients 10 \
+       @g --host 127.0.0.1
+----
+
+Same with shortened arguments:
+
+[source,bash]
+----
+emqttb -L 30s @sub -t 't/#' -I 10ms -N 10 @g -h 127.0.0.1
+----
+
+Combine the above scenarios in a single command:
+
+[source,bash]
+----
+emqttb -L 30s  @pub -t 't/%n' -I 10ms -i 10ms -N 100 -s 1kb \
+               @sub -t 't/#' -I 10ms -N 10 @g -h 127.0.0.1
+----
+
+== Understanding EMQTTB CLI
+
+EMQTTB executable accepts named CLI arguments (such as `--foo` or `-f` positional arguments and *actions*.
+Actions are special CLI arguments that start with `@` character (e.g. `@my-action`).
+Actions correspond to different load-generation scenarios, such as `@pub` and `@sub`, client group configurations and autorates.
+
+Each CLI action defines its own *scope* of named and positional CLI arguments.
+Positional arguments are always specified after named arguments within the scope.
+There is also a *global* scope of arguments that don't belong to any action. Global arguments are specified before the very first action.
+
+Example:
+
+[source,bash]
+----
+emqttb --foo --bar 1 positional1 positional2 @action1 --foo 1 positional1 @action2 ...
+       |___________| |_____________________|          |_________________|
+       |regular args    positional args    |            action1 scope
+       |___________________________________|
+                 global scope
+----
+
+== Core concepts
+
+* *Worker* is a process that corresponds to a single MQTT client
+
+* *Behavior* is a callback module containing functions that workers run in a loop
+
+* *Group* is a supervised colletion of workers running the same behavior and sharing the same configuration.
+   Group manager controls the number of workers, restarts failed workers and implements ramp up/down logic.
+
+* *Scenario* is a callback module that creates several worker groups and manupulates group configuration using autorate.
+
+* *Autorate* a process that adjusts group parameters (such as number of workers in the group, or worker configuration) based on constants or dynamic parameters, e.g. available RAM or CPU load, observed latency and so on.
+
+== Client group configuration
+
+Load generation scenarios (such as `@pub` and `@sub`) don't explicitly specify how the clients should connect to the MQTT broker.
+These settings are delegated to clinet group configuration action (`@g`).
+
+Each group configuration has an id. EMQTTB always creates a default group with id=`default`.
+All scenarios use it by default.
+
+Scenarios use group configuration for each client group they create.
+For example, `@pub` scenario creates only one group for publishers which is specified by `--group` or `-g` CLI argument.
+Usually this scenario is invoked with implicit `default` group configuration:
+
+[source,bash]
+----
+emqttb @pub -t foo @g -h localhost
+----
+
+It is equivalent to the following command:
+
+[source,bash]
+----
+emqttb @pub -t foo --group default @g --group default -h localhost
+----
+
+Sometimes it is necessary to use different group configurations for different scenarios.
+For example, imagine we need to test pub/sub scenario where publishers use websocket connections and subscribers use MQTT, or we want to test bridging between MQTT brokers that have different hostnames.
+It can be achieved like this:
+
+[source,bash]
+----
+emqttb @pub -t 'foo/%n' -g wss \
+       @sub -t 'foo/#' -g mqtt \
+       @g -g wss -h localhost --transport ws --ssl \
+       @g -g mqtt -h localhost --transport sock
+----
+
+== Metrics
+
+EMQTTB can export metrics to Prometheus using pushgateway or scraping REST endpoint.
+Scraping endpoint is enabled automatically when the script is started with `--restapi` global flag.
+Pushgateway should be enabled explicitly:
+
+[source,bash]
+----
+emqttb --pushgw --pushgw-url http://localhost:9091
+----
+
+There is a ready-to-use grafana dashboard for emqttb:
+https://github.com/ieQu1/grafana-dashboards/blob/master/grafana/dashboards/emqttb-dashboard.json[emqttb-dashboard.json].
+Also there is a fully ready docker images that include Grafana and Postgres with all the necessary schemas and dashboards for emqttb and emqx performance analysis:
+https://github.com/ieQu1?tab=packages&repo_name=grafana-dashboards[github.com/ieQu1/grafana-dashboards].
+
+Additionally, EMQTTB can add annotations to grafana dashboards when scenarios start, advance to a next stage or finish.
+This requires a Grafana API key with `Editor` role.
+Once the key is obtained, it can be used like this:
+
+[source,bash]
+----
+export EMQTTB_METRICS__GRAFANA__API_KEY="Bearer eyJrIjoiNmhSdTFnWGJlaE9tZXQ2YXI4WlEyUGNSMXFMb1oyUXkiLCJuIjoiZW1xdHRiIiwiaWQiOjF9"
+export EMQTTB_METRICS__GRAFANA__URL="http://localhost:3000"
+emqttb --grafana ...
+----
+
+== Getting more help
+
+It is possible to get information about CLI actions by running `emqttb --help <command>`.
+For example, the following command will show manual page about `@pub` scenario:
+
+[source,bash]
+----
+emqttb --help pub
+----
+
+emqttb also serves the documentation in HTML format directly from the REST endpoint (`emqttb --restapi`).
+It is available at the following URL: http://localhost:8017/doc/index.html

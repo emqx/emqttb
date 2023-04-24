@@ -51,6 +51,9 @@ Profiles =
                         , {copy, "_build/emqttb/bin", "escript"}
                         , {copy, "bin/emqttb","bin/emqttb"}
                         , {template,"bin/emqttb","bin/emqttb"}
+                        , {mkdir, "doc"}
+                        , {copy, "_build/lee_doc/html/", "doc/html"}
+                        , {copy, "_build/lee_doc/man/", "doc/man"}
                         ]}
             , {dev_mode, false}
             , {include_src, false}

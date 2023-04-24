@@ -19,9 +19,13 @@ jobs:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
+    - name: Install additional packages
+      run: |
+        apt-get update
+        apt-get install -y openjdk-11-jdk asciidoctor xsltproc docbook-xsl
     - name: Compile and run tests
       env:
         BUILD_WITHOUT_QUIC: "true"
       run: |
         git config --global --add safe.directory $(pwd)
-        make
+        make all docs
