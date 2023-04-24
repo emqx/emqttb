@@ -17,6 +17,7 @@
 
 %% API:
 -export([load_conf/0, get/1, list_keys/1, reload/0, patch/1]).
+-export([compile_model/1]).
 
 -export_type([]).
 
@@ -33,10 +34,9 @@
 %%================================================================================
 
 load_conf() ->
-  Storage = lee_storage:new(lee_persistent_term_storage, ?CONF_STORE),
-  MTs = metamodel(),
-  case lee_model:compile(MTs, [maybe_enrich_model()]) of
+  case compile_model(emqttb_conf_model:model()) of
     {ok, Model} ->
+      Storage = lee_storage:new(lee_persistent_term_storage, ?CONF_STORE),
       persistent_term:put(?MODEL_STORE, Model),
       case lee:init_config(Model, Storage) of
         {ok, _Data, _Warnings} ->
@@ -55,6 +55,10 @@ load_conf() ->
       emqttb:setfail("invalid configuration model"),
       emqttb:terminate()
   end.
+
+compile_model(Model) ->
+  MTs = metamodel(),
+  lee_model:compile(MTs, [Model]).
 
 reload() ->
   logger:notice("Reloading configuration"),
@@ -81,18 +85,6 @@ list_keys(Key) ->
 %%================================================================================
 %% Internal functions
 %%================================================================================
-
-maybe_enrich_model() ->
-  Model = emqttb_conf_model:model(),
-  case os:find_executable("asciidoctor") of
-    false ->
-      logger:debug("asciidoctor executable not found, generated documentation will be incorrect"),
-      Model;
-    _ ->
-      AsciidocOptions =
-        #{root_directory => string:trim(os:cmd("git rev-parse --show-toplevel"))},
-      lee_asciidoc:enrich_model(AsciidocOptions, Model)
-  end.
 
 maybe_dump_conf() ->
   case {?CFG([convenience, conf_dump]), ?CFG([convenience, again])} of

@@ -21,13 +21,12 @@ test: $(REBAR)
 	$(REBAR) do eunit, ct
 
 .PHONY: release
-release: compile
+release: compile _build/lee_doc/man/emqttb.1
 	@$(REBAR) as emqttb tar
 	@$(CURDIR)/scripts/rename-package.sh
 
-_build/lee_doc/src/output.xml: release
-	mkdir -p "$$(dirname $@)"
-	./emqttb @make-docs -o "$@"
+$(DOCBOOK): compile
+	escript	scripts/docgen.escript $@
 
 .PHONY: docs
 docs: _build/lee_doc/man/emqttb.1 _build/lee_doc/html/index.html
