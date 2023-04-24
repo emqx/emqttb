@@ -35,10 +35,7 @@
 load_conf() ->
   Storage = lee_storage:new(lee_persistent_term_storage, ?CONF_STORE),
   MTs = metamodel(),
-  AsciidocOptions =
-    #{root_directory => string:trim(os:cmd("git rev-parse --show-toplevel"))},
-  RawModel = lee_asciidoc:enrich_model(AsciidocOptions, emqttb_conf_model:model()),
-  case lee_model:compile(MTs, [RawModel]) of
+  case lee_model:compile(MTs, [maybe_enrich_model()]) of
     {ok, Model} ->
       persistent_term:put(?MODEL_STORE, Model),
       case lee:init_config(Model, Storage) of
@@ -85,6 +82,17 @@ list_keys(Key) ->
 %% Internal functions
 %%================================================================================
 
+maybe_enrich_model() ->
+  Model = emqttb_conf_model:model(),
+  case os:find_executable("asciidoctor") of
+    false ->
+      logger:debug("asciidoctor executable not found, generated documentation will be incorrect"),
+      Model;
+    _ ->
+      AsciidocOptions =
+        #{root_directory => string:trim(os:cmd("git rev-parse --show-toplevel"))},
+      lee_asciidoc:enrich_model(AsciidocOptions, Model)
+  end.
 
 maybe_dump_conf() ->
   case {?CFG([convenience, conf_dump]), ?CFG([convenience, again])} of
