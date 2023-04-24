@@ -26,7 +26,7 @@ release: compile docs
 	@$(REBAR) as emqttb tar
 	@$(CURDIR)/scripts/rename-package.sh
 
-$(DOCBOOK): compile
+$(DOCBOOK): scripts/docgen.escript $(shell find src -name *.erl) $(shell find src -name *.hrl)
 	escript	scripts/docgen.escript $@
 
 .PHONY: docs

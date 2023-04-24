@@ -15,6 +15,42 @@ on:
         default: false
 
 jobs:
+  docs:
+    runs-on: ubuntu-latest
+      matrix:
+        otp:
+          - "25.1.2-3"
+        quic_support:
+          - false
+        os:
+          - ubuntu22.04
+    container:
+      image: ghcr.io/emqx/emqx-builder/5.0-34:1.13.4-${{ matrix.otp }}-${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          fetch-depth: 0
+
+      - shell: bash
+        name: Install additional packages
+        run: |
+          apt-get update
+          apt-get install -y openjdk-11-jdk asciidoctor xsltproc docbook-xsl
+
+      - shell: bash
+        run: |
+          [ "false" == ${{ matrix.quic_support }} ] && export BUILD_WITHOUT_QUIC=1
+          git config --global --add safe.directory $(pwd)
+          make release
+          tar czf docs.tar.gz _build/lee_doc/html _build/lee_doc/man _build/lee_doc/src/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: docs
+          path: docs.tar.gz
+
   linux:
     runs-on: ubuntu-latest
     strategy:
@@ -44,10 +80,17 @@ jobs:
         with:
           ref: ${{ github.event.inputs.ref }}
           fetch-depth: 0
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: docs
+          path: docs.tar.gz
+
       - shell: bash
         run: |
           [ "false" == ${{ matrix.quic_support }} ] && export BUILD_WITHOUT_QUIC=1
           git config --global --add safe.directory $(pwd)
+          tar xf docs.tar.gz
           make release
       - if: failure()
         run: cat rebar3.crashdump
@@ -78,12 +121,20 @@ jobs:
         run: |
           brew install coreutils erlang@${{ matrix.otp }}
           brew link --force erlang@${{ matrix.otp }}
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: docs
+          path: docs.tar.gz
+
       - name: build
         shell: bash
         env:
           BUILD_WITHOUT_QUIC: 1
         run: |
+          tar xf docs.tar.gz
           make release
+
       - if: failure()
         run: cat rebar3.crashdump
       - run: ./_build/default/bin/emqttb
