@@ -17,15 +17,9 @@ on:
 jobs:
   docs:
     runs-on: ubuntu-latest
-      matrix:
-        otp:
-          - "25.1.2-3"
-        quic_support:
-          - false
-        os:
-          - ubuntu22.04
+
     container:
-      image: ghcr.io/emqx/emqx-builder/5.0-34:1.13.4-${{ matrix.otp }}-${{ matrix.os }}
+      image: ghcr.io/emqx/emqx-builder/5.0-34:1.13.4-25.1.2-3-ubuntu22.04
 
     steps:
       - uses: actions/checkout@v3
@@ -41,7 +35,7 @@ jobs:
 
       - shell: bash
         run: |
-          [ "false" == ${{ matrix.quic_support }} ] && export BUILD_WITHOUT_QUIC=1
+          export BUILD_WITHOUT_QUIC=1
           git config --global --add safe.directory $(pwd)
           make release
           tar czf docs.tar.gz _build/lee_doc/html _build/lee_doc/man _build/lee_doc/src/
@@ -53,6 +47,7 @@ jobs:
 
   linux:
     runs-on: ubuntu-latest
+    needs: docs
     strategy:
       fail-fast: false
       matrix:
@@ -84,13 +79,14 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: docs
-          path: docs.tar.gz
+          path: .
 
       - shell: bash
         run: |
           [ "false" == ${{ matrix.quic_support }} ] && export BUILD_WITHOUT_QUIC=1
           git config --global --add safe.directory $(pwd)
           tar xf docs.tar.gz
+          export CAN_BUILD_DOCS=false
           make release
       - if: failure()
         run: cat rebar3.crashdump
@@ -111,6 +107,7 @@ jobs:
           - "25"
 
     runs-on: ${{ matrix.macos }}
+    needs: docs
 
     steps:
       - uses: actions/checkout@v3
@@ -125,7 +122,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: docs
-          path: docs.tar.gz
+          path: .
 
       - name: build
         shell: bash
@@ -133,6 +130,7 @@ jobs:
           BUILD_WITHOUT_QUIC: 1
         run: |
           tar xf docs.tar.gz
+          export CAN_BUILD_DOCS=false
           make release
 
       - if: failure()
