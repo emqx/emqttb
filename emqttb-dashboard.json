@@ -24,12 +24,13 @@
   "fiscalYearStartMonth": 0,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 10,
+  "id": 8,
+  "iteration": 1659097511754,
   "links": [],
   "liveNow": false,
   "panels": [
     {
-      "datasource": "Prometheus",
+      "datasource": "${Prometheus}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -101,7 +102,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "group_n_workers{}",
+          "expr": "emqttb_group_n_workers{}",
           "interval": "",
           "legendFormat": "{{group}}",
           "refId": "A"
@@ -111,7 +112,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${Prometheus}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -183,7 +184,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(group_n_workers{}[5s])",
+          "expr": "rate(emqttb_group_n_workers{}[5s])",
           "interval": "",
           "legendFormat": "{{group}}",
           "refId": "A"
@@ -193,7 +194,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${Prometheus}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -275,7 +276,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${Prometheus}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -357,7 +358,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${Prometheus}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -429,7 +430,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "group_n_pending",
+          "expr": "emqttb_group_n_pending",
           "interval": "",
           "legendFormat": "{{group}}/{{operation}}",
           "refId": "A"
@@ -439,7 +440,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${Prometheus}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -512,7 +513,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "group_op_time",
+          "expr": "emqttb_group_op_time",
           "interval": "",
           "legendFormat": "{{group}}/{{operation}}",
           "refId": "A"
@@ -522,7 +523,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${Prometheus}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -595,7 +596,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "autorate_rate",
+          "expr": "emqttb_autorate_rate",
           "interval": "",
           "legendFormat": "{{id}}",
           "refId": "A"
@@ -605,7 +606,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${Prometheus}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -678,7 +679,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "autorate_control",
+          "expr": "emqttb_autorate_control",
           "interval": "",
           "legendFormat": "{{id}}/{{term}}",
           "refId": "A"
@@ -688,7 +689,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${Prometheus}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -776,7 +777,28 @@
   "style": "dark",
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "Prometheus"
+        },
+        "description": null,
+        "error": null,
+        "hide": 0,
+        "includeAll": false,
+        "label": null,
+        "multi": false,
+        "name": "Prometheus",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
   },
   "time": {
     "from": "now-5m",

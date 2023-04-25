@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@
 -define(GROUP_CONF_ID(GL), {emqttb_group_client_conf_id, GL}).
 
 %% Metrics:
--define(GROUP_N_WORKERS(GRP), {group_n_workers, GRP}).
--define(GROUP_OP_TIME(GRP, OP), {group_op_time, {GRP, OP}}).
--define(GROUP_N_PENDING(GRP, OP), {group_n_pending, {GRP, OP}}).
--define(AUTORATE_RATE(ID), {autorate_rate, ID}).
--define(AUTORATE_CONTROL(ID, TERM), {autorate_control, {ID, TERM}}).
+-define(GROUP_N_WORKERS(GRP), {emqttb_group_n_workers, GRP}).
+-define(GROUP_OP_TIME(GRP, OP), {emqttb_group_op_time, {GRP, OP}}).
+-define(GROUP_N_PENDING(GRP, OP), {emqttb_group_n_pending, {GRP, OP}}).
+-define(AUTORATE_RATE(ID), {emqttb_autorate_rate, ID}).
+-define(AUTORATE_CONTROL(ID, TERM), {emqttb_autorate_control, {ID, TERM}}).
 %%  Publisher
 -define(CNT_PUB_MESSAGES(GRP), {emqttb_published_messages, GRP}).
 -define(AVG_PUB_TIME, publish).

@@ -97,8 +97,7 @@ model() ->
          }}
    , speed =>
        {[value, cli_param],
-        #{ oneliner    => "Maximum rate of change of the controlled parameter"
-         , type        => integer()
+        #{ type        => integer()
          , default     => 0
          , cli_operand => "speed"
          , cli_short   => $V
@@ -118,6 +117,13 @@ model() ->
          , default     => 1
          , cli_operand => "Ti"
          , cli_short   => $I
+         }}
+   , update_interval =>
+       {[value, cli_param],
+        #{ type        => emqttb:duration_ms()
+         , default     => 100
+         , cli_operand => "update-interval"
+         , cli_short   => $u
          }}
    }.
 
@@ -153,7 +159,7 @@ init(Config = #{id := Id, conf_root := ConfRoot, error := ErrF}) ->
   Min = my_cfg(ConfRoot, [min]),
   Current = maps:get(init_val, Config, Min),
   Err = ErrF(),
-  set_timer(),
+  set_timer(ConfRoot),
   {ok, update_rate(#s{ id        = Id
                      , parent    = MRef
                      , current   = Current
@@ -174,7 +180,7 @@ handle_cast(_, S) ->
   {noreply, S}.
 
 handle_info(tick, S) ->
-  set_timer(),
+  set_timer(S#s.conf_root),
   {noreply, update_rate(S)};
 handle_info({'DOWN', MRef, _, _, _}, S = #s{parent = MRef}) ->
   {stop, normal, S};
@@ -220,8 +226,9 @@ update_rate(S = #s{ last_t    = LastT
   emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, i), round(CI / Kp)),
   S#s{last_t = T, current = CO, last_err = Err}.
 
-set_timer() ->
-  erlang:send_after(?TICK_TIME, self(), tick).
+set_timer(ConfRoot) ->
+  TickTime = my_cfg(ConfRoot, [update_interval]),
+  erlang:send_after(TickTime, self(), tick).
 
 clamp(Val, Max) ->
   clamp(Val, -Max, Max).
