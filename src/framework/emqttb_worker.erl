@@ -293,7 +293,7 @@ model() ->
             {[value, cli_param],
              #{ oneliner    => "Hostname of the target broker"
               , type        => emqttb:hosts()
-              , default     => ["localhost"]
+              , default_str => "localhost"
               , cli_operand => "host"
               , cli_short   => $h
               }}
@@ -362,7 +362,7 @@ model() ->
             {[value, cli_param],
              #{ oneliner    => "Local IP addresses"
               , type        => emqttb:ifaddr_list()
-              , default     => [{0, 0, 0, 0}]
+              , default_str => "0.0.0.0"
               , cli_operand => "ifaddr"
               }}
         }

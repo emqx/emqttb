@@ -16,7 +16,7 @@
 -module(emqttb_http).
 
 %% API:
--export([start_link/0, doc/0]).
+-export([start_link/0]).
 
 -export_type([rest_options/0]).
 
@@ -54,15 +54,6 @@ start_link() ->
                  fun cowboy:start_clear/3
              end,
   StartFun(rest_api, maps:to_list(TransportOpts), ProtocolOpts).
-
-doc() ->
-  [{listitem,
-    [{para,
-     [ href("http://localhost:" ++ integer_to_list(?DEFAULT_PORT) ++ Path, Path)
-     , ": "
-     , Mod:descr()
-     ]}]}
-   || {Path, Mod, _} <- routes()].
 
 %%================================================================================
 %% Internal functions

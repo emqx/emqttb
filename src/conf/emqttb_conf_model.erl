@@ -43,7 +43,7 @@ model() ->
    , interval          =>
        {[value, cli_param],
         #{ type        => emqttb:duration_us()
-         , default     => 100_000
+         , default_str => "100ms"
          , cli_operand => "max-rate"
          , cli_short   => $R
          }}
@@ -60,7 +60,7 @@ model() ->
             {[value, os_env, cli_param],
              #{ oneliner    => "REST API listening interface/port"
               , type        => typerefl:listen_port_ip4()
-              , default     => {{0, 0, 0, 0}, ?DEFAULT_PORT}
+              , default_str => "0.0.0.0:8017"
               , cli_operand => "rest-listen"
               }}
         , tls =>
@@ -71,10 +71,7 @@ model() ->
               }}
         , enabled =>
             {[value, os_env, cli_param],
-             #{ oneliner    => "Enable REST API"
-              , doc         => [p("By default, REST API is disabled and emqttb runs in script mode.
-                                   To enable it, run the script with --restapi flag.")]
-              , type        => boolean()
+             #{ type        => boolean()
               , default     => false
               , cli_operand => "restapi"
               }}
@@ -115,7 +112,7 @@ model() ->
                  {[value, cli_param, os_env],
                   #{ oneliner    => "Push interval (ms)"
                    , type        => emqttb:duration_ms()
-                   , default     => timer:seconds(1)
+                   , default_str => "1s"
                    , cli_operand => "pushgw-interval"
                    }}
              }

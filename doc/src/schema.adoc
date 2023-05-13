@@ -1,6 +1,11 @@
 :!sectids:
 = Documentation
 
+[id=restapi.enabled]
+== Enable REST API
+`+--restapi+` CLI argument enables REST API (by default it's available at http://127.0.0.0:8017), and it also means that the script keeps running after completing the scenarios.
+
+
 [id=scenarios.emqttb_scenario_pubsub_forward]
 == run scenario pubsub_forward
 
