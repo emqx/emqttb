@@ -36,4 +36,5 @@ post_init() ->
     emqttb_misc_sup:start_worker( emqttb_pushgw
                                 , {emqttb_pushgw, start_link, []}
                                 ),
+  emqttb_logger:setup(),
   ok.

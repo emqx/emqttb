@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -255,7 +255,7 @@ do_scale(S0) ->
   N = n_clients(S0),
   {SleepTime, NRepeats0} = emqttb:get_duration_and_repeats(IntervalCnt),
   NRepeats = min(abs(Target - N), NRepeats0),
-  logger:debug("Scaling ~p; ~p -> ~p.", [ID, N, Target]),
+  logger:info("Scaling ~p; ~p -> ~p. Sleep time: ~p. Repeats: ~p", [ID, N, Target, SleepTime, NRepeats]),
   S = maybe_notify(N, S0),
   if N < Target ->
       S1 = set_scale_timer(SleepTime, S),

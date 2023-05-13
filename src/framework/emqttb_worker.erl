@@ -210,6 +210,7 @@ entrypoint(Behavior, Group, Number) ->
   %% group leader relies on the counter to stop scaling. If the
   %% above part takes too long, it will overshoot by large margin.
   emqttb_metrics:counter_inc(?GROUP_N_WORKERS(my_group()), 1),
+  logger:set_process_metadata(#{domain => [group, Group]}),
   try apply(Behavior, init, [my_settings()]) of
     State -> loop(State)
   catch
