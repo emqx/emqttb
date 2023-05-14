@@ -344,7 +344,6 @@ declare_metrics(ID) ->
 create_autorate(GroupID, ConfID) ->
   ID = my_autorate(GroupID),
   DefaultConf = #{ [id] => ID
-                 , [update_interval] => 10
                  },
   emqttb_conf:patch(lee_lib:make_nested_patch(?MYMODEL, [autorate], DefaultConf)),
   AutorateConf = #{ id        => ID

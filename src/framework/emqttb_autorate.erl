@@ -167,10 +167,10 @@ init(Config = #{id := Id, conf_root := ConfRoot, error := ErrF}) ->
                            [ {help, <<"Controlled value">>}
                            , {labels, [id]}
                            ]),
-  [emqttb_metrics:new_gauge(?AUTORATE_CONTROL(Id, I),
-                            [ {help, <<"Control output delta">>}
-                            , {labels, [id, term]}
-                            ]) || I <- [sum, p, i]],
+  prometheus_gauge:declare([ {name, ?AUTORATE_CONTROL}
+                           , {labels, [id, term]}
+                           , {help, <<"Control output delta">>}
+                           ]),
   %% Init PID:
   Min = my_cfg(ConfRoot, [min]),
   Current = maps:get(init_val, Config, Min),
@@ -246,9 +246,10 @@ update_rate(S = #s{ last_t    = LastT
   emqttb_metrics:gauge_set(?AUTORATE_RATE(Id), Value),
   %% Note: Kp tends to be small, and the below metrics are only used for grafana,
   %% so for aesthetic reasons we divide by Kp here:
-  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, sum), round(DeltaC / Kp)),
-  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, p), round(CP / Kp)),
-  emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, i), round(CI / Kp)),
+  prometheus_gauge:set(?AUTORATE_CONTROL, [Id, sum], DeltaC),
+  prometheus_gauge:set(?AUTORATE_CONTROL, [Id, p], CP),
+  prometheus_gauge:set(?AUTORATE_CONTROL, [Id, i], CI),
+  prometheus_gauge:set(?AUTORATE_CONTROL, [Id, err], Err),
   S#s{last_t = T, current = CO, last_err = Err, meltdown = Meltdown}.
 
 set_timer(ConfRoot) ->

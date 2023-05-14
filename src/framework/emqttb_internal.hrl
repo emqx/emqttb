@@ -30,7 +30,7 @@
 -define(GROUP_OP_TIME(GRP, OP), {emqttb_group_op_time, {GRP, OP}}).
 -define(GROUP_N_PENDING(GRP, OP), {emqttb_group_n_pending, {GRP, OP}}).
 -define(AUTORATE_RATE(ID), {emqttb_autorate_rate, ID}).
--define(AUTORATE_CONTROL(ID, TERM), {emqttb_autorate_control, {ID, TERM}}).
+-define(AUTORATE_CONTROL, emqttb_autorate_control). %% Prometheus only
 %%  Publisher
 -define(CNT_PUB_MESSAGES(GRP), {emqttb_published_messages, GRP}).
 -define(AVG_PUB_TIME, publish).
