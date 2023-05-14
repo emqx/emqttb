@@ -215,11 +215,7 @@ model() ->
    , scenarios => emqttb_scenario:model()
    , groups =>
        {[map, cli_action, default_instance],
-        #{ oneliner     => "Configuration for client groups"
-         , doc          => "<para>
-                              It is possible to override client configuration for the group.
-                            </para>"
-         , cli_operand  => "g"
+        #{ cli_operand  => "g"
          , key_elements => [[id]]
          },
         emqttb_worker:model()}

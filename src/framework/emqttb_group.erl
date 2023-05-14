@@ -354,7 +354,7 @@ create_autorate(GroupID, ConfID) ->
   emqttb_autorate:ensure(AutorateConf).
 
 autoscale_scram(Group, ConfID, Meltdown) ->
-  MaxPending = ?CFG([groups, {ConfID}, scram, max_pending]),
+  MaxPending = ?CFG([groups, {ConfID}, scram, threshold]),
   Hysteresis = ?CFG([groups, {ConfID}, scram, hysteresis]),
   Override = ?CFG([groups, {ConfID}, scram, override]),
   Pending = emqttb_metrics:get_counter(?GROUP_N_PENDING(Group, connect)),

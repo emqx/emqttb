@@ -389,10 +389,9 @@ model() ->
               }}
         }
    , scram =>
-       #{ max_pending =>
+       #{ threshold =>
             {[value, cli_param],
-             #{ oneliner    => "Maximum number of pending (unacked) connections"
-              , type        => non_neg_integer()
+             #{ type        => non_neg_integer()
               , default     => 100
               , cli_operand => "olp-threshold"
               }}
@@ -405,8 +404,7 @@ model() ->
               }}
         , override =>
             {[value, cli_param],
-             #{ oneliner    => "Override connrate when overload is detected"
-              , type        => emqttb:duration_us()
+             #{ type        => emqttb:duration_us()
               , default_str => "10s"
               , cli_operand => "olp-override"
               }}

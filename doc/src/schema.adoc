@@ -5,35 +5,6 @@
 == Enable REST API
 `+--restapi+` CLI argument enables REST API (by default it's available at http://127.0.0.0:8017), and it also means that the script keeps running after completing the scenarios.
 
-
-[id=scenarios.emqttb_scenario_pubsub_forward]
-== run scenario pubsub_forward
-
-First all subscribers connect and subscribe to the brokers, then the
-publishers start to connect and publish.  The default is to use full
-forwarding of messages between the nodes: that is, each publisher
-client publishes to a topic subscribed by a single client, and both
-clients reside on distinct nodes.
-
-Full forwarding of messages is the default and can be set by full_forwarding.
-
-=== Examples
-==== Basic usage
-
-[code,bash]
-----
-./emqttb --restapi @pubsub_fwd --publatency 10ms --num-clients 400 -i 70ms \
-                   @g -h 172.25.0.2:1883,172.25.0.3:1883,172.25.0.4:1883
-----
-
-In this example the loadgen connects to a list of brokers
-in a round-robin in the declared order.  First all the
-subscribers, then the publishers, with the difference that
-publishers will shift the given host list by one position
-to ensure each publisher and subscriber pair will reside
-on different hosts, thus forcing all messages to be
-forwarded.
-
 [id=autorate]
 == Autorate configuration
 
@@ -43,6 +14,23 @@ This can be very expensive in man-hours and computing resources.
 
 In order to prevent that, emqttb can tune some parameters (such as message publishing interval)
 automatically using https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/[PI controller].
+
+=== Autoscale
+
+A special autorate controlling the rate of spawning new clients is implicitly created for each client group.
+Its name follows the pattern `<group_id>_autoscale`.
+
+For example the following command can automatically adjust the rate of connections:
+
+[code,bash]
+----
+./emqttb @conn -I 10ms -N 10_000 \
+   @g --host 172.22.0.13,172.22.0.6 \
+   @a -a conn_group_autoscale -V 1000
+----
+
+Note: autoscale can be applied to any group used by any scenario.
+Additionally, autoscale is used for overload protection, see section about <<value.groups._.scram.threshold,SCRAM>>.
 
 [id=interval]
 == Default interval between events
@@ -61,6 +49,27 @@ If unit is not specified then `ms` is assumed.
 == ID of the autorate configuration
 
 Autorate configuration can be referred by id.
+
+
+[id=scenarios.emqttb_scenario_sub]
+== Run scenario sub
+
+This scenario starts `-N` workers, which subscribe to a specified topic.
+The only mandatory parameter is `--topic`, which supports pattern substitutions.
+
+=== Client groups
+
+- `sub_group`
+
+[id=scenarios.emqttb_scenario_conn]
+== Run scenario conn
+
+This scenario starts `-N` workers, which connect to the broker and then simply linger around.
+
+=== Client groups
+
+- `conn_group`
+
 
 [id=scenarios.emqttb_scenario_pub]
 == Run scenario pub
@@ -126,6 +135,9 @@ Publish messages to topic `foo` with QoS 1, starting at the publishing interval 
 so to keep the publishing latency around 50 milliseconds. The publishing interval is kept between 0 and 10 seconds,
 and the maximum rate of its change is 10 milliseconds per second.
 
+=== Client groups
+- `pub_group`
+
 [id=scenarios.emqttb_scenario_pub._.topic]
 == Topic where the clients shall publish messages
 
@@ -134,6 +146,41 @@ Topic is a mandatory parameter. It supports the following substitutions:
 * `%n` is replaced with the worker ID (integer)
 * `%g` is replaced with the group ID
 * `%h` is replaced with the hostname
+
+
+[id=scenarios.emqttb_scenario_pubsub_forward]
+== run scenario pubsub_forward
+
+First all subscribers connect and subscribe to the brokers, then the
+publishers start to connect and publish.  The default is to use full
+forwarding of messages between the nodes: that is, each publisher
+client publishes to a topic subscribed by a single client, and both
+clients reside on distinct nodes.
+
+Full forwarding of messages is the default and can be set by full_forwarding.
+
+=== Examples
+==== Basic usage
+
+[code,bash]
+----
+./emqttb --restapi @pubsub_fwd --publatency 10ms --num-clients 400 -i 70ms \
+                   @g -h 172.25.0.2:1883,172.25.0.3:1883,172.25.0.4:1883
+----
+
+In this example the loadgen connects to a list of brokers
+in a round-robin in the declared order.  First all the
+subscribers, then the publishers, with the difference that
+publishers will shift the given host list by one position
+to ensure each publisher and subscriber pair will reside
+on different hosts, thus forcing all messages to be
+forwarded.
+
+=== Client groups
+
+- `pubsub_fwd_group_pub`
+- `pubsub_fwd_group_sub`
+
 
 [id=scenarios.emqttb_scenario_persistent_session._.pub.qos]
 == QoS of the published messages
@@ -147,6 +194,11 @@ since it has to consume the exact number of messages as previously produced.
 Warning: changing QoS to any value other then 2 is likely to cause consume stage to hang,
 since it has to consume the exact number of messages as previously produced.
 
+[id=groups]
+== Configuration for client groups
+Client configuration is kept separate from the scenario config.
+This is done so scenarios could share client configuration.
+
 
 [id=groups._.client.clientid]
 == Clientid pattern
@@ -157,6 +209,26 @@ The following substitutions are supported:
 * `%n` is replaced with the worker ID (integer)
 * `%g` is replaced with the group ID
 * `%h` is replaced with the hostname
+
+[id=groups._.scram.threshold]
+== Maximum unacked CONNECT packets
+`emqttb` can automatically slow down creating new workers in a group when the broker is unable to accept connections in real time.
+
+`emqttb` keeps track of the number of un-acked `CONNECT` packets, and once becomes larger than the threshold,
+the group temporarily enters "SCRAM" mode where
+it overrides the rate to the <<value.groups.$$_$$.scram.override,specified value>>.
+SCRAM mode remains in effect until the number of pending connections becomes less than
+_threshold_ * <<value.groups.$$_$$.scram.hysteresis,hystersis>> / 100.
+
+[id=groups._.scram.override]
+== SCRAM rate override
+Replace whatever configured (or calculated via autorate) connection rate value with this value when broker is not keeping up with the new connections.
+
+
+[id=groups._.scram.hysteresis]
+== SCRAM hysteresis
+It's not desirable to switch between normal and SCRAM connection rate too often.
+
 
 [id=autorate._.update_interval]
 == How often autorate is updated
