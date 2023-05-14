@@ -29,6 +29,8 @@
 %% internal exports:
 -export([start_link/1, model/0]).
 
+-export_type([config/0, scram_fun/0]).
+
 -include("emqttb_internal.hrl").
 -include_lib("typerefl/include/types.hrl").
 
@@ -36,10 +38,22 @@
 %% Type declarations
 %%================================================================================
 
+%% Emergency override:
+%%
+%% Argument: boolean that returns whether the system is currently
+%% overloaded (it may be used to introduce hysteresis)
+%%
+%% Return value: `{true, Value}' if the system is overloaded
+%% and the autorate value should be overridden to `Value'.
+%%
+%% `false' if everything is normal.
+-type scram_fun() :: fun((_IsOverride :: boolean()) -> {true, integer()} | false).
+
 -type config() ::
         #{ id        := atom()
          , conf_root := atom()
          , error     := fun(() -> number())
+         , scram     => scram_fun()
          , parent    => pid()
          , init_val  => integer()
          }.
@@ -137,6 +151,8 @@ model() ->
         , current   :: float()
         , conf_root :: atom()
         , error     :: fun(() -> number())
+        , scram_fun :: scram_fun()
+        , meltdown  :: boolean()
         , last_t    :: integer()
         , last_err  :: number()
         }).
@@ -159,12 +175,15 @@ init(Config = #{id := Id, conf_root := ConfRoot, error := ErrF}) ->
   Min = my_cfg(ConfRoot, [min]),
   Current = maps:get(init_val, Config, Min),
   Err = ErrF(),
+  ScramFun = maps:get(scram, Config, fun(_) -> false end),
   set_timer(ConfRoot),
   {ok, update_rate(#s{ id        = Id
                      , parent    = MRef
                      , current   = Current
                      , conf_root = ConfRoot
                      , error     = ErrF
+                     , scram_fun = ScramFun
+                     , meltdown  = false
                      , last_err  = Err
                      , last_t    = os:system_time(millisecond)
                      })}.
@@ -197,6 +216,8 @@ update_rate(S = #s{ last_t    = LastT
                   , last_err  = LastErr
                   , conf_root = ConfRoot
                   , id        = Id
+                  , scram_fun = Scram
+                  , meltdown  = Meltdown0
                   }) ->
   %% 0. Get current error
   T = os:system_time(millisecond),
@@ -218,13 +239,17 @@ update_rate(S = #s{ last_t    = LastT
   DeltaC = clamp(CP + CI, MaxSpeed * Dt),
   CO = clamp(CO0 + DeltaC, Min, Max),
   %% 3. Update metrics
-  emqttb_metrics:gauge_set(?AUTORATE_RATE(Id), round(CO)),
+  {Meltdown, Value} = case Scram(Meltdown0) of
+                        false            -> {false, round(CO)};
+                        {true, Override} -> {true, Override}
+                      end,
+  emqttb_metrics:gauge_set(?AUTORATE_RATE(Id), Value),
   %% Note: Kp tends to be small, and the below metrics are only used for grafana,
   %% so for aesthetic reasons we divide by Kp here:
   emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, sum), round(DeltaC / Kp)),
   emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, p), round(CP / Kp)),
   emqttb_metrics:gauge_set(?AUTORATE_CONTROL(Id, i), round(CI / Kp)),
-  S#s{last_t = T, current = CO, last_err = Err}.
+  S#s{last_t = T, current = CO, last_err = Err, meltdown = Meltdown}.
 
 set_timer(ConfRoot) ->
   TickTime = my_cfg(ConfRoot, [update_interval]),

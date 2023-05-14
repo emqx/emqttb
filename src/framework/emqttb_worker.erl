@@ -273,15 +273,6 @@ model() ->
          , cli_operand => "group"
          , cli_short   => $g
          }}
-   , autoscale =>
-       {[value, cli_param, pointer],
-        #{ oneliner    => "Pointer to autorate configuration"
-         , type        => atom()
-         , default     => default
-         , cli_operand => "autoscale"
-         , cli_short   => $A
-         , target_node => [autorate]
-         }}
    , lowmem =>
        {[value, cli_param],
         #{ oneliner    => "Reduce memory useage at the cost of CPU wherever possible"
@@ -394,6 +385,29 @@ model() ->
              #{ oneliner    => "If the client should validate the server identity"
               , type        => emqttb:ssl_verify()
               , default     => verify_none
+              }}
+        }
+   , scram =>
+       #{ max_pending =>
+            {[value, cli_param],
+             #{ oneliner    => "Maximum number of pending (unacked) connections"
+              , type        => non_neg_integer()
+              , default     => 100
+              , cli_operand => "olp-threshold"
+              }}
+        , hysteresis =>
+            {[value, cli_param],
+             #{ oneliner    => "Hysteresis (%) of overload detection"
+              , type        => typerefl:range(1, 100)
+              , default     => 50
+              , cli_operand => "olp-hysteresis"
+              }}
+        , override =>
+            {[value, cli_param],
+             #{ oneliner    => "Override connrate when overload is detected"
+              , type        => emqttb:duration_us()
+              , default_str => "10s"
+              , cli_operand => "olp-override"
               }}
         }
    }.

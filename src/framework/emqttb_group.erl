@@ -255,7 +255,7 @@ do_scale(S0) ->
   N = n_clients(S0),
   {SleepTime, NRepeats0} = emqttb:get_duration_and_repeats(IntervalCnt),
   NRepeats = min(abs(Target - N), NRepeats0),
-  logger:info("Scaling ~p; ~p -> ~p. Sleep time: ~p. Repeats: ~p", [ID, N, Target, SleepTime, NRepeats]),
+  logger:debug("Scaling ~p; ~p -> ~p. Sleep time: ~p. Repeats: ~p", [ID, N, Target, SleepTime, NRepeats]),
   S = maybe_notify(N, S0),
   if N < Target ->
       S1 = set_scale_timer(SleepTime, S),
@@ -341,12 +341,36 @@ declare_metrics(ID) ->
                              ]),
   emqttb_worker:new_opstat(ID, connect).
 
-create_autorate(ID, ConfID) ->
-  AutorateConf = #{ id        => my_autorate(ID)
-                  , conf_root => ?CFG([groups, {ConfID}, autoscale])
-                  , error     => fun() -> autoscale_error(ID) end
+create_autorate(GroupID, ConfID) ->
+  ID = my_autorate(GroupID),
+  case lists:member({ID}, ?CFG_LIST([autorate, {}])) of
+    true ->
+      ok;
+    false ->
+      DefaultConf = #{ [id] => ID
+                     , [update_interval] => 10
+                     },
+      emqttb_conf:patch(lee_lib:make_nested_patch(?MYMODEL, [autorate], DefaultConf))
+  end,
+  AutorateConf = #{ id        => ID
+                  , conf_root => ID
+                  , error     => fun() -> autoscale_error(GroupID) end
+                  , scram     => fun(Meltdown) -> autoscale_scram(GroupID, ConfID, Meltdown) end
                   },
   emqttb_autorate:ensure(AutorateConf).
+
+autoscale_scram(Group, ConfID, Meltdown) ->
+  MaxPending = ?CFG([groups, {ConfID}, scram, max_pending]),
+  Hysteresis = ?CFG([groups, {ConfID}, scram, hysteresis]),
+  Override = ?CFG([groups, {ConfID}, scram, override]),
+  Pending = emqttb_metrics:get_counter(?GROUP_N_PENDING(Group, connect)),
+  if Meltdown andalso Pending >= (MaxPending * Hysteresis / 100) ->
+      {true, Override};
+     Pending >= MaxPending ->
+      {true, Override};
+     true ->
+      false
+  end.
 
 autoscale_error(Group) ->
   %% Note that dependency of number of pending operations on connect
