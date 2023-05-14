@@ -4,6 +4,7 @@ XSLTNG := _build/lee_doc/docbook-xslTNG-2.1.2/libs/docbook-xslTNG-2.1.2.jar
 DOCBOOK := _build/lee_doc/src/output.xml
 MANPAGE_STYLESHEET ?= /usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl
 WWW := _build/lee_doc/html/index.html
+MANPAGE := _build/lee_doc/man/emqttb.1
 CAN_BUILD_DOCS ?= true
 
 .PHONY: all
@@ -32,13 +33,13 @@ $(DOCBOOK): scripts/docgen.escript compile
 
 .PHONY: docs
 ifeq ($(CAN_BUILD_DOCS), true)
-docs: _build/lee_doc/man/emqttb.1 $(WWW)
+docs: $(MANPAGE) $(WWW)
 else
 docs:
 	@echo "!! Docs are not being built"
 endif
 
-_build/lee_doc/man/emqttb.1: $(DOCBOOK)
+$(MANPAGE): $(DOCBOOK)
 	xsltproc -o "$$(dirname $<)/../man/" $(MANPAGE_STYLESHEET) "$<"
 
 $(WWW): $(DOCBOOK) $(XSLTNG)

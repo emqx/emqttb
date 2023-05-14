@@ -107,7 +107,7 @@ model() ->
             {[value, cli_param],
              #{ oneliner => "Try to keep publishing time at this value (ms)"
               , type => emqttb:duration_ms()
-              , default => 100
+              , default_str => "100ms"
               , cli_operand => "publatency"
               }}
         , pub_autorate =>
@@ -130,7 +130,7 @@ model() ->
             {[value, cli_param],
              #{ oneliner => "Period of time while publishing will last (ms)"
               , type => emqttb:duration_ms()
-              , default => 1_000
+              , default_str => "1s"
               , cli_operand => "pubtime"
               , cli_short => $T
               }}

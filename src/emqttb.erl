@@ -110,11 +110,11 @@ n_clients() ->
 
 -spec duration_to_sleep(duration_us()) -> {non_neg_integer(), 1..1000}.
 duration_to_sleep(0) ->
-  {0, 1_000};
+  {1, 1_000};
 duration_to_sleep(DurationUs) when DurationUs >= 1_000 ->
   {DurationUs div 1_000, 1};
 duration_to_sleep(DurationUs) ->
-  {0, 1_000 div DurationUs}.
+  {1, 1_000 div DurationUs}.
 
 -spec get_duration_and_repeats(counters:counters_ref() | non_neg_integer()) ->
         {non_neg_integer(), 1..1000}.

@@ -68,6 +68,11 @@ emqttb --foo --bar 1 positional1 positional2 @action1 --foo 1 positional1 @actio
                  global scope
 ----
 
+Additional features:
+
+- Boolean flag arguments can be set to false by adding `no-` prefix, for example `--no-pushgw`
+- Short boolean flags can be set to false using `+` sigil instead of `-`
+
 == Core concepts
 
 * *Worker* is a process that corresponds to a single MQTT client

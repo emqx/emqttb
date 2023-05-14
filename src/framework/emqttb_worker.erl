@@ -199,6 +199,7 @@ new_opstat(Group, Operation) ->
 %% Internal exports
 %%================================================================================
 
+-spec entrypoint(module(), emqttb:group_id(), integer()) -> no_return().
 entrypoint(Behavior, Group, Number) ->
   %% We need to trap exits to make sure the counter is decremented in
   %% the end.
@@ -210,6 +211,7 @@ entrypoint(Behavior, Group, Number) ->
   %% group leader relies on the counter to stop scaling. If the
   %% above part takes too long, it will overshoot by large margin.
   emqttb_metrics:counter_inc(?GROUP_N_WORKERS(my_group()), 1),
+  logger:set_process_metadata(#{domain => [group, Group]}),
   try apply(Behavior, init, [my_settings()]) of
     State -> loop(State)
   catch
@@ -272,15 +274,6 @@ model() ->
          , cli_operand => "group"
          , cli_short   => $g
          }}
-   , autoscale =>
-       {[value, cli_param, pointer],
-        #{ oneliner    => "Pointer to autorate configuration"
-         , type        => atom()
-         , default     => default
-         , cli_operand => "autoscale"
-         , cli_short   => $A
-         , target_node => [autorate]
-         }}
    , lowmem =>
        {[value, cli_param],
         #{ oneliner    => "Reduce memory useage at the cost of CPU wherever possible"
@@ -293,7 +286,7 @@ model() ->
             {[value, cli_param],
              #{ oneliner    => "Hostname of the target broker"
               , type        => emqttb:hosts()
-              , default     => ["localhost"]
+              , default_str => "localhost"
               , cli_operand => "host"
               , cli_short   => $h
               }}
@@ -362,7 +355,7 @@ model() ->
             {[value, cli_param],
              #{ oneliner    => "Local IP addresses"
               , type        => emqttb:ifaddr_list()
-              , default     => [{0, 0, 0, 0}]
+              , default_str => "0.0.0.0"
               , cli_operand => "ifaddr"
               }}
         }
@@ -393,6 +386,27 @@ model() ->
              #{ oneliner    => "If the client should validate the server identity"
               , type        => emqttb:ssl_verify()
               , default     => verify_none
+              }}
+        }
+   , scram =>
+       #{ threshold =>
+            {[value, cli_param],
+             #{ type        => non_neg_integer()
+              , default     => 100
+              , cli_operand => "olp-threshold"
+              }}
+        , hysteresis =>
+            {[value, cli_param],
+             #{ oneliner    => "Hysteresis (%) of overload detection"
+              , type        => typerefl:range(1, 100)
+              , default     => 50
+              , cli_operand => "olp-hysteresis"
+              }}
+        , override =>
+            {[value, cli_param],
+             #{ type        => emqttb:duration_us()
+              , default_str => "10s"
+              , cli_operand => "olp-override"
               }}
         }
    }.

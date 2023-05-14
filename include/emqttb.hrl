@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,8 +25,6 @@
 
 -define(MYCONF, ?lee_persistent_term_storage(?CONF_STORE)).
 -define(MYMODEL, persistent_term:get(?MODEL_STORE)).
-
--define(DEFAULT_PORT, 8017).
 
 -define(CFG(Key), lee:get( ?MYMODEL
                          , ?MYCONF
