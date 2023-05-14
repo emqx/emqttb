@@ -343,15 +343,10 @@ declare_metrics(ID) ->
 
 create_autorate(GroupID, ConfID) ->
   ID = my_autorate(GroupID),
-  case lists:member({ID}, ?CFG_LIST([autorate, {}])) of
-    true ->
-      ok;
-    false ->
-      DefaultConf = #{ [id] => ID
-                     , [update_interval] => 10
-                     },
-      emqttb_conf:patch(lee_lib:make_nested_patch(?MYMODEL, [autorate], DefaultConf))
-  end,
+  DefaultConf = #{ [id] => ID
+                 , [update_interval] => 10
+                 },
+  emqttb_conf:patch(lee_lib:make_nested_patch(?MYMODEL, [autorate], DefaultConf)),
   AutorateConf = #{ id        => ID
                   , conf_root => ID
                   , error     => fun() -> autoscale_error(GroupID) end

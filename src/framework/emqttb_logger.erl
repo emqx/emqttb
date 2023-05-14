@@ -28,9 +28,10 @@
 
 setup() ->
   %% ok = logger:set_handler_config(default, formatter, {?MODULE, []}),
-  ok = logger:add_handler(client, logger_std_h, #{config => #{file => "emqttb.log"}}),
-  ok = logger:add_handler_filter(client, client_filter, {fun ?MODULE:filter_client/2, []}),
-  ok = logger:add_handler_filter(default, client_filter, {fun ?MODULE:filter_default/2, []}).
+  logger:add_handler(client, logger_std_h, #{config => #{file => "emqttb.log"}}),
+  logger:add_handler_filter(client, client_filter, {fun ?MODULE:filter_client/2, []}),
+  logger:add_handler_filter(default, client_filter, {fun ?MODULE:filter_default/2, []}),
+  ok.
 
 %%================================================================================
 %% Internal exports

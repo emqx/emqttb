@@ -199,6 +199,7 @@ new_opstat(Group, Operation) ->
 %% Internal exports
 %%================================================================================
 
+-spec entrypoint(module(), emqttb:group_id(), integer()) -> no_return().
 entrypoint(Behavior, Group, Number) ->
   %% We need to trap exits to make sure the counter is decremented in
   %% the end.
