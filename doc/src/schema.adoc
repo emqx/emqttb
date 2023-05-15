@@ -210,6 +210,12 @@ The following substitutions are supported:
 * `%g` is replaced with the group ID
 * `%h` is replaced with the hostname
 
+
+[id=groups._.connection.keepalive]
+== Keepalive time
+
+How often the clients will send `PING` MQTT message to the broker on idle connections.
+
 [id=groups._.scram.threshold]
 == Maximum unacked CONNECT packets
 `emqttb` can automatically slow down creating new workers in a group when the broker is unable to accept connections in real time.

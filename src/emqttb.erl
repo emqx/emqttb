@@ -22,7 +22,8 @@
 -export([]).
 
 %% internal exports:
--export([n_clients/0, parse_hosts/1, parse_addresses/1, parse_duration_us/1, parse_duration_ms/1,
+-export([n_clients/0, parse_hosts/1,
+         parse_addresses/1, parse_duration_us/1, parse_duration_ms/1, parse_duration_s/1,
          parse_byte_size/1, wait_time/0]).
 
 -export_type([n_clients/0]).
@@ -39,6 +40,9 @@
 
 -type duration_ms() :: integer().
 -typerefl_from_string({duration_ms/0, ?MODULE, parse_duration_ms}).
+
+-type duration_s() :: integer().
+-typerefl_from_string({duration_s/0, ?MODULE, parse_duration_s}).
 
 -type scenario() :: atom().
 
@@ -73,7 +77,7 @@
 
 -reflect_type([scenario/0, stage/0, group/0, transport/0, proto_ver/0, qos/0,
                net_port/0, hosts/0, ifaddr_list/0, ssl_verify/0, host_selection/0,
-               duration_ms/0, duration_us/0, byte_size/0]).
+               duration_ms/0, duration_us/0, duration_s/0, byte_size/0]).
 
 %%================================================================================
 %% API funcions
@@ -172,6 +176,17 @@ parse_duration_ms(Str) ->
     "s"   -> {ok, Int * 1_000};
     "min" -> {ok, Int * 60_000};
     "h"   -> {ok, Int * 3600_000};
+    _     -> error
+  end.
+
+parse_duration_s(Str) ->
+  {Int, Unit0} = string:to_integer(Str),
+  Unit = string:trim(Unit0),
+  case Unit of
+    ""    -> {ok, Int};
+    "s"   -> {ok, Int};
+    "min" -> {ok, Int * 60};
+    "h"   -> {ok, Int * 3600};
     _     -> error
   end.
 

@@ -145,6 +145,7 @@ connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
   Username  = my_cfg([client, username]),
   Password  = my_cfg([client, password]),
   SSL       = my_cfg([ssl, enable]),
+  KeepAlive = my_cfg([connection, keepalive]),
   Options = [ {username,     Username} || Username =/= undefined]
          ++ [ {password,     Password} || Password =/= undefined]
          ++ [ {ssl_opts,     CustomSslOptions ++ ssl_opts()} || SSL]
@@ -158,6 +159,7 @@ connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
             , {ssl,          SSL}
             , {tcp_opts,     CustomTcpOptions ++ tcp_opts()}
             , {properties,   Properties}
+            , {keepalive,    KeepAlive}
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
   ConnectFun = connect_fun(),
@@ -323,6 +325,13 @@ model() ->
               , default     => 10
               , cli_operand => "inflight"
               , cli_short   => $F
+              }}
+        , keepalive =>
+            {[value, cli_param],
+             #{ type => emqttb:duration_s()
+              , default_str => "60s"
+              , cli_operand => "keepalive"
+              , cli_short => $k
               }}
         }
    , client =>
