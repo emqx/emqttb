@@ -22,13 +22,16 @@
 -export([filter_client/2, filter_default/2]).
 -export([check_config/1, format/2]).
 
+-include("emqttb.hrl").
+
 %%================================================================================
 %% API funcions
 %%================================================================================
 
 setup() ->
   %% ok = logger:set_handler_config(default, formatter, {?MODULE, []}),
-  logger:add_handler(client, logger_std_h, #{config => #{file => "emqttb.log"}}),
+  LogDir = ?CFG([logging, directory]),
+  logger:add_handler(client, logger_std_h, #{config => #{file => filename:join(LogDir, "emqttb.log")}}),
   logger:add_handler_filter(client, client_filter, {fun ?MODULE:filter_client/2, []}),
   logger:add_handler_filter(default, client_filter, {fun ?MODULE:filter_default/2, []}),
   ok.

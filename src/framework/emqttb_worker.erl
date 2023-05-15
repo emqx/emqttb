@@ -127,7 +127,8 @@ my_clientid() ->
 
 -spec my_hostname() -> binary().
 my_hostname() ->
-  atom_to_binary(node()).
+  {ok, Host} = inet:gethostname(),
+  list_to_binary(Host).
 
 %%--------------------------------------------------------------------------------
 %% MQTT
