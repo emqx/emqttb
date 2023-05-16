@@ -72,7 +72,7 @@
 
 -type host_selection() :: round_robin | random.
 
--type ifaddr_list() :: nonempty_list(typerefl:ip_address()).
+-type ifaddr_list() :: list(typerefl:ip_address()).
 -typerefl_from_string({ifaddr_list/0, ?MODULE, parse_addresses}).
 
 -reflect_type([scenario/0, stage/0, group/0, transport/0, proto_ver/0, qos/0,

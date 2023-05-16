@@ -380,7 +380,7 @@ autoscale_error(Group) ->
   %% So the control must be reversed, and error is the negative of what one usually
   %% expects:
   %% Current - Target instead of Target - Current.
-  Target = 100,
+  Target = ?CFG([groups, {Group}, target_conn_pending]),
   emqttb_metrics:get_counter(?GROUP_N_PENDING(Group, connect)) - Target.
 
 my_autorate(Group) ->
