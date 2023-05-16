@@ -199,6 +199,18 @@ since it has to consume the exact number of messages as previously produced.
 Client configuration is kept separate from the scenario config.
 This is done so scenarios could share client configuration.
 
+[id=groups._.net.ifaddr]
+== Local IP addresses
+
+Bind a specific local IP address to the connection.
+If multiple IP addresses are given, workers choose local address using round-robin algorithm.
+
+WARNING: Setting a local address for a client TCP connection explicitly has a nasty side effect:
+when you do this `gen_tpc` calls `bind` on this address to get a free ephemeral port.
+But the OS doesn't know that in advance that we won't be listening on the port, so it reserves the local port number for the connection.
+However, when we connect to multiple EMQX brokers, we do want to reuse local ports.
+So don't use this option when the number of local addresses is less than the number of remote addresses.
+
 
 [id=groups._.client.clientid]
 == Clientid pattern

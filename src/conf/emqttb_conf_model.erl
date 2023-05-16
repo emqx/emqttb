@@ -43,7 +43,7 @@ model() ->
    , interval          =>
        {[value, cli_param],
         #{ type        => emqttb:duration_us()
-         , default_str => "100ms"
+         , default_str => "10ms"
          , cli_operand => "max-rate"
          , cli_short   => $R
          }}
@@ -55,6 +55,14 @@ model() ->
          , cli_operand => "max-clients"
          , cli_short   => $N
          }}
+   , inet =>
+       #{ reuseaddr =>
+            {[value, os_env],
+             #{ oneliner => "Enable SO_REUSEADDR option for the TCP sockets"
+              , type     => boolean()
+              , default  => true
+              }}
+        }
    , restapi =>
        #{ listen_port =>
             {[value, os_env, cli_param],

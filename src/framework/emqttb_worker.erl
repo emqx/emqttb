@@ -365,7 +365,7 @@ model() ->
             {[value, cli_param],
              #{ oneliner    => "Local IP addresses"
               , type        => emqttb:ifaddr_list()
-              , default_str => "0.0.0.0"
+              , default     => []
               , cli_operand => "ifaddr"
               }}
         }
@@ -419,6 +419,12 @@ model() ->
               , cli_operand => "olp-override"
               }}
         }
+   , max_conn_pending =>
+       {[value, cli_param],
+        #{ type        => non_neg_integer()
+         , default     => 10
+         , cli_operand => "target-unacked"
+         }}
    }.
 
 %%================================================================================
@@ -497,12 +503,19 @@ all_broker_hosts() ->
 
 -spec tcp_opts() -> [gen_tcp:option()].
 tcp_opts() ->
-  [ {ifaddr, ifaddr()}
+  SO_reuseaddr = ?CFG([inet, reuseaddr]),
+  [ {reuseaddr, SO_reuseaddr}
+  | ifaddr()
   ].
 
 ifaddr() ->
-  IfAddrs = my_cfg([net, ifaddr]),
-  lists:nth(my_id() rem length(IfAddrs) + 1, IfAddrs).
+  case my_cfg([net, ifaddr]) of
+    [] ->
+      [];
+    IfAddrs ->
+      IfAddr = lists:nth(my_id() rem length(IfAddrs) + 1, IfAddrs),
+      [{ifaddr, IfAddr}]
+  end.
 
 -spec ssl_opts() -> [ssl:option()].
 ssl_opts() ->
