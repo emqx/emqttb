@@ -419,11 +419,11 @@ model() ->
               , cli_operand => "olp-override"
               }}
         }
-   , max_conn_pending =>
+   , target_conn_pending =>
        {[value, cli_param],
         #{ type        => non_neg_integer()
          , default     => 10
-         , cli_operand => "target-unacked"
+         , cli_operand => "target-conn-pending"
          }}
    }.
 

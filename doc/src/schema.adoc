@@ -228,6 +228,15 @@ The following substitutions are supported:
 
 How often the clients will send `PING` MQTT message to the broker on idle connections.
 
+[id=groups._.target_conn_pending]
+== Target number of unacked connections
+
+In order to optimize the connection rate autoscale relies on the number of unacked (pending) connections.
+This parameter configures the value that emqttb autoscale will try to approach.
+
+Number of pending connections is a metric that responds very fast to target overload, so we use it.
+
+
 [id=groups._.scram.threshold]
 == Maximum unacked CONNECT packets
 `emqttb` can automatically slow down creating new workers in a group when the broker is unable to accept connections in real time.
