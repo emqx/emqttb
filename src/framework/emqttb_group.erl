@@ -361,7 +361,13 @@ autoscale_scram(Group, ConfID, Meltdown) ->
   if Meltdown andalso Pending >= (MaxPending * Hysteresis / 100) ->
       {true, Override};
      Pending >= MaxPending ->
+      logger:warning("SCRAM is activated for group ~p. Unacked connections: ~p. Connection interval is dropped to ~p us.",
+                     [Group, Pending, Override]),
       {true, Override};
+     Meltdown ->
+      logger:warning("SCRAM is deactivated for group ~p. Unacked connections: ~p. Connection rate is restored to normal value.",
+                     [Group, Pending]),
+      false;
      true ->
       false
   end.

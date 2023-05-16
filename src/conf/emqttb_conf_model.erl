@@ -91,6 +91,19 @@ model() ->
               , default_ref    => [logging, level]
               , logger_handler => default
               }}
+        , client_handler_level =>
+            {[value, os_env, logger_level],
+             #{ oneliner       => "Log level for the MQTT clients and workers"
+              , type           => lee_logger:level()
+              , logger_handler => client
+              , default_ref    => [logging, level]
+              }}
+        , directory =>
+            {[value, os_env],
+             #{ oneliner       => "Directory for the logs"
+              , type           => string()
+              , default        => "/tmp/"
+              }}
         }
    , metrics =>
        #{ pushgateway =>
