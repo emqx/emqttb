@@ -57,6 +57,8 @@
 -define(PUB_THROUGHPUT, emqttb_pers_sess_pub_throughput).
 -define(SUB_THROUGHPUT, emqttb_pers_sess_sub_throughput).
 
+-define(CHECK_INTERVAL_MS, 10).
+
 -record(s,
         { produced = 0
         , consumed = 0
@@ -183,6 +185,13 @@ model() ->
          , cli_operand => "cycles"
          , cli_short => $C
          }}
+   , max_stuck_time =>
+       {[value, cli_param],
+        #{ oneliner => "How long the consume stage can get stuck without progress"
+         , type => emqttb:duration_ms()
+         , default => 10_000 % 10 s
+         , cli_operand => "max-stuck-time"
+         }}
    }.
 
 run() ->
@@ -251,9 +260,8 @@ publish_stage(S = #s{produced = NPub0, pubinterval = PubInterval}) ->
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_pub, PubOpts}
                        }),
-  N = my_conf([pub, n]),
   Interval = my_conf([conninterval]),
-  {ok, N} = emqttb_group:set_target(?PUB_GROUP, N, Interval),
+  {ok, N} = emqttb_group:set_target(?PUB_GROUP, my_conf([pub, n]), Interval),
   PubTime = my_conf([pub, pub_time]),
   timer:sleep(PubTime),
   PubIntervalCref = emqttb_autorate:get_counter(emqttb_behavior_pub:my_autorate(?PUB_GROUP)),
@@ -268,17 +276,32 @@ publish_stage(S = #s{produced = NPub0, pubinterval = PubInterval}) ->
      }.
 
 wait_consume_all(Nsubs, #s{to_consume = Nmsgs, consumed = Consumed}) ->
-  do_consume(Consumed + Nsubs * Nmsgs).
+  LastConsumedMessages = emqttb_metrics:get_counter(?CNT_SUB_MESSAGES(?SUB_GROUP)),
+  do_consume(Consumed + Nsubs * Nmsgs, LastConsumedMessages, max_checks_without_progress()).
 
-do_consume(Target) ->
-  timer:sleep(10),
-  N = emqttb_metrics:get_counter(?CNT_SUB_MESSAGES(?SUB_GROUP)),
+do_consume(_, _, 0) ->
+  %% We got stuck without progress for too long, just return the
+  %% result. It will be unreliable for measuring throughput.
+  total_consumed_messages();
+do_consume(Target, LastConsumedMessages, NChecksWithoutProgress) ->
+  timer:sleep(?CHECK_INTERVAL_MS),
+  N = total_consumed_messages(),
   if N >= Target ->
+      %% Target reached. Consider all messages consumed and return:
       N;
+     N =:= LastConsumedMessages ->
+      %% Got stuck without progress:
+      do_consume(Target, N, NChecksWithoutProgress - 1);
      true ->
-      %logger:error("~p -> ~p", [N, Target]),
-      do_consume(Target)
+      %% We didn't consume all the messages, but we've made some progress:
+      do_consume(Target, N, max_checks_without_progress())
   end.
 
 topic_prefix() ->
   <<"pers_session/">>.
+
+total_consumed_messages() ->
+  emqttb_metrics:get_counter(?CNT_SUB_MESSAGES(?SUB_GROUP)).
+
+max_checks_without_progress() ->
+  my_conf([max_stuck_time]) div ?CHECK_INTERVAL_MS.
