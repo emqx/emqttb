@@ -40,6 +40,14 @@ model() ->
          , app_name    => "EMQTT bench daemon"
          , prog_name   => "emqttb"
          }}
+   , cluster =>
+       #{ enabled =>
+            {[value, os_env],
+             #{ oneliner => "Enable clustering"
+              , type     => boolean()
+              , default  => true
+              }}
+        }
    , interval          =>
        {[value, cli_param],
         #{ type        => emqttb:duration_us()
