@@ -18,13 +18,15 @@
 %% API:
 -export([set_stage/1, set_stage/2, stage/1, complete/1, loiter/0,
          model/0, list_enabled_scenarios/0, run/1, stop/1,
-         my_scenario/0, my_scenario_module/0, my_conf_key/1, my_conf/1]).
+         my_scenario/0, my_conf_key/1, my_conf/1, module/1, name/1]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2, terminate/2]).
 
 %% internal exports:
 -export([start_link/1]).
+
+-export_type([result/0]).
 
 -include_lib("typerefl/include/types.hrl").
 -include("emqttb.hrl").
@@ -43,36 +45,28 @@
 
 -callback run() -> ok.
 
--callback name() -> atom().
-
 -callback model() -> lee:lee_module().
 
 %%================================================================================
 %% API functions
 %%================================================================================
 
--spec run(module()) -> ok.
-run(Module) ->
-  emqttb_scenarios_sup:run(Module).
+-spec run(emqttb:scenario()) -> ok.
+run(Name) ->
+  emqttb_scenarios_sup:run(Name).
 
 -spec stop(module()) -> ok.
 stop(Module) ->
   emqttb_scenarios_sup:stop_child(Module).
 
-%% Get module of the scenario that spawned our process
--spec my_scenario_module() -> module().
-my_scenario_module() ->
-  persistent_term:get(?SCENARIO_GROUP_LEADER(group_leader())).
-
 %% Get name of the scenario that spawned our process
 -spec my_scenario() -> module().
 my_scenario() ->
-  Mod = my_scenario_module(),
-  Mod:name().
+  persistent_term:get(?SCENARIO_GROUP_LEADER(group_leader())).
 
 -spec my_conf_key(lee:key()) -> lee:key().
 my_conf_key(Key) ->
-  [?SK(my_scenario_module()) | Key].
+  [?SK(my_scenario()) | Key].
 
 %% Get configuartion parameter of the scenario
 -spec my_conf(lee:key()) -> term().
@@ -131,11 +125,23 @@ model() ->
                                                                 , M:module_info()
                                                                 ),
                     ?MODULE <- Behaviors],
-  Model = [{M, make_model(M)} || M <- Scenarios],
+  Model = [{name(M), make_model(M)} || M <- Scenarios],
   maps:from_list(Model).
 
 list_enabled_scenarios() ->
   [I || [?SK(I)] <- ?CFG_LIST([?SK({})])].
+
+%% @doc Convert name to module
+-spec module(emqttb:scenario()) -> module().
+module(Id) ->
+  list_to_existing_atom("emqttb_scenario_" ++ atom_to_list(Id)).
+
+%% @doc Convert module to scenario name
+-spec name(module()) -> emqttb:scenario().
+name(Module) ->
+  _ = Module:module_info(),
+  "emqttb_scenario_" ++ Name = atom_to_list(Module),
+  list_to_atom(Name).
 
 %%================================================================================
 %% External exports
@@ -155,9 +161,10 @@ start_link(Module) ->
 
 init([Module]) ->
   process_flag(trap_exit, true),
-  logger:notice("Starting scenario ~p", [Module:name()]),
+  Name = name(Module),
+  logger:notice("Starting scenario ~p", [Name]),
   group_leader(self(), self()),
-  persistent_term:put(?SCENARIO_GROUP_LEADER(group_leader()), Module),
+  persistent_term:put(?SCENARIO_GROUP_LEADER(group_leader()), Name),
   {ok, #s{module = Module}, {continue, start}}.
 
 handle_continue(start, S = #s{module = Module}) ->
@@ -177,12 +184,12 @@ terminate(_, State) ->
 %% Internal functions
 %%================================================================================
 
-make_model(M) ->
-  Name = atom_to_list(M:name()),
+make_model(Module) ->
+  Name = name(Module),
   {[map, cli_action, scenario],
-   #{ cli_operand => Name
+   #{ cli_operand => atom_to_list(Name)
     , key_elements => []
-    , oneliner => "Run scenario " ++ Name
+    , oneliner => lists:concat(["Run scenario ", Name])
     },
    maps:merge(
      #{ loiter =>
@@ -193,4 +200,4 @@ make_model(M) ->
             , cli_operand => "loiter"
             }}
       },
-     M:model())}.
+     Module:model())}.

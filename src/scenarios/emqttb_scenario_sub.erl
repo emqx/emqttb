@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%%Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@
 
 
 %% behavior callbacks:
--export([ name/0
-        , model/0
+-export([ model/0
         , run/0
         ]).
 
@@ -38,12 +37,11 @@
 %% Type declarations
 %%================================================================================
 
+-define(GROUP, sub).
+
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
-
-name() ->
-  sub.
 
 model() ->
   #{ topic =>
@@ -100,14 +98,14 @@ run() ->
              , qos    => my_conf([qos])
              , expiry => my_conf([expiry])
              },
-  emqttb_group:ensure(#{ id            => sub_group
+  emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_sub, SubOpts}
                        }),
   Interval = my_conf([conninterval]),
   set_stage(ramp_up),
   N = my_conf([n_clients]),
-  {ok, _} = emqttb_group:set_target(sub_group, N, Interval),
+  {ok, _} = emqttb_group:set_target(?GROUP, N, Interval),
   set_stage(run_traffic),
   loiter(),
   complete(ok).

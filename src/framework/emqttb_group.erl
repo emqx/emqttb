@@ -18,7 +18,7 @@
 -behavior(gen_server).
 
 %% API:
--export([ensure/1, stop/1, set_target/3, set_target_async/3, broadcast/2]).
+-export([ensure/1, stop/1, set_target/3, set_target_async/3, broadcast/2, report_dead_id/2]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
@@ -43,6 +43,9 @@
          , autorate      => atom()
          , start_n       => integer()
          }.
+
+-define(id(ID), {n, l, {emqttb_group, ID}}).
+-define(via(ID), {via, gproc, ?id(ID)}).
 
 %%================================================================================
 %% API funcions
@@ -72,12 +75,12 @@ stop(ID) ->
              {ok, NClients} | {error, new_target | {ratelimited, atom(), NClients}}
           when NClients :: emqttb:n_clients().
 set_target(Id, Target, Interval) ->
-  gen_server:call(Id, {set_target, Target, Interval}, infinity).
+  gen_server:call(?via(Id), {set_target, Target, Interval}, infinity).
 
 %% @doc Async version of `set_target'
 -spec set_target_async(emqttb:group(), emqttb:n_clients(), emqttb:interval()) -> ok.
 set_target_async(Id, Target, Interval) ->
-  gen_server:cast(Id, {set_target, Target, Interval}).
+  gen_server:cast(?via(Id), {set_target, Target, Interval}).
 
 %% @doc Send a message to all members of the group
 -spec broadcast(emqttb:group(), _Message) -> ok.
@@ -90,6 +93,11 @@ broadcast(Group, Message) ->
     end,
     [],
     Group).
+
+%% @doc Add an expired ID to the pool
+-spec report_dead_id(emqttb:group(), integer()) -> true.
+report_dead_id(Group, Id) ->
+  ets:insert(dead_id_pool(Group), {Id, []}).
 
 %%================================================================================
 %% behavior callbacks
@@ -126,6 +134,7 @@ init([Conf]) ->
       #{ id         => ID
        , group_conf => ConfID
        }),
+  ets:new(dead_id_pool(ID), [ordered_set, public, named_table]),
   StartN = maps:get(start_n, Conf, 0),
   persistent_term:put(?GROUP_LEADER_TO_GROUP_ID(self()), ID),
   persistent_term:put(?GROUP_BEHAVIOR(self()), Behavior),
@@ -180,7 +189,7 @@ terminate(_Reason, #s{id = Id}) ->
 
 -spec start_link(group_config()) -> {ok, pid()}.
 start_link(Conf = #{id := ID}) ->
-  gen_server:start_link({local, ID}, ?MODULE, [Conf], []).
+  gen_server:start_link(?via(ID), ?MODULE, [Conf], []).
 
 %%================================================================================
 %% Internal functions
@@ -269,10 +278,18 @@ do_scale(S0) ->
 
 scale_up(0, S) ->
   S;
-scale_up(NRepeats, S = #s{behavior = Behavior, id = _Id, next_id = WorkerId}) ->
+scale_up(NRepeats, S = #s{behavior = Behavior, id = Group}) ->
+  case ets:first(dead_id_pool(Group)) of
+    '$end_of_table' ->
+      WorkerId = S#s.next_id,
+      NextId = WorkerId + 1;
+    WorkerId when is_integer(WorkerId) ->
+      ets:delete(dead_id_pool(Group), WorkerId),
+      NextId = S#s.next_id
+  end,
   _Pid = emqttb_worker:start(Behavior, self(), WorkerId),
-  ?tp(start_worker, #{group => _Id, pid => _Pid}),
-  scale_up(NRepeats - 1, S#s{next_id = WorkerId + 1}).
+  ?tp(start_worker, #{group => Group, pid => _Pid}),
+  scale_up(NRepeats - 1, S#s{next_id = NextId}).
 
 scale_down(_N, S0) ->
   S0.
@@ -314,7 +331,7 @@ n_clients(#s{id = Id}) ->
                   , pid() | atom()
                   ) -> Acc.
 fold_workers(Fun, Acc, GroupId) when is_atom(GroupId) ->
-  GL = whereis(GroupId),
+  GL = gproc:where(?id(GroupId)),
   is_pid(GL) orelse error({group_is_not_alive, GroupId}),
   fold_workers(Fun, Acc, GL);
 fold_workers(Fun0, Acc, GL) ->
@@ -385,3 +402,6 @@ autoscale_error(Group) ->
 
 my_autorate(Group) ->
   list_to_atom(atom_to_list(Group) ++ "_autoscale").
+
+dead_id_pool(Group) ->
+  Group.

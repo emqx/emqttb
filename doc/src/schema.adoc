@@ -51,7 +51,7 @@ If unit is not specified then `ms` is assumed.
 Autorate configuration can be referred by id.
 
 
-[id=scenarios.emqttb_scenario_sub]
+[id=scenarios.sub]
 == Run scenario sub
 
 This scenario starts `-N` workers, which subscribe to a specified topic.
@@ -59,23 +59,27 @@ The only mandatory parameter is `--topic`, which supports pattern substitutions.
 
 === Client groups
 
-- `sub_group`
+- `sub`
 
-[id=scenarios.emqttb_scenario_conn]
+[id=scenarios.conn]
 == Run scenario conn
 
 This scenario starts `-N` workers, which connect to the broker and then simply linger around.
 
 === Client groups
 
-- `conn_group`
+- `conn`
 
 
-[id=scenarios.emqttb_scenario_pub]
+[id=scenarios.pub]
 == Run scenario pub
 
 This scenario starts `-N` workers, which publish messages to the specified topic at period `--pubinterval`.
 The only mandatory parameter is `--topic`, which supports pattern substitutions.
+
+=== Client groups
+
+- `pub`
 
 === Examples
 ==== Basic usage
@@ -136,9 +140,9 @@ so to keep the publishing latency around 50 milliseconds. The publishing interva
 and the maximum rate of its change is 10 milliseconds per second.
 
 === Client groups
-- `pub_group`
+- `pub`
 
-[id=scenarios.emqttb_scenario_pub._.topic]
+[id=scenarios.pub._.topic]
 == Topic where the clients shall publish messages
 
 Topic is a mandatory parameter. It supports the following substitutions:
@@ -148,7 +152,7 @@ Topic is a mandatory parameter. It supports the following substitutions:
 * `%h` is replaced with the hostname
 
 
-[id=scenarios.emqttb_scenario_pubsub_forward]
+[id=scenarios.pubsub_forward]
 == run scenario pubsub_forward
 
 First all subscribers connect and subscribe to the brokers, then the
@@ -178,17 +182,42 @@ forwarded.
 
 === Client groups
 
-- `pubsub_fwd_group_pub`
-- `pubsub_fwd_group_sub`
+- `pubsub_forward.pub`
+- `pubsub_forward.sub`
 
+[id=scenarios.persistent_session]
 
-[id=scenarios.emqttb_scenario_persistent_session._.pub.qos]
+== Run scenario persistent_session
+
+This scenario measures throughput of MQTT broker in presence of persistent sessions.
+It is split in two stages that repeat in a loop:
+
+- `consume` stage where subscribers (re)connect to the broker with `clean_session=false` and ingest saved messages
+- `publish` stage where subscribers disconnect, and another group of clients publishes messages to the topics
+
+This separation helps to measure throughput of writing and reading messages independently.
+
+Publish stage runs for a <<value.scenarios.persistent_session._.pub.pub_time,set period of time>>.
+It's possible to adjust publishing rate via autorate.
+
+Consume stages runs until the subscribers ingest all published messages,
+or until <<value.scenarios.persistent_session._.max_stuck_time,timeout>>.
+Please note that throughput measurement is not reliable when the consume stage is aborted due to timeout.
+
+=== Examples
+
+=== Client groups
+
+- `persistent_session.pub`
+- `persistent_session.sub`
+
+[id=scenarios.persistent_session._.pub.qos]
 == QoS of the published messages
 
 Warning: changing QoS to any value other then 2 is likely to cause consume stage to hang,
 since it has to consume the exact number of messages as previously produced.
 
-[id=scenarios.emqttb_scenario_persistent_session._.sub.qos]
+[id=scenarios.persistent_session._.sub.qos]
 == Subscription QoS
 
 Warning: changing QoS to any value other then 2 is likely to cause consume stage to hang,

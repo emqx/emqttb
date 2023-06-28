@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(emqttb_scenario_pubsub_forward).
+-module(emqttb_scenario_pubsub_fwd).
 
 -behavior(emqttb_scenario).
 
@@ -24,8 +24,7 @@
 %% client, and both clients reside on distinct nodes.
 
 %% behavior callbacks:
--export([ name/0
-        , model/0
+-export([ model/0
         , run/0
         ]).
 
@@ -44,15 +43,12 @@
 %% Type declarations
 %%================================================================================
 
--define(PUB_GROUP, pubsub_fwd_group_pub).
--define(SUB_GROUP, pubsub_fwd_group_sub).
+-define(PUB_GROUP, 'pubsub_fwd.pub').
+-define(SUB_GROUP, 'pubsub_fwd.sub').
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
-
-name() ->
-  pubsub_fwd.
 
 model() ->
   #{ pub =>

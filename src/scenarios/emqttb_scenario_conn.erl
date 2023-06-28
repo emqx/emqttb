@@ -19,8 +19,7 @@
 
 
 %% behavior callbacks:
--export([ name/0
-        , model/0
+-export([ model/0
         , run/0
         ]).
 
@@ -38,12 +37,11 @@
 %% Type declarations
 %%================================================================================
 
+-define(GROUP, conn).
+
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
-
-name() ->
-  conn.
 
 model() ->
   #{ conninterval =>
@@ -89,7 +87,7 @@ model() ->
    }.
 
 run() ->
-  GroupId = conn_group,
+  GroupId = ?GROUP,
   Opts = #{ expiry => my_conf([expiry])
           , clean_start => my_conf([clean_start])
           },

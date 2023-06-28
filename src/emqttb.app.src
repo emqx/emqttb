@@ -6,6 +6,7 @@
   {applications,
    [kernel,
     stdlib,
+    gproc,
     cowboy,
     hackney,
     prometheus,

@@ -19,8 +19,7 @@
 
 
 %% behavior callbacks:
--export([ name/0
-        , model/0
+-export([ model/0
         , run/0
         ]).
 
@@ -38,12 +37,11 @@
 %% Type declarations
 %%================================================================================
 
+-define(GROUP, 'pub').
+
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
-
-name() ->
-  pub.
 
 model() ->
   #{ topic =>
@@ -133,14 +131,14 @@ run() ->
              , set_latency => my_conf_key([set_pub_latency])
              , metadata    => my_conf([metadata])
              },
-  emqttb_group:ensure(#{ id            => pub_group
+  emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_pub, PubOpts}
                        }),
   Interval = my_conf([conninterval]),
   set_stage(ramp_up),
   N = my_conf([n_clients]),
-  {ok, _} = emqttb_group:set_target(pub_group, N, Interval),
+  {ok, _} = emqttb_group:set_target(?GROUP, N, Interval),
   set_stage(run_traffic),
   loiter(),
   complete(ok).
