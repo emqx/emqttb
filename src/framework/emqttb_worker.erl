@@ -445,6 +445,7 @@ terminate(State, Reason) ->
 
 -spec terminate(_Reason) -> no_return().
 terminate(Reason) ->
+  emqttb_group:report_dead_id(my_group(), my_id()),
   emqttb_metrics:counter_dec(?GROUP_N_WORKERS(my_group()), 1),
   ?tp(emqttb_worker_terminate, #{gl => group_leader(), number => my_id()}),
   exit(Reason).
