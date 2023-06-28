@@ -18,7 +18,8 @@
 %% API:
 -export([set_stage/1, set_stage/2, stage/1, complete/1, loiter/0,
          model/0, list_enabled_scenarios/0, run/1, stop/1,
-         my_scenario/0, my_conf_key/1, my_conf/1, module/1, name/1]).
+         my_scenario/0, my_conf_key/1, my_conf/1, module/1, name/1,
+         info/0]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2, terminate/2]).
@@ -119,12 +120,7 @@ complete(PrevStageResult) ->
 -spec model() -> lee_model:lee_module().
 model() ->
   application:load(?APP),
-  {ok, Modules} = application:get_key(?APP, modules),
-  Scenarios = [M || M <- Modules,
-                    {behavior, Behaviors} <- proplists:get_value( attributes
-                                                                , M:module_info()
-                                                                ),
-                    ?MODULE <- Behaviors],
+  Scenarios = all_scenario_modules(),
   Model = [{name(M), make_model(M)} || M <- Scenarios],
   maps:from_list(Model).
 
@@ -142,6 +138,17 @@ name(Module) ->
   _ = Module:module_info(),
   "emqttb_scenario_" ++ Name = atom_to_list(Module),
   list_to_atom(Name).
+
+-spec info() -> [map()].
+info() ->
+  lists:map(
+    fun(Module) ->
+        Name = name(Module),
+        #{ id => Name
+         , enabled => lists:member(Name, list_enabled_scenarios())
+         }
+    end,
+    all_scenario_modules()).
 
 %%================================================================================
 %% External exports
@@ -201,3 +208,12 @@ make_model(Module) ->
             }}
       },
      Module:model())}.
+
+-spec all_scenario_modules() -> [module()].
+all_scenario_modules() ->
+  {ok, Modules} = application:get_key(?APP, modules),
+  [M || M <- Modules,
+        {behavior, Behaviors} <- proplists:get_value( attributes
+                                                    , M:module_info()
+                                                    ),
+        ?MODULE <- Behaviors].

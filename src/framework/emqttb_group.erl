@@ -18,7 +18,7 @@
 -behavior(gen_server).
 
 %% API:
--export([ensure/1, stop/1, set_target/3, set_target_async/3, broadcast/2, report_dead_id/2]).
+-export([ensure/1, stop/1, set_target/3, set_target_async/3, broadcast/2, report_dead_id/2, info/0]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
@@ -98,6 +98,15 @@ broadcast(Group, Message) ->
 -spec report_dead_id(emqttb:group(), integer()) -> true.
 report_dead_id(Group, Id) ->
   ets:insert(dead_id_pool(Group), {Id, []}).
+
+info() ->
+  [#{ id => Id
+    , conf_root => persistent_term:get(?GROUP_CONF_ID(Pid))
+    , behavior => persistent_term:get(?GROUP_BEHAVIOR(Pid))
+    , shared_state => persistent_term:get(?GROUP_BEHAVIOR_SHARED_STATE(Pid))
+    , n_workers => emqttb_metrics:get_counter(?GROUP_N_WORKERS(Id))
+    }
+   || {Id, Pid} <- emqttb_group_sup:list()].
 
 %%================================================================================
 %% behavior callbacks
