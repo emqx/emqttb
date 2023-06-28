@@ -44,6 +44,9 @@
          , start_n       => integer()
          }.
 
+-define(id(ID), {n, l, {emqttb_group, ID}}).
+-define(via(ID), {via, gproc, ?id(ID)}).
+
 %%================================================================================
 %% API funcions
 %%================================================================================
@@ -72,12 +75,12 @@ stop(ID) ->
              {ok, NClients} | {error, new_target | {ratelimited, atom(), NClients}}
           when NClients :: emqttb:n_clients().
 set_target(Id, Target, Interval) ->
-  gen_server:call(Id, {set_target, Target, Interval}, infinity).
+  gen_server:call(?via(Id), {set_target, Target, Interval}, infinity).
 
 %% @doc Async version of `set_target'
 -spec set_target_async(emqttb:group(), emqttb:n_clients(), emqttb:interval()) -> ok.
 set_target_async(Id, Target, Interval) ->
-  gen_server:cast(Id, {set_target, Target, Interval}).
+  gen_server:cast(?via(Id), {set_target, Target, Interval}).
 
 %% @doc Send a message to all members of the group
 -spec broadcast(emqttb:group(), _Message) -> ok.
@@ -180,7 +183,7 @@ terminate(_Reason, #s{id = Id}) ->
 
 -spec start_link(group_config()) -> {ok, pid()}.
 start_link(Conf = #{id := ID}) ->
-  gen_server:start_link({local, ID}, ?MODULE, [Conf], []).
+  gen_server:start_link(?via(ID), ?MODULE, [Conf], []).
 
 %%================================================================================
 %% Internal functions
@@ -314,7 +317,7 @@ n_clients(#s{id = Id}) ->
                   , pid() | atom()
                   ) -> Acc.
 fold_workers(Fun, Acc, GroupId) when is_atom(GroupId) ->
-  GL = whereis(GroupId),
+  GL = gproc:where(?id(GroupId)),
   is_pid(GL) orelse error({group_is_not_alive, GroupId}),
   fold_workers(Fun, Acc, GL);
 fold_workers(Fun0, Acc, GL) ->

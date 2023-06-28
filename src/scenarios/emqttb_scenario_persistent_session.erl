@@ -31,8 +31,7 @@
 %% - subscription rate
 
 %% behavior callbacks:
--export([ name/0
-        , model/0
+-export([ model/0
         , run/0
         ]).
 
@@ -51,8 +50,8 @@
 %% Type declarations
 %%================================================================================
 
--define(PUB_GROUP, pers_sess_pub_group_pub).
--define(SUB_GROUP, pers_sess_pub_group_sub).
+-define(PUB_GROUP, 'persistent_session.pub').
+-define(SUB_GROUP, 'persistent_session.sub').
 
 -define(PUB_THROUGHPUT, emqttb_pers_sess_pub_throughput).
 -define(SUB_THROUGHPUT, emqttb_pers_sess_sub_throughput).
@@ -69,9 +68,6 @@
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
-
-name() ->
-  persistent_session.
 
 model() ->
   #{ pub =>
@@ -130,7 +126,7 @@ model() ->
               }}
         , pub_time =>
             {[value, cli_param],
-             #{ oneliner => "Period of time while publishing will last (ms)"
+             #{ oneliner => "Duration of publish stage"
               , type => emqttb:duration_ms()
               , default_str => "1s"
               , cli_operand => "pubtime"
@@ -187,9 +183,9 @@ model() ->
          }}
    , max_stuck_time =>
        {[value, cli_param],
-        #{ oneliner => "How long the consume stage can get stuck without progress"
+        #{ oneliner => "How long the consume stage can get stuck without any progress"
          , type => emqttb:duration_ms()
-         , default => 10_000 % 10 s
+         , default_str => "10s"
          , cli_operand => "max-stuck-time"
          }}
    }.

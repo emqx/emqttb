@@ -15,10 +15,10 @@
 start_link() ->
   supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-run(Module) ->
-  Id = Module:name(),
-  Spec = #{ id          => Id
-          , start       => {emqttb_scenario, start_link, [Module]}
+-spec run(emqttb:scenario()) -> ok.
+run(Name) ->
+  Spec = #{ id          => Name
+          , start       => {emqttb_scenario, start_link, [emqttb_scenario:module(Name)]}
           , type        => worker
           , restart     => transient
           , significant => true
@@ -32,7 +32,7 @@ run(Module) ->
       %% Let it run...
       ok;
     {error, already_present} ->
-      supervisor:restart_child(?SERVER, Id),
+      supervisor:restart_child(?SERVER, Name),
       ok
   end.
 
