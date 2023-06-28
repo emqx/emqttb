@@ -37,4 +37,11 @@ post_init() ->
                                 , {emqttb_pushgw, start_link, []}
                                 ),
   emqttb_logger:setup(),
+  start_distr(),
   ok.
+
+start_distr() ->
+  Opts = #{dist_listen => true, name_domain => shortnames},
+  Name = list_to_atom("emqttb-" ++ [$A + rand:uniform($Z-$A) - 1 || _ <- lists:seq(1, 5)]),
+  net_kernel:start(Name, Opts),
+  logger:notice("Started distribution with name: ~p", [node()]).
