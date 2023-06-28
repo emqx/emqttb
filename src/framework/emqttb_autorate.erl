@@ -21,7 +21,7 @@
 %% https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/
 
 %% API:
--export([ensure/1, get_counter/1, reset/2]).
+-export([ensure/1, get_counter/1, reset/2, info/0]).
 
 %% behavior callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
@@ -29,7 +29,7 @@
 %% internal exports:
 -export([start_link/1, model/0]).
 
--export_type([config/0, scram_fun/0]).
+-export_type([config/0, scram_fun/0, info/0]).
 
 -include("emqttb_internal.hrl").
 -include_lib("typerefl/include/types.hrl").
@@ -58,7 +58,14 @@
          , init_val  => integer()
          }.
 
--define(TICK_TIME, 100).
+-type info() ::
+        #{ id := atom()
+         , value := number()
+         , error := number()
+         , i := number()
+         , p := number()
+         , sum := number()
+         }.
 
 %%================================================================================
 %% API funcions
@@ -77,6 +84,16 @@ get_counter(Id) ->
 -spec reset(atom() | pid(), integer()) -> ok.
 reset(Id, Val) ->
   gen_server:call(Id, {reset, Val}).
+
+-spec info() -> [info()].
+info() ->
+  [#{ id => Id
+    , value => counters:get(get_counter(Id), 1)
+    , error => prometheus_gauge:value(?AUTORATE_CONTROL, [Id, err])
+    , p => prometheus_gauge:value(?AUTORATE_CONTROL, [Id, p])
+    , i => prometheus_gauge:value(?AUTORATE_CONTROL, [Id, i])
+    , sum => prometheus_gauge:value(?AUTORATE_CONTROL, [Id, sum])
+    } || Id <- emqttb_autorate_sup:list()].
 
 %%================================================================================
 %% Internal exports
