@@ -62,7 +62,8 @@ do_annotate(Text, Tags) ->
     200 ->
       hackney:skip_body(ClientRef);
     _ ->
-      logger:warning("Grafana response code ~p: ~s", [Code, hackney:body(ClientRef)])
+      {ok, Body} = hackney:body(ClientRef),
+      logger:warning("Grafana response code ~p: ~s", [Code, Body])
   end.
 
 ensure_string(Atom) when is_atom(Atom) ->
