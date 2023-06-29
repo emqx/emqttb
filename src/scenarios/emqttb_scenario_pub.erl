@@ -121,6 +121,13 @@ model() ->
          , default     => false
          , cli_operand => "metadata"
          }}
+   , start_n =>
+       {[value, cli_param],
+        #{ oneliner => "Initial worker number for this bench (used for multi-loadgen test alignment)"
+         , type => integer()
+         , default => 0
+         , cli_operand => "start-n"
+         }}
    }.
 
 run() ->
@@ -134,6 +141,7 @@ run() ->
   emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_pub, PubOpts}
+                       , start_n       => my_conf([start_n])
                        }),
   Interval = my_conf([conninterval]),
   set_stage(ramp_up),
