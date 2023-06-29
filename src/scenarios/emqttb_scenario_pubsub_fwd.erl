@@ -133,7 +133,7 @@ model() ->
          }}
    , start_n =>
        {[value, cli_param],
-        #{ oneliner => "Starting worker number for this bench (used for multi-loadgen test alignment)"
+        #{ oneliner => "Initial worker number for this bench (used for multi-loadgen test alignment)"
          , type => integer()
          , default => 0
          , cli_operand => "start-n"
