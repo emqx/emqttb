@@ -93,8 +93,7 @@ model() ->
          }}
    , parse_metadata =>
        {[value, cli_param],
-        #{ oneliner => "Extract metadata from message payloads"
-         , type => boolean()
+        #{ type => boolean()
          , default => false
          , cli_operand => "parse-metadata"
          }}
