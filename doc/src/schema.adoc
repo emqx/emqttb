@@ -62,6 +62,18 @@ Autorate configuration can be referred by id.
 This scenario starts `-N` workers, which subscribe to a specified topic.
 The only mandatory parameter is `--topic`, which supports pattern substitutions.
 
+[id=scenarios.sub._.parse_metadata]
+== Extract metadata from message payloads
+
+Subscribers will report end-to-end latency when this option is enabled.
+
+WARNING: Publishers should insert metadata into the payloads.
+For example, when using <<value.scenarios.pub,pub scenario>> it's necessary to enable <<value.scenarios.pub._.metadata,metadata>> generation.
+
+WARNING: In order to measure latency accurately, the scenario should ensure that publishers reside on the same emqttb host with the subscribers.
+Otherwise clock skew between different load generator instances will introduce a systematic error.
+
+
 === Client groups
 
 - `sub`
@@ -219,13 +231,13 @@ Please note that throughput measurement is not reliable when the consume stage i
 [id=scenarios.persistent_session._.pub.qos]
 == QoS of the published messages
 
-Warning: changing QoS to any value other then 2 is likely to cause consume stage to hang,
+WARNING: changing QoS to any value other then 2 is likely to cause consume stage to hang,
 since it has to consume the exact number of messages as previously produced.
 
 [id=scenarios.persistent_session._.sub.qos]
 == Subscription QoS
 
-Warning: changing QoS to any value other then 2 is likely to cause consume stage to hang,
+WARNING: changing QoS to any value other then 2 is likely to cause consume stage to hang,
 since it has to consume the exact number of messages as previously produced.
 
 [id=groups]

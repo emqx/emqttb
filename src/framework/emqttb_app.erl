@@ -46,6 +46,6 @@ maybe_start_distr() ->
       ok;
     Name ->
       os:cmd("epmd -daemon"),
-      Opts = #{dist_listen => true, name_domain => shortnames},
+      Opts = #{dist_listen => true},
       net_kernel:start(Name, Opts)
   end.
