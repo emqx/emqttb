@@ -97,6 +97,13 @@ model() ->
          , default => false
          , cli_operand => "parse-metadata"
          }}
+   , clean_start =>
+       {[value, cli_param],
+        #{ type => boolean()
+         , default => true
+         , cli_operand => "clean-start"
+         , cli_short => $c
+         }}
    }.
 
 run() ->
@@ -104,6 +111,7 @@ run() ->
              , qos    => my_conf([qos])
              , expiry => my_conf([expiry])
              , parse_metadata => my_conf([parse_metadata])
+             , clean_start => my_conf([clean_start])
              },
   emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])
