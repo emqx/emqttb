@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 %%================================================================================
 
 -define(CNT_SUB_MESSAGES(GRP), {emqttb_received_messages, GRP}).
+-define(CNT_SUB_LATENCY(GRP), {emqttb_e2e_latency, GRP}).
 -define(AVG_SUB_TIME, subscribe).
 
 %%================================================================================
@@ -35,25 +36,24 @@
 
 init_per_group(Group,
                #{ topic  := Topic
-                , qos    := QoS
+                , qos    := _QoS
                 } = Opts) when is_binary(Topic) ->
   SubCnt = emqttb_metrics:new_counter(?CNT_SUB_MESSAGES(Group),
                                       [ {help, <<"Number of received messages">>}
                                       , {labels, [group]}
                                       ]),
+  LatCnt = emqttb_metrics:new_rolling_average(?CNT_SUB_LATENCY(Group),
+                                              [ {help, <<"End-to-end latency">>}
+                                              , {labels, [group]}
+                                              ]),
   emqttb_worker:new_opstat(Group, ?AVG_SUB_TIME),
-  Expiry = maps:get(expiry, Opts, 0),
-  CleanStart = maps:get(clean_start, Opts, true),
-  HostShift = maps:get(host_shift, Opts, 0),
-  HostSelection = maps:get(host_selection, Opts, random),
-  #{ topic       => Topic
-   , sub_counter => SubCnt
-   , qos         => QoS
-   , expiry      => Expiry
-   , clean_start => CleanStart
-   , host_shift => HostShift
-   , host_selection => HostSelection
-   }.
+  Defaults = #{ expiry => 0
+              , clean_start => true
+              , host_shift => 0
+              , host_selection => random
+              , parse_metadata => false
+              },
+  maps:merge(Defaults, Opts #{sub_counter => SubCnt, latency_counter => LatCnt}).
 
 init(SubOpts0 = #{topic := T, qos := QoS, expiry := Expiry, clean_start := CleanStart}) ->
   SubOpts = maps:with([host_shift, host_selection], SubOpts0),
@@ -65,9 +65,19 @@ init(SubOpts0 = #{topic := T, qos := QoS, expiry := Expiry, clean_start := Clean
   emqttb_worker:call_with_counter(?AVG_SUB_TIME, emqtt, subscribe, [Conn, emqttb_worker:format_topic(T), QoS]),
   Conn.
 
-handle_message(#{sub_counter := Cnt}, Conn, {publish, #{client_pid := Pid}}) when
+handle_message(#{sub_counter := Cnt, parse_metadata := ParseMetadata},
+               Conn,
+               {publish, #{client_pid := Pid, payload := Payload}}) when
     Pid =:= Conn ->
   emqttb_metrics:counter_inc(Cnt, 1),
+  case ParseMetadata of
+    true ->
+      {_Id, _SeqNo, TS} = emqttb_behavior_pub:parse_metadata(Payload),
+      Dt = os:system_time(microsecond) - TS,
+      emqttb_metrics:rolling_average_observe(?CNT_SUB_LATENCY(emqttb_worker:my_group()), Dt);
+    false ->
+      ok
+  end,
   {ok, Conn};
 handle_message(_, Conn, _) ->
   {ok, Conn}.

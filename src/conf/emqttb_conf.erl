@@ -68,7 +68,7 @@ reload() ->
   end.
 
 patch(Patch) ->
-  logger:notice("Patching configuration: ~p", [Patch]),
+  logger:debug("Patching configuration: ~p", [Patch]),
   case lee:patch(?MYMODEL, ?MYCONF, Patch) of
     {ok, _, _} -> true;
     _          -> false

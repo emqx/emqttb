@@ -1,6 +1,11 @@
 :!sectids:
 = Documentation
 
+[id=cluster.node_name]
+== Node name
+
+Note: erlang distribution is disabled when node name is `undefined`.
+
 [id=restapi.enabled]
 == Enable REST API
 `+--restapi+` CLI argument enables REST API (by default it's available at http://127.0.0.0:8017), and it also means that the script keeps running after completing the scenarios.

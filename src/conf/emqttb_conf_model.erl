@@ -41,11 +41,10 @@ model() ->
          , prog_name   => "emqttb"
          }}
    , cluster =>
-       #{ enabled =>
+       #{ node_name =>
             {[value, os_env],
-             #{ oneliner => "Enable clustering"
-              , type     => boolean()
-              , default  => true
+             #{ type     => atom()
+              , default  => undefined
               }}
         }
    , interval          =>
