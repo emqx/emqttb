@@ -91,12 +91,20 @@ model() ->
          , cli_operand => "qos"
          , cli_short => $q
          }}
+   , parse_metadata =>
+       {[value, cli_param],
+        #{ oneliner => "Extract metadata from message payloads"
+         , type => boolean()
+         , default => false
+         , cli_operand => "parse-metadata"
+         }}
    }.
 
 run() ->
   SubOpts = #{ topic  => my_conf([topic])
              , qos    => my_conf([qos])
              , expiry => my_conf([expiry])
+             , parse_metadata => my_conf([parse_metadata])
              },
   emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])

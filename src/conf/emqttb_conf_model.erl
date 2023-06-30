@@ -43,8 +43,7 @@ model() ->
    , cluster =>
        #{ node_name =>
             {[value, os_env],
-             #{ oneliner => "Enable clustering"
-              , type     => atom()
+             #{ type     => atom()
               , default  => undefined
               }}
         }

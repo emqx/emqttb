@@ -172,6 +172,7 @@ subscribe_stage() ->
              , clean_start    => true
              , host_shift     => 0
              , host_selection => HostSelection
+             , parse_metadata => true
              },
   emqttb_group:ensure(#{ id            => ?SUB_GROUP
                        , client_config => my_conf([group])
