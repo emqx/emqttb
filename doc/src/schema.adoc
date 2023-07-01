@@ -55,12 +55,15 @@ If unit is not specified then `ms` is assumed.
 
 Autorate configuration can be referred by id.
 
-
 [id=scenarios.sub]
 == Run scenario sub
 
 This scenario starts `-N` workers, which subscribe to a specified topic.
 The only mandatory parameter is `--topic`, which supports pattern substitutions.
+
+[id=scenarios.sub._.clean_start]
+== Clean start
+Note: in order to disable clean start (and make the session persistent) this flag should be set to `false` (for example, `./emqttb @sub +c ...` via CLI).
 
 [id=scenarios.sub._.parse_metadata]
 == Extract metadata from message payloads
