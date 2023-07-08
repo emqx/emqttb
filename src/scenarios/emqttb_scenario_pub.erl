@@ -131,12 +131,13 @@ model() ->
    }.
 
 run() ->
-  PubOpts = #{ topic       => my_conf([topic])
-             , pubinterval => my_conf([pubinterval])
-             , msg_size    => my_conf([msg_size])
-             , qos         => my_conf([qos])
-             , set_latency => my_conf_key([set_pub_latency])
-             , metadata    => my_conf([metadata])
+  PubOpts = #{ topic        => my_conf([topic])
+             , pubinterval  => my_conf([pubinterval])
+             , pub_autorate => my_conf([pub_autorate])
+             , msg_size     => my_conf([msg_size])
+             , qos          => my_conf([qos])
+             , set_latency  => my_conf_key([set_pub_latency])
+             , metadata     => my_conf([metadata])
              },
   emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])

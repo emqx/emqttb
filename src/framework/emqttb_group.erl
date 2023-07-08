@@ -71,7 +71,7 @@ stop(ID) ->
 %% fast, not scaling down. Scaling down is rather memory-expensive.
 %%
 %% Order of workers' removal during ramping down is not specified.
--spec set_target(emqttb:group(), NClients, emqttb:interval()) ->
+-spec set_target(emqttb:group(), NClients, emqttb:interval() | undefined) ->
              {ok, NClients} | {error, new_target | {ratelimited, atom(), NClients}}
           when NClients :: emqttb:n_clients().
 set_target(Id, Target, Interval) ->
@@ -244,11 +244,16 @@ do_set_target(Target, InitInterval, OnComplete, S = #s{ scaling = Scaling
       OnComplete({ok, N}),
       S#s{scaling = undefined, target = Target, interval = Interval};
     _ ->
-      emqttb_autorate:reset(my_autorate(ID), InitInterval),
-      start_scale(S, Direction, Target, Interval, OnComplete)
+      case InitInterval of
+        _ when is_integer(InitInterval) ->
+          emqttb_autorate:reset(my_autorate(ID), InitInterval);
+        undefined ->
+          ok
+      end,
+      start_scale(S, Direction, Target, OnComplete)
   end.
 
-start_scale(S0, Direction, Target, _Interval, OnComplete) ->
+start_scale(S0, Direction, Target, OnComplete) ->
   Scaling = #r{ direction   = Direction
               , on_complete = OnComplete
               },
