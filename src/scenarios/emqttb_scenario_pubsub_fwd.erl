@@ -197,6 +197,7 @@ publish_stage() ->
               end,
   PubOpts = #{ topic          => <<TopicPrefix/binary, "%n">>
              , pubinterval    => my_conf([pub, pubinterval])
+             , pub_autorate   => my_conf([pub, pub_autorate])
              , msg_size       => my_conf([pub, msg_size])
              , qos            => my_conf([pub, qos])
              , set_latency    => my_conf_key([pub, set_pub_latency])

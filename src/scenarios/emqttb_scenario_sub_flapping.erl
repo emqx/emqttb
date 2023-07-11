@@ -13,10 +13,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(emqttb_scenario_pub).
+-module(emqttb_scenario_sub_flapping).
 
 -behavior(emqttb_scenario).
-
 
 %% behavior callbacks:
 -export([ model/0
@@ -31,13 +30,17 @@
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
 
--import(emqttb_scenario, [complete/1, loiter/0, my_conf_key/1, my_conf/1, set_stage/2, set_stage/1]).
+-import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, set_stage/2, set_stage/1]).
 
 %%================================================================================
 %% Type declarations
 %%================================================================================
 
--define(GROUP, 'pub').
+-type n_cycles() :: non_neg_integer() | undefined.
+
+-reflect_type([n_cycles/0]).
+
+-define(GROUP, sub).
 
 %%================================================================================
 %% behavior callbacks
@@ -46,48 +49,18 @@
 model() ->
   #{ topic =>
        {[value, cli_param],
-        #{ type => binary()
+        #{ oneliner => "Topic that the clients shall subscribe"
+         , type => binary()
          , cli_operand => "topic"
          , cli_short => $t
          }}
-   , qos =>
-       {[value, cli_param],
-        #{ oneliner => "QoS of the published messages"
-         , type => emqttb:qos()
-         , default => 0
-         , cli_operand => "qos"
-         , cli_short => $q
-         }}
-   , msg_size =>
-       {[value, cli_param],
-        #{ oneliner => "Size of the published message in bytes"
-         , type => emqttb:byte_size()
-         , cli_operand => "size"
-         , cli_short => $s
-         , default => 256
-         }}
    , conninterval =>
        {[value, cli_param],
-        #{ oneliner => "Client connection interval (microsecond)"
+        #{ oneliner => "Client connection interval"
          , type => emqttb:duration_us()
          , default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
-         }}
-   , pubinterval =>
-       {[value, cli_param],
-        #{ oneliner => "Message publishing interval (microsecond)"
-         , type => emqttb:duration_us()
-         , default_ref => [interval]
-         , cli_operand => "pubinterval"
-         , cli_short => $i
-         }}
-   , set_pub_latency =>
-       {[value, cli_param],
-        #{ oneliner => "Try to keep publishing time at this value (ms)"
-         , type => emqttb:duration_ms()
-         , default => 100
-         , cli_operand => "publatency"
          }}
    , n_clients =>
        {[value, cli_param],
@@ -98,59 +71,66 @@ model() ->
          , cli_short => $N
          }}
    , group =>
-       {[value, cli_param, pointer],
+       {[value, cli_param],
         #{ oneliner => "ID of the client group"
          , type => atom()
          , default => default
          , cli_operand => "group"
          , cli_short => $g
-         , target_node => [groups]
          }}
-   , pub_autorate =>
-       {[value, cli_param, pointer],
-        #{ oneliner    => "ID of the autorate config used to tune publish interval"
-         , type        => atom()
-         , default     => default
-         , cli_operand => "pubautorate"
-         , target_node => [autorate]
-         }}
-   , metadata =>
+   , expiry =>
        {[value, cli_param],
-        #{ oneliner    => "Add metadata to the messages"
-         , type        => boolean()
-         , default     => false
-         , cli_operand => "metadata"
+        #{ oneliner => "Set 'Session-Expiry' for persistent sessions (seconds)"
+         , type => union(non_neg_integer(), undefined)
+         , default => undefined
+         , cli_operand => "expiry"
+         , cli_short => $x
          }}
-   , start_n =>
+   , qos =>
        {[value, cli_param],
-        #{ oneliner => "Initial worker number for this bench (used for multi-loadgen test alignment)"
-         , type => integer()
+        #{ oneliner => "QoS of the subscription"
+         , type => emqttb:qos()
          , default => 0
-         , cli_operand => "start-n"
+         , cli_operand => "qos"
+         , cli_short => $q
+         }}
+   , clean_start =>
+       {[value, cli_param],
+        #{ type => boolean()
+         , default => true
+         , cli_operand => "clean-start"
+         , cli_short => $c
+         }}
+   , n_cycles =>
+       {[value, cli_param],
+        #{ type => n_cycles()
+         , default => 10
+         , cli_operand => "cycles"
+         , cli_short => $C
          }}
    }.
 
 run() ->
-  PubOpts = #{ topic        => my_conf([topic])
-             , pubinterval  => my_conf([pubinterval])
-             , pub_autorate => my_conf([pub_autorate])
-             , msg_size     => my_conf([msg_size])
-             , qos          => my_conf([qos])
-             , set_latency  => my_conf_key([set_pub_latency])
-             , metadata     => my_conf([metadata])
+  SubOpts = #{ topic  => my_conf([topic])
+             , qos    => my_conf([qos])
+             , expiry => my_conf([expiry])
+             , clean_start => my_conf([clean_start])
              },
   emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])
-                       , behavior      => {emqttb_behavior_pub, PubOpts}
-                       , start_n       => my_conf([start_n])
+                       , behavior      => {emqttb_behavior_sub, SubOpts}
                        }),
-  Interval = my_conf([conninterval]),
+  cycle(0, my_conf([n_cycles]), my_conf([conninterval])).
+
+cycle(Cycle, Max, _Interval) when Cycle >= Max ->
+  complete(ok);
+cycle(Cycle, Max, Interval) ->
   set_stage(ramp_up),
   N = my_conf([n_clients]),
   {ok, _} = emqttb_group:set_target(?GROUP, N, Interval),
-  set_stage(run_traffic),
-  loiter(),
-  complete(ok).
+  set_stage(ramp_down),
+  {ok, _} = emqttb_group:set_target(?GROUP, 0, undefined),
+  cycle(Cycle + 1, Max, undefined).
 
 %%================================================================================
 %% Internal exports

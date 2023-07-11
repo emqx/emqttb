@@ -59,7 +59,7 @@
          }.
 
 -type info() ::
-        #{ id := atom()
+        #{ '$id' := atom()
          , value := number()
          , error := number()
          , i := number()
@@ -87,7 +87,7 @@ reset(Id, Val) ->
 
 -spec info() -> [info()].
 info() ->
-  [#{ id => Id
+  [#{ '$id' => Id
     , value => counters:get(get_counter(Id), 1)
     , error => prometheus_gauge:value(?AUTORATE_CONTROL, [Id, err])
     , p => prometheus_gauge:value(?AUTORATE_CONTROL, [Id, p])

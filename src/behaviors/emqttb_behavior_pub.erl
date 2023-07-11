@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,16 +59,16 @@ parse_metadata(<<ID:32, SeqNo:32, TS:64, _/binary>>) ->
 %%================================================================================
 
 init_per_group(Group,
-               #{ topic       := Topic
-                , pubinterval := PubInterval
-                , msg_size    := MsgSize
-                , qos         := QoS
-                , set_latency := SetLatencyKey
+               #{ topic        := Topic
+                , pubinterval  := PubInterval
+                , pub_autorate := AutorateConf
+                , msg_size     := MsgSize
+                , qos          := QoS
+                , set_latency  := SetLatencyKey
                 } = Conf) when is_binary(Topic),
                                is_integer(MsgSize),
                                is_list(SetLatencyKey) ->
   AddMetadata = maps:get(metadata, Conf, false),
-  AutorateConf = maps:get(autorate, Conf, default),
   PubCnt = emqttb_metrics:new_counter(?CNT_PUB_MESSAGES(Group),
                                       [ {help, <<"Number of published messages">>}
                                       , {labels, [group]}
@@ -145,7 +145,7 @@ error_fun(SetLatencyKey, Group) ->
      erlang:convert_time_unit(SetLatency, millisecond, microsecond)).
 
 my_autorate(Group) ->
-  list_to_atom("emqttb_pub_rate_" ++ atom_to_list(Group)).
+  list_to_atom(atom_to_list(Group) ++ ".pub.rate").
 
 message(Size) ->
   list_to_binary([$A || _ <- lists:seq(1, Size)]).
