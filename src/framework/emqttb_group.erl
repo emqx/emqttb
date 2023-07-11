@@ -100,7 +100,7 @@ report_dead_id(Group, Id) ->
   ets:insert(dead_id_pool(Group), {Id, []}).
 
 info() ->
-  [#{ id => Id
+  [#{ '$id' => Id
     , conf_root => persistent_term:get(?GROUP_CONF_ID(Pid))
     , behavior => persistent_term:get(?GROUP_BEHAVIOR(Pid))
     , shared_state => persistent_term:get(?GROUP_BEHAVIOR_SHARED_STATE(Pid))
