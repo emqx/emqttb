@@ -37,6 +37,7 @@
 -type config() :: #{ topic       := binary()
                    , pubinterval := counters:counters_ref()
                    , qos         := emqttb:qos()
+                   , retain      := boolean()
                    , set_latency := lee:key()
                    , msg_size    := non_neg_integer()
                    , metadata    => boolean()
@@ -64,6 +65,7 @@ init_per_group(Group,
                 , pub_autorate := AutorateConf
                 , msg_size     := MsgSize
                 , qos          := QoS
+                , retain       := Retain
                 , set_latency  := SetLatencyKey
                 } = Conf) when is_binary(Topic),
                                is_integer(MsgSize),
@@ -87,8 +89,8 @@ init_per_group(Group,
   HostSelection = maps:get(host_selection, Conf, random),
   #{ topic => Topic
    , message => message(max(0, MsgSize - MetadataSize))
+   , pub_opts => [{qos, QoS}, {retain, Retain}]
    , pub_counter => PubCnt
-   , qos => QoS
    , pubinterval => PubRate
    , metadata => AddMetadata
    , host_shift => HostShift
@@ -107,8 +109,9 @@ init(PubOpts = #{pubinterval := I}) ->
   Conn.
 
 handle_message(Shared, Conn, {publish, N1}) ->
-  #{ topic := TP, pubinterval := I, message := Msg0, pub_counter := Cnt
-   , qos := QoS, metadata := AddMetadata
+  #{ topic := TP, pubinterval := I, message := Msg0, pub_opts := PubOpts
+   , pub_counter := Cnt
+   , metadata := AddMetadata
    } = Shared,
   {SleepTime, N2} = emqttb:get_duration_and_repeats(I),
   send_after(SleepTime, {publish, N2}),
@@ -118,7 +121,7 @@ handle_message(Shared, Conn, {publish, N1}) ->
         end,
   T = emqttb_worker:format_topic(TP),
   repeat(N1, fun() ->
-                 emqttb_worker:call_with_counter(?AVG_PUB_TIME, emqtt, publish, [Conn, T, Msg, QoS]),
+                 emqttb_worker:call_with_counter(?AVG_PUB_TIME, emqtt, publish, [Conn, T, Msg, PubOpts]),
                  emqttb_metrics:counter_inc(Cnt, 1)
              end),
   {ok, Conn};
