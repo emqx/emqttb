@@ -58,6 +58,13 @@ model() ->
          , cli_operand => "qos"
          , cli_short => $q
          }}
+   , retain =>
+       {[value, cli_param],
+        #{ oneliner => "Retain published messages"
+         , type => boolean()
+         , default => false
+         , cli_operand => "retain"
+         }}
    , msg_size =>
        {[value, cli_param],
         #{ oneliner => "Size of the published message in bytes"
@@ -136,6 +143,7 @@ run() ->
              , pub_autorate => my_conf([pub_autorate])
              , msg_size     => my_conf([msg_size])
              , qos          => my_conf([qos])
+             , retain       => my_conf([retain])
              , set_latency  => my_conf_key([set_pub_latency])
              , metadata     => my_conf([metadata])
              },
