@@ -9,7 +9,7 @@ CAN_BUILD_DOCS ?= true
 
 .PHONY: all
 all: $(REBAR)
-	$(REBAR) do compile, dialyzer, eunit, ct
+	$(REBAR) do compile, dialyzer, xref, eunit, ct
 
 .PHONY: compile
 compile: $(REBAR)

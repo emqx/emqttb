@@ -56,6 +56,7 @@
 
 -define(PUB_THROUGHPUT, emqttb_pers_sess_pub_throughput).
 -define(SUB_THROUGHPUT, emqttb_pers_sess_sub_throughput).
+-define(N_STUCK, emqttb_pers_sess_n_stuck).
 
 -define(CHECK_INTERVAL_MS, 10).
 
@@ -201,6 +202,9 @@ run() ->
   prometheus_summary:declare([ {name, ?SUB_THROUGHPUT}
                              , {help, <<"Read throughput for the persistent session">>}
                              ]),
+  prometheus_counter:declare([ {name, ?N_STUCK}
+                             , {help, <<"Number of times when when the consumer got stuck">>}
+                             ]),
   NProd = try emqttb_metrics:get_counter(?CNT_PUB_MESSAGES(?PUB_GROUP))
           catch _:_ -> 0
           end,
@@ -282,10 +286,12 @@ wait_consume_all(Nsubs, #s{to_consume = Nmsgs, consumed = Consumed}) ->
 do_consume(_, _, 0) ->
   %% We got stuck without progress for too long, just return the
   %% result. It will be unreliable for measuring throughput.
+  prometheus_counter:inc(?N_STUCK),
   total_consumed_messages();
 do_consume(Target, LastConsumedMessages, NChecksWithoutProgress) ->
   timer:sleep(?CHECK_INTERVAL_MS),
   N = total_consumed_messages(),
+  logger:debug("Consumed ~p/~p", [N, Target]),
   if N >= Target ->
       %% Target reached. Consider all messages consumed and return:
       N;
