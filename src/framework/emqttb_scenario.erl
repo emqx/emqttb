@@ -25,7 +25,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2, terminate/2]).
 
 %% internal exports:
--export([start_link/1]).
+-export([start_link/1, run_scenarios/0]).
 
 -export_type([result/0]).
 
@@ -158,6 +158,17 @@ info() ->
 start_link(Module) ->
   gen_server:start_link({local, Module}, ?MODULE, [Module], []).
 
+-spec run_scenarios() -> ok.
+run_scenarios() ->
+  lists:foreach(
+    fun([scenarios, Name]) ->
+        case lee:list(?MYCONF, [?SK(Name)]) of
+          [] -> ok;
+          [_] -> emqttb_scenario:run(Name)
+        end
+    end,
+    lee_model:get_metatype_index(scenario, ?MYMODEL)).
+
 %%================================================================================
 %% gen_server callbacks
 %%================================================================================
@@ -184,7 +195,7 @@ handle_call(_, _, S) ->
 handle_cast(_, S) ->
   {notrepy, S}.
 
-terminate(_, State) ->
+terminate(_, _State) ->
   persistent_term:erase(?SCENARIO_GROUP_LEADER(group_leader())).
 
 %%================================================================================

@@ -20,11 +20,17 @@
 %% behavior callbacks:
 -export([init_per_group/2, init/1, handle_message/3, terminate/2]).
 
--export_type([]).
+-export_type([prototype/0, config/0]).
 
 %%================================================================================
 %% Type declarations
 %%================================================================================
+
+-type config() :: #{ expiry => non_neg_integer()
+                   , clean_start => boolean()
+                   }.
+
+-type prototype() :: {?MODULE, config()}.
 
 %%================================================================================
 %% behavior callbacks
@@ -33,13 +39,11 @@
 init_per_group(_Group, Opts) ->
   Expiry = maps:get(expiry, Opts, 0),
   CleanStart = maps:get(clean_start, Opts, true),
-  HostShift = maps:get(host_shift, Opts, 0),
-  HostSelection = maps:get(host_selection, Opts, random),
   #{ expiry      => Expiry
    , clean_start => CleanStart
    }.
 
-init(Opts0 = #{clean_start := CleanStart, expiry := Expiry}) ->
+init(#{clean_start := CleanStart, expiry := Expiry}) ->
   Props = case Expiry of
             undefined -> #{};
             _         -> #{'Session-Expiry-Interval' => Expiry}

@@ -68,12 +68,15 @@ model() ->
               , default => 256
               }}
         , pubinterval =>
-            {[value, cli_param],
+            {[value, cli_param, autorate],
              #{ oneliner => "Message publishing interval (microsecond)"
               , type => emqttb:duration_us()
               , default_ref => [interval]
               , cli_operand => "pubinterval"
               , cli_short => $i
+              , autorate_id => 'pubsub_fwd/pubinterval'
+              , process_variable => [?SK(pubsub_fwd), pub, pub_latency, pending]
+              , error_coeff => -1
               }}
         , set_pub_latency =>
             {[value, cli_param],
@@ -82,14 +85,18 @@ model() ->
               , default => 100
               , cli_operand => "publatency"
               }}
-        , pub_autorate =>
-            {[value, cli_param, pointer],
-             #{ oneliner    => "ID of the autorate config used to tune publish interval"
-              , type        => atom()
-              , default     => default
-              , cli_operand => "pubautorate"
-              , target_node => [autorate]
+          %% Metrics:
+        , n_published =>
+            {[metric],
+             #{ oneliner => "Total number of published messages"
+              , id => {emqttb_published_messages, pubsub_fwd}
+              , metric_type => counter
+              , labels => [scenario]
               }}
+        , pub_latency =>
+            emqttb_metrics:opstat('pubsub_fwd/pub', 'publish')
+        , conn_latency =>
+            emqttb_metrics:opstat('pubsub_fdw/pub', 'connect')
         }
    , sub =>
        #{ qos =>
@@ -196,8 +203,8 @@ publish_stage() ->
                   false -> 0
               end,
   PubOpts = #{ topic          => <<TopicPrefix/binary, "%n">>
-             , pubinterval    => my_conf([pub, pubinterval])
-             , pub_autorate   => my_conf([pub, pub_autorate])
+             , n_published    => my_conf_key([pub, n_published])
+             , pubinterval    => my_conf_key([pub, pubinterval])
              , msg_size       => my_conf([pub, msg_size])
              , qos            => my_conf([pub, qos])
              , set_latency    => my_conf_key([pub, set_pub_latency])

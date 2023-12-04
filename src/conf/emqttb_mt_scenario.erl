@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 -behavior(lee_metatype).
 
 %% behavior callbacks:
--export([names/1, post_patch/5]).
+-export([names/1]).
 
 -include("emqttb.hrl").
 
@@ -31,7 +31,7 @@
 names(_) ->
   [scenario].
 
-post_patch(scenario, _, _, _, {set, [?SK(Scenario)], _}) ->
-  emqttb_scenario:run(Scenario);
-post_patch(scenario, _, _, _, {rm, [?SK(Scenario)]}) ->
-  emqttb_scenario:stop(Scenario).
+%% post_patch(scenario, _, _, _, {set, [?SK(Scenario)], _}) ->
+%%   emqttb_scenario:run(Scenario);
+%% post_patch(scenario, _, _, _, {rm, [?SK(Scenario)]}) ->
+%%   emqttb_scenario:stop(Scenario).

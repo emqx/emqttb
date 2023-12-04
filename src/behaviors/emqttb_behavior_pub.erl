@@ -23,7 +23,7 @@
 %% behavior callbacks:
 -export([init_per_group/2, init/1, handle_message/3, terminate/2]).
 
--export_type([]).
+-export_type([prototype/0, config/0]).
 
 -import(emqttb_worker, [send_after/2, send_after_rand/2, repeat/2,
                         my_group/0, my_id/0, my_clientid/0, my_cfg/1, connect/2]).
@@ -34,14 +34,19 @@
 %% Type declarations
 %%================================================================================
 
--type config() :: #{ topic       := binary()
-                   , pubinterval := counters:counters_ref()
-                   , qos         := emqttb:qos()
-                   , retain      := boolean()
-                   , set_latency := lee:key()
-                   , msg_size    := non_neg_integer()
-                   , metadata    => boolean()
+-type config() :: #{ topic          := binary()
+                   , n_published    := lee:model_key()
+                   , pubinterval    := lee:model_key()
+                   , msg_size       := non_neg_integer()
+                   , qos            := emqttb:qos()
+                   , set_latency    := lee:key()
+                   , retain         => boolean()
+                   , metadata       => boolean()
+                   , host_shift     => integer()
+                   , host_selection => random | round_robin
                    }.
+
+-type prototype() :: {?MODULE, config()}.
 
 %%================================================================================
 %% API
@@ -61,32 +66,25 @@ parse_metadata(<<ID:32, SeqNo:32, TS:64, _/binary>>) ->
 
 init_per_group(Group,
                #{ topic        := Topic
+                , n_published  := NPublishedMetricKey
                 , pubinterval  := PubInterval
-                , pub_autorate := AutorateConf
                 , msg_size     := MsgSize
                 , qos          := QoS
-                , retain       := Retain
                 , set_latency  := SetLatencyKey
                 } = Conf) when is_binary(Topic),
                                is_integer(MsgSize),
                                is_list(SetLatencyKey) ->
   AddMetadata = maps:get(metadata, Conf, false),
-  PubCnt = emqttb_metrics:new_counter(?CNT_PUB_MESSAGES(Group),
-                                      [ {help, <<"Number of published messages">>}
-                                      , {labels, [group]}
-                                      ]),
+  PubCnt = emqttb_metrics:from_model(NPublishedMetricKey),
   emqttb_worker:new_opstat(Group, ?AVG_PUB_TIME),
-  {auto, PubRate} = emqttb_autorate:ensure(#{ id        => my_autorate(Group)
-                                            , error     => fun() -> error_fun(SetLatencyKey, Group) end
-                                            , init_val  => PubInterval
-                                            , conf_root => AutorateConf
-                                            }),
+  {auto, PubRate} = emqttb_autorate:from_model(PubInterval),
   MetadataSize = case AddMetadata of
                    true  -> (32 + 32 + 64) div 8;
                    false -> 0
                  end,
   HostShift = maps:get(host_shift, Conf, 0),
   HostSelection = maps:get(host_selection, Conf, random),
+  Retain = maps:get(retain, Conf, false),
   #{ topic => Topic
    , message => message(max(0, MsgSize - MetadataSize))
    , pub_opts => [{qos, QoS}, {retain, Retain}]
@@ -134,18 +132,6 @@ terminate(_Shared, Conn) ->
 %%================================================================================
 %% Internal functions
 %%================================================================================
-
-error_fun(SetLatencyKey, Group) ->
-  SetLatency = ?CFG(SetLatencyKey),
-  AvgWindow = 250,
-  %% Note that dependency of latency on publish interval is inverse:
-  %% lesser interval -> messages are sent more often -> more load -> more latency
-  %%
-  %% So the control must be reversed, and error is the negative of what one usually
-  %% expects:
-  %% Current - Target instead of Target - Current.
-  (emqttb_metrics:get_rolling_average(?GROUP_OP_TIME(Group, ?AVG_PUB_TIME), AvgWindow) -
-     erlang:convert_time_unit(SetLatency, millisecond, microsecond)).
 
 my_autorate(Group) ->
   list_to_atom(atom_to_list(Group) ++ ".pub.rate").

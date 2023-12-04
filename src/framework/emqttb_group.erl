@@ -35,10 +35,14 @@
 %% Type declarations
 %%================================================================================
 
+-type prototype() :: emqttb_behavior_pub:prototype()
+                   | emqttb_behavior_sub:prototype()
+                   | emqttb_behavior_conn:prototype().
+
 -type group_config() ::
         #{ id            := atom()
          , client_config := atom()
-         , behavior      := {module(), map()}
+         , behavior      := prototype()
          , parent        => pid()
          , autorate      => atom()
          , start_n       => integer()

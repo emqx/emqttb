@@ -246,7 +246,7 @@ model() ->
          },
         emqttb_worker:model()}
    , autorate =>
-       {[map, cli_action, default_instance],
+       {[map, cli_action],
         #{ cli_operand  => "a"
          , key_elements => [[id]]
          },

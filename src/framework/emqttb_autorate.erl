@@ -14,6 +14,9 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 -module(emqttb_autorate).
+
+-behavior(gen_server).
+-behavior(lee_metatype).
 %% This module uses velocity PI controller to automatically adjust
 %% rate of something to minimize error function.
 %%
@@ -21,13 +24,15 @@
 %% https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/
 
 %% API:
--export([ensure/1, get_counter/1, reset/2, info/0]).
+-export([ensure/1, get_counter/1, reset/2, info/0, create_autorates/0]).
 
-%% behavior callbacks:
+%% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
+%% lee_metatype callbacks:
+-export([names/1, metaparams/1, meta_validate_node/4, meta_validate/2]).
 
 %% internal exports:
--export([start_link/1, model/0]).
+-export([start_link/1, model/0, from_model/1]).
 
 -export_type([config/0, scram_fun/0, info/0]).
 
@@ -49,8 +54,10 @@
 %% `false' if everything is normal.
 -type scram_fun() :: fun((_IsOverride :: boolean()) -> {true, integer()} | false).
 
+-type id() :: atom().
+
 -type config() ::
-        #{ id        := atom()
+        #{ id        := id()
          , conf_root := atom()
          , error     := fun(() -> number())
          , scram     => scram_fun()
@@ -67,6 +74,9 @@
          , sum := number()
          }.
 
+-define(id(ID), {n, l, {?MODULE, ID}}).
+-define(via(ID), {via, gproc, ?id(ID)}).
+
 %%================================================================================
 %% API funcions
 %%================================================================================
@@ -76,14 +86,19 @@ ensure(Conf) ->
   {ok, Pid} = emqttb_autorate_sup:ensure(Conf#{parent => self()}),
   {auto, get_counter(Pid)}.
 
--spec get_counter(atom() | pid()) -> counters:counters_ref().
-get_counter(Id) ->
-  gen_server:call(Id, get_counter).
+-spec get_counter(lee:key() | id() | pid()) -> counters:counters_ref().
+get_counter(Pid) when is_pid(Pid) ->
+  gen_server:call(Pid, get_counter);
+get_counter(Id) when is_atom(Id) ->
+  gen_server:call(?via(Id), get_counter);
+get_counter(Key) ->
+  #mnode{metaparams = #{autorate_id := Id}} = lee_model:get(Key, ?MYMODEL),
+  gen_server:call(?via(Id), get_counter).
 
 %% Set the current value to the specified value
 -spec reset(atom() | pid(), integer()) -> ok.
 reset(Id, Val) ->
-  gen_server:call(Id, {reset, Val}).
+  gen_server:call(?via(Id), {reset, Val}).
 
 -spec info() -> [info()].
 info() ->
@@ -100,7 +115,7 @@ info() ->
 %%================================================================================
 
 start_link(Conf = #{id := Id}) ->
-  gen_server:start_link({local, Id}, ?MODULE, Conf, []).
+  gen_server:start_link(?via(Id), ?MODULE, Conf, []).
 
 model() ->
   #{ id =>
@@ -109,6 +124,14 @@ model() ->
          , default     => default
          , cli_operand => "autorate"
          , cli_short   => $a
+         }}
+   , set_point         =>
+       {[value, cli_param],
+        #{ oneliner    => "Value that the autorate will try to approach"
+         , type        => number()
+         , default     => 0
+         , cli_operand => "setpoint"
+         , cli_short   => $s
          }}
    , min               =>
        {[value, cli_param],
@@ -159,7 +182,62 @@ model() ->
    }.
 
 %%================================================================================
-%% behavior callbacks
+%% lee_metatype callbacks and helpers
+%%================================================================================
+
+names(_) ->
+  [autorate].
+
+metaparams(autorate) ->
+  %% TBD: make it possible to configure alternative targets.
+  [ {mandatory, autorate_id, atom()}
+  , {mandatory, process_variable, lee:model_key()}
+  , {optional, error_coeff, number()}
+  ].
+
+
+meta_validate_node(autorate, Model, _Key, #mnode{metaparams = #{process_variable := ProcVarKey}}) ->
+  Error = {["process_variable parameter must point at a node of `metric' metatype"], []},
+  try lee_model:get(ProcVarKey, Model) of
+    #mnode{metatypes = MTs} ->
+      case lists:member(metric, MTs) of
+        true  -> {[], []};
+        false -> Error
+      end
+  catch
+    _:_ -> Error
+  end.
+
+meta_validate(autorate, Model) ->
+  Ids = [begin
+           #mnode{metaparams = #{autorate_id := Id}} = lee_model:get(Key, Model),
+           Id
+         end || Key <- lee_model:get_metatype_index(autorate, Model)],
+  case length(lists:usort(Ids)) =:= length(Ids) of
+    false -> {["Autorate IDs must be unique"], [], []};
+    true  -> {[], [], []}
+  end.
+
+create_autorates() ->
+  [begin
+     #mnode{metaparams = MPs} = lee_model:get(Key, ?MYMODEL),
+     Id = ?m_attr(autorate, autorate_id, MPs),
+     emqttb_conf:patch([{set, [autorate, {Id}], []}]),
+     {ok, _} = emqttb_autorate_sup:ensure(#{ id        => Id
+                                           , error     => make_error_fun(Key)
+                                           , init_val  => ?CFG(Key)
+                                           , conf_root => Id
+                                           })
+   end || Key <- lee_model:get_metatype_index(autorate, ?MYMODEL)], %% TODO: wrong
+  ok.
+
+
+-spec from_model(lee:key()) -> {auto, counter:counters_ref()}.
+from_model(ModelKey) ->
+  {auto, get_counter(ModelKey)}.
+
+%%================================================================================
+%% gen_server callbacks
 %%================================================================================
 
 -record(s,
@@ -285,3 +363,27 @@ clamp(Val, _, _) ->
 
 my_cfg(ConfRoot, Key) ->
   ?CFG([autorate, {ConfRoot} | Key]).
+
+-spec make_error_fun(lee:key()) -> fun(() -> number()).
+make_error_fun(Key) ->
+  ModelKey = lee_model:get_model_key(Key),
+  #mnode{metaparams = MP} = lee_model:get(ModelKey, ?MYMODEL),
+  ProcessVarKey = ?m_attr(autorate, process_variable, MP),
+  Id = ?m_attr(autorate, autorate_id, MP),
+  Coeff = ?m_attr(autorate, error_coeff, MP, 1),
+  MetricKey = emqttb_metrics:from_model(ProcessVarKey),
+  %%
+  #mnode{metaparams = PVarMPs} = lee_model:get(ProcessVarKey, ?MYMODEL),
+  case ?m_attr(metric, metric_type, PVarMPs) of
+    counter ->
+      fun() ->
+          SetPoint = my_cfg(Id, [set_point]),
+          Coeff * (SetPoint - emqttb_metrics:get_counter(MetricKey))
+      end;
+    rolling_average ->
+      fun() ->
+          AvgWindow = 250,
+          SetPoint = my_cfg(Id, [set_point]),
+          Coeff * (SetPoint - emqttb_metrics:get_rolling_average(MetricKey, AvgWindow))
+      end
+  end.

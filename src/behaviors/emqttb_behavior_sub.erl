@@ -20,11 +20,22 @@
 %% behavior callbacks:
 -export([init_per_group/2, init/1, handle_message/3, terminate/2]).
 
--export_type([]).
+-export_type([prototype/0, config/0]).
 
 %%================================================================================
 %% Type declarations
 %%================================================================================
+
+-type config() :: #{ topic          := binary()
+                   , qos            := 0..2
+                   , clean_start    => boolean()
+                   , expiry         => non_neg_integer() | undefined
+                   , host_shift     => integer()
+                   , host_selection => _
+                   , parse_metadata => boolean()
+                   }.
+
+-type prototype() :: {?MODULE, config()}.
 
 -define(CNT_SUB_MESSAGES(GRP), {emqttb_received_messages, GRP}).
 -define(CNT_SUB_LATENCY(GRP), {emqttb_e2e_latency, GRP}).

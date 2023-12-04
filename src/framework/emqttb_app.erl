@@ -13,8 +13,11 @@
 -include("emqttb.hrl").
 
 start(_StartType, _StartArgs) ->
-  Sup = emqttb_sup:start_link(),
+  emqttb_conf:load_model(),
   emqttb_conf:load_conf(),
+  Sup = emqttb_sup:start_link(),
+  emqttb_autorate:create_autorates(),
+  emqttb_scenario:run_scenarios(),
   CLIArgs = application:get_env(?APP, cli_args, []),
   emqttb_grafana:annotate(["Start emqttb " | lists:join($ , CLIArgs)]),
   post_init(),

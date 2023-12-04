@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ end_per_testcase(_, _Config) ->
   snabbkaffe:stop(),
   ok.
 
-t_group(Config) ->
+t_group(_Config) ->
   NClients = 10,
   Group = test_group,
   ?check_trace(
@@ -70,16 +70,16 @@ t_group(Config) ->
         end}
      ]).
 
-t_error_in_init(Config) ->
+t_error_in_init(_Config) ->
   error_scenario(#{init => error}).
 
-t_error_in_handle_msg(Config) ->
+t_error_in_handle_msg(_Config) ->
   error_scenario(#{handle_message => error}).
 
-t_invalid_return(Config) ->
+t_invalid_return(_Config) ->
   error_scenario(#{handle_message => invalid_return}).
 
-t_error_in_terminate(Config) ->
+t_error_in_terminate(_Config) ->
   error_scenario(#{terminate => error}).
 
 error_scenario(Config) ->

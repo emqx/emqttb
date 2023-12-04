@@ -63,7 +63,7 @@
         { produced = 0
         , consumed = 0
         , to_consume = 0
-        , pubinterval :: non_neg_integer()
+        , pubinterval :: non_neg_integer() | undefined
         }).
 
 %%================================================================================
@@ -87,12 +87,15 @@ model() ->
               , default => 256
               }}
         , pubinterval =>
-            {[value, cli_param],
+            {[value, cli_param, autorate],
              #{ oneliner => "Message publishing interval (microsecond)"
               , type => emqttb:duration_us()
               , default_ref => [interval]
               , cli_operand => "pubinterval"
               , cli_short => $i
+              , autorate_id      => 'persistent_session/pubinterval'
+              , process_variable => [?SK(persistent_session), pub, pub_latency, pending]
+              , error_coeff => -1
               }}
         , n =>
             {[value, cli_param],
@@ -108,14 +111,6 @@ model() ->
               , type => emqttb:duration_ms()
               , default_str => "100ms"
               , cli_operand => "publatency"
-              }}
-        , pub_autorate =>
-            {[value, cli_param, pointer],
-             #{ oneliner    => "ID of the autorate config used to tune publish interval"
-              , type        => atom()
-              , default     => default
-              , cli_operand => "pubautorate"
-              , target_node => [autorate]
               }}
         , topic_suffix =>
             {[value, cli_param],
@@ -133,6 +128,18 @@ model() ->
               , cli_operand => "pubtime"
               , cli_short => $T
               }}
+          %% Metrics:
+        , n_published =>
+            {[metric],
+             #{ oneliner => "Total number of published messages"
+              , id => {emqttb_published_messages, persistent_session}
+              , metric_type => counter
+              , labels => [scenario]
+              }}
+        , pub_latency =>
+            emqttb_metrics:opstat('persistent_session/pub', 'publish')
+        , conn_latency =>
+            emqttb_metrics:opstat('persistent_session/pub', 'connect')
         }
    , sub =>
        #{ qos =>
@@ -207,7 +214,7 @@ run() ->
   NCons = try emqttb_metrics:get_counter(?CNT_SUB_MESSAGES(?SUB_GROUP))
           catch _:_ -> 0
           end,
-  S = #s{produced = NProd, consumed = NCons, pubinterval = my_conf([pub, pubinterval])},
+  S = #s{produced = NProd, consumed = NCons},
   do_run(S, 0).
 
 %%================================================================================
@@ -250,7 +257,8 @@ publish_stage(S = #s{produced = NPub0, pubinterval = PubInterval}) ->
   TopicPrefix = topic_prefix(),
   TopicSuffix = my_conf([pub, topic_suffix]),
   PubOpts = #{ topic       => <<TopicPrefix/binary, TopicSuffix/binary>>
-             , pubinterval => PubInterval
+             , pubinterval => my_conf_key([pub, pubinterval])
+             , n_published => my_conf_key([pub, n_published])
              , msg_size    => my_conf([pub, msg_size])
              , qos         => my_conf([pub, qos])
              , set_latency => my_conf_key([pub, set_pub_latency])
@@ -261,13 +269,13 @@ publish_stage(S = #s{produced = NPub0, pubinterval = PubInterval}) ->
                        , behavior      => {emqttb_behavior_pub, PubOpts}
                        }),
   Interval = my_conf([conninterval]),
-  {ok, N} = emqttb_group:set_target(?PUB_GROUP, my_conf([pub, n]), Interval),
+  {ok, _} = emqttb_group:set_target(?PUB_GROUP, my_conf([pub, n]), Interval),
   PubTime = my_conf([pub, pub_time]),
   timer:sleep(PubTime),
-  PubIntervalCref = emqttb_autorate:get_counter(emqttb_behavior_pub:my_autorate(?PUB_GROUP)),
+  PubIntervalCref = emqttb_autorate:get_counter('persistent_session/pubinterval'),
   PubInterval2 = counters:get(PubIntervalCref, 1),
   emqttb_group:stop(?PUB_GROUP),
-  NPub = emqttb_metrics:get_counter(?CNT_PUB_MESSAGES(?PUB_GROUP)),
+  NPub = emqttb_metrics:get_counter(emqttb_metrics:from_model(my_conf_key([pub, n_published]))),
   %% TODO: it doesn't take ramp up/down into account:
   prometheus_summary:observe(?PUB_THROUGHPUT, (NPub - NPub0) * timer:seconds(1) div PubTime),
   S#s{ produced = NPub
