@@ -143,15 +143,16 @@ connect(ConnOpstat, Properties0, CustomOptions, CustomTcpOptions, CustomSslOptio
   HostShift = maps:get(host_shift, Properties0, 0),
   HostSelection = maps:get(host_selection, Properties0, random),
   Properties = maps:without([host_shift, host_selection], Properties0),
-  Username  = my_cfg([client, username]),
-  Password  = my_cfg([client, password]),
-  SSL       = my_cfg([ssl, enable]),
-  KeepAlive = my_cfg([connection, keepalive]),
+  Username    = my_cfg([client, username]),
+  Password    = my_cfg([client, password]),
+  SSL         = my_cfg([ssl, enable]),
+  KeepAlive   = my_cfg([connection, keepalive]),
+  MaxInflight = my_cfg([connection, inflight]),
   Options = [ {username,     Username} || Username =/= undefined]
          ++ [ {password,     Password} || Password =/= undefined]
          ++ [ {ssl_opts,     CustomSslOptions ++ ssl_opts()} || SSL]
          ++ [ {clientid,     my_clientid()}
-            , {max_inflight, my_cfg([connection, inflight])}
+            , {max_inflight, MaxInflight}
             , {hosts,        broker_hosts(HostSelection, HostShift)}
             , {port,         get_port()}
             , {proto_ver,    my_cfg([connection, proto_ver])}
@@ -159,7 +160,7 @@ connect(ConnOpstat, Properties0, CustomOptions, CustomTcpOptions, CustomSslOptio
             , {owner,        self()}
             , {ssl,          SSL}
             , {tcp_opts,     CustomTcpOptions ++ tcp_opts()}
-            , {properties,   Properties}
+            , {properties,   Properties #{'Receive-Maximum' => MaxInflight}}
             , {keepalive,    KeepAlive}
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
