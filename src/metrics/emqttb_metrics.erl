@@ -19,7 +19,7 @@
 -behavior(lee_metatype).
 
 %% API:
--export([from_model/1, opstat_from_model/1, opstat/2, call_with_counter/4,
+-export([ls/1, from_model/1, opstat_from_model/1, opstat/2, call_with_counter/4,
          new_counter/2, counter_inc/2, counter_dec/2, get_counter/1,
          new_gauge/2, gauge_set/2, gauge_ref/1,
          new_rolling_average/2, rolling_average_observe/2,
@@ -178,7 +178,7 @@ get_rolling_average(Key, Window) ->
   end.
 
 %%================================================================================
-%% lee_metatype callbacks
+%% lee_metatype callbacks and helpers
 %%================================================================================
 
 names(_) ->
@@ -198,7 +198,7 @@ meta_validate(metric, Model) ->
   Ids = [begin
            #mnode{metaparams = #{id := Id}} = lee_model:get(Key, Model),
            Id
-         end || Key <- lee_model:get_metatype_index(metric, Model)],
+         end || Key <- ls(Model)],
   case length(lists:usort(Ids)) =:= length(Ids) of
     false -> {["Metric IDs must be unique"], [], []};
     true  -> {[], [], []}
@@ -208,7 +208,7 @@ meta_validate(metric_id, _) ->
 
 validate_node(metric_id, Model, Data, Key, _) ->
   Metric = lee:get(Model, Data, Key),
-  case lists:member(Metric, lee_model:get_metatype_index(metric, Model)) of
+  case lists:member(Metric, ls(Model)) of
     true ->
       {[], []};
     false ->
@@ -217,6 +217,9 @@ validate_node(metric_id, Model, Data, Key, _) ->
   end;
 validate_node(metric, _, _, _, _) ->
   {[], []}.
+
+ls(Model) ->
+  lee_model:get_metatype_index(metric, Model).
 
 %%================================================================================
 %% gen_server callbacks

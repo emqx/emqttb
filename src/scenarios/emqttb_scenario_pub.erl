@@ -82,7 +82,6 @@ model() ->
          , cli_operand => "conninterval"
          , cli_short => $I
          , autorate_id => 'pub/conninterval'
-         , process_variable => [?SK(pub), metrics, conn_latency, pending]
          }}
    , pubinterval =>
        {[value, cli_param, autorate],
@@ -92,8 +91,6 @@ model() ->
          , cli_operand => "pubinterval"
          , cli_short => $i
          , autorate_id => 'pub/pubinterval'
-         , process_variable => [?SK(pub), metrics, pub_latency, pending]
-         , error_coeff => -1
          }}
    , n_clients =>
        {[value, cli_param],

@@ -76,8 +76,6 @@ model() ->
               , cli_operand => "pubinterval"
               , cli_short => $i
               , autorate_id => 'pubsub_fwd/pubinterval'
-              , process_variable => [?SK(pubsub_fwd), pub, metrics, pub_latency, pending]
-              , error_coeff => -1
               }}
           %% Metrics:
         , n_published =>

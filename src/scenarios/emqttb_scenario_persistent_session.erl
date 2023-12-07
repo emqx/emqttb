@@ -94,9 +94,7 @@ model() ->
               , default_ref => [interval]
               , cli_operand => "pubinterval"
               , cli_short => $i
-              , autorate_id      => 'persistent_session/pubinterval'
-              , process_variable => [?SK(persistent_session), pub, metrics, pub_latency, pending]
-              , error_coeff => -1
+              , autorate_id => 'persistent_session/pubinterval'
               }}
         , n =>
             {[value, cli_param],

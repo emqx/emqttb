@@ -59,17 +59,12 @@ maybe_perform_special_action() ->
     [] ->
       ok;
     [Key] ->
-      What = ?CFG(Key ++ [what]),
-      Keys = lee_model:get_metatype_index(What, ?MYMODEL),
-      MP = case What of
-             metric -> id;
-             autorate -> autorate_id
-           end,
-      lists:foreach(
-        fun(K) ->
-            #mnode{metaparams = #{MP := Id}} = lee_model:get(K, ?MYMODEL),
-            io:format("~p~n", [Id])
-        end,
-        Keys),
+      case ?CFG(Key ++ [what]) of
+        metric ->
+          Objs = emqttb_metrics:ls(?MYMODEL);
+        autorate ->
+          {Objs, _} = lists:unzip(emqttb_autorate:ls(?MYMODEL))
+      end,
+      lists:foreach(fun(K) -> io:format("~p~n", [K]) end, Objs),
       emqttb:terminate()
   end.

@@ -24,7 +24,7 @@
 %% https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/
 
 %% API:
--export([ensure/1, get_counter/1, reset/2, info/0, create_autorates/0]).
+-export([ls/1, ensure/1, get_counter/1, reset/2, info/0, create_autorates/0]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
@@ -78,6 +78,13 @@
 %%================================================================================
 %% API funcions
 %%================================================================================
+
+-spec ls(lee:model()) -> [{emqttb:autorate(), lee:model_key()}].
+ls(Model) ->
+  [begin
+     #mnode{metaparams = #{autorate_id := Id}} = lee_model:get(Key, Model),
+     {Id, Key}
+   end || Key <- lee_model:get_metatype_index(autorate, Model)].
 
 -spec ensure(config()) -> {auto, counter:counters_ref()}.
 ensure(Conf) ->
@@ -142,7 +149,7 @@ model() ->
    , set_point         =>
        {[value, cli_param],
         #{ oneliner    => "Value of the process variable that the autorate will try to keep"
-         , type        => number()
+         , type        => emqttb:duration_us()
          , default     => 0
          , cli_operand => "setpoint"
          , cli_short   => $s
@@ -150,7 +157,7 @@ model() ->
    , min               =>
        {[value, cli_param],
         #{ oneliner    => "Minimum value of the controlled parameter"
-         , type        => integer()
+         , type        => emqttb:duration_us()
          , default     => 0
          , cli_operand => "min"
          , cli_short   => $m
@@ -158,14 +165,14 @@ model() ->
    , max =>
        {[value, cli_param],
         #{ oneliner    => "Maximum value of the controlled parameter"
-         , type        => integer()
-         , default     => 100_000_000 % 100s
+         , type        => emqttb:duration_us()
+         , default_str => "10s"
          , cli_operand => "max"
          , cli_short   => $M
          }}
    , speed =>
        {[value, cli_param],
-        #{ type        => integer()
+        #{ type        => non_neg_integer()
          , default     => 0
          , cli_operand => "speed"
          , cli_short   => $V
@@ -208,10 +215,7 @@ metaparams(autorate_id) ->
   [].
 
 meta_validate(autorate, Model) ->
-  Ids = [begin
-           #mnode{metaparams = #{autorate_id := Id}} = lee_model:get(Key, Model),
-           Id
-         end || Key <- lee_model:get_metatype_index(autorate, Model)],
+  {Ids, _} = lists:unzip(ls(Model)),
   case length(lists:usort(Ids)) =:= length(Ids) of
     false -> {["Autorate IDs must be unique"], [], []};
     true  -> {[], [], [{set, autorate_ids, Ids}]}
@@ -241,13 +245,11 @@ validate_node(autorate, Model, Data, _Key, #mnode{metaparams = #{autorate_id := 
 
 create_autorates() ->
   [begin
-     #mnode{metaparams = MPs} = lee_model:get(Key, ?MYMODEL),
-     Id = ?m_attr(autorate, autorate_id, MPs),
      {ok, _} = emqttb_autorate_sup:ensure(#{ id        => Id
                                            , init_val  => ?CFG(Key)
                                            , conf_root => Id
                                            })
-   end || Key <- lee_model:get_metatype_index(autorate, ?MYMODEL)],
+   end || {Id, Key} <- ls(?MYMODEL)],
   ok.
 
 -spec from_model(lee:key()) -> atom().
