@@ -31,7 +31,7 @@
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
 
--import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, set_stage/2, set_stage/1]).
+-import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, my_conf_key/1, set_stage/2, set_stage/1]).
 
 %%================================================================================
 %% Type declarations
@@ -45,10 +45,9 @@
 
 model() ->
   #{ conninterval =>
-       {[value, cli_param],
-        #{ oneliner => "Client connection interval"
-         , type => emqttb:duration_us()
-         , default_ref => [interval]
+       {[value, cli_param, autorate],
+        (emqttb_group:conninterval_model('conn/conn', [?SK(conn), metrics, conn_latency, pending]))
+        #{ default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
          }}
@@ -84,16 +83,21 @@ model() ->
          , cli_operand => "clean-start"
          , cli_short => $C
          }}
+     %% Metrics:
+   , metrics =>
+       emqttb_behavior_conn:model('conn/conn')
    }.
 
 run() ->
   GroupId = ?GROUP,
   Opts = #{ expiry => my_conf([expiry])
           , clean_start => my_conf([clean_start])
+          , metrics => my_conf_key([metrics])
           },
   emqttb_group:ensure(#{ id            => GroupId
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_conn, Opts}
+                       , conn_interval => emqttb_autorate:from_model(my_conf_key([conninterval]))
                        }),
   Interval = my_conf([conninterval]),
   set_stage(ramp_up),

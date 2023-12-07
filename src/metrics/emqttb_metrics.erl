@@ -19,7 +19,7 @@
 -behavior(lee_metatype).
 
 %% API:
--export([from_model/1, opstat/2,
+-export([from_model/1, opstat_from_model/1, opstat/2, call_with_counter/4,
          new_counter/2, counter_inc/2, counter_dec/2, get_counter/1,
          new_gauge/2, gauge_set/2, gauge_ref/1,
          new_rolling_average/2, rolling_average_observe/2,
@@ -35,7 +35,7 @@
 %% internal exports:
 -export([start_link/0]).
 
--export_type([]).
+-export_type([metric_ref/0]).
 
 -compile({inline, [counter_inc/2, counter_dec/2]}).
 
@@ -62,6 +62,8 @@
 -define(MAX_WINDOW_SEC, 30). % Keep about 30 seconds of history
 -define(DEFAULT_WINDOW, 5000).
 
+-opaque metric_ref() :: tuple().
+
 %%================================================================================
 %% API funcions
 %%================================================================================
@@ -76,6 +78,11 @@ from_model(ModelKey) ->
   #mnode{metaparams = MPs} = lee_model:get(ModelKey, ?MYMODEL),
   ?m_attr(metric, id, MPs).
 
+%% TODO:
+-spec opstat_from_model(lee:model_key()) -> {metric_id(), metric_id()}.
+opstat_from_model(Key) ->
+  {from_model(Key ++ [avg_time]), from_model(Key ++ [pending])}.
+
 -spec opstat(atom(), atom()) -> lee:namespace().
 opstat(Group, Operation) ->
   #{ avg_time =>
@@ -84,6 +91,7 @@ opstat(Group, Operation) ->
          , metric_type => rolling_average
          , id => ?GROUP_OP_TIME(Group, Operation)
          , labels => [group, operation]
+         , unit => "ms"
          }}
    , pending =>
        {[metric],
@@ -93,6 +101,21 @@ opstat(Group, Operation) ->
          , labels => [group, operation]
          }}
    }.
+
+-spec call_with_counter(metric_ref(), module(), atom(), list()) -> _.
+call_with_counter({AvgTime, NPending}, Mod, Fun, Args) ->
+  emqttb_metrics:counter_inc(NPending, 1),
+  T0 = os:system_time(microsecond),
+  try apply(Mod, Fun, Args)
+  catch
+    EC:Err ->
+      EC(Err)
+  after
+    T = os:system_time(microsecond),
+    emqttb_metrics:counter_dec(NPending, 1),
+    emqttb_metrics:rolling_average_observe(AvgTime, T - T0)
+  end.
+
 
 %% Simple counters and gauges:
 

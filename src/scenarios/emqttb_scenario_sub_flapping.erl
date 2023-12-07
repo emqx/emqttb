@@ -30,7 +30,7 @@
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
 
--import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, set_stage/2, set_stage/1]).
+-import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, my_conf_key/1, set_stage/2, set_stage/1]).
 
 %%================================================================================
 %% Type declarations
@@ -55,10 +55,9 @@ model() ->
          , cli_short => $t
          }}
    , conninterval =>
-       {[value, cli_param],
-        #{ oneliner => "Client connection interval"
-         , type => emqttb:duration_us()
-         , default_ref => [interval]
+       {[value, cli_param, autorate],
+        (emqttb_group:conninterval_model('sub_flapping/sub', [?SK(sub_flapping), metrics, conn_latency, pending]))
+        #{ default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
          }}
@@ -108,6 +107,8 @@ model() ->
          , cli_operand => "cycles"
          , cli_short => $C
          }}
+   , metrics =>
+       emqttb_behavior_sub:model('sub_flapping/sub')
    }.
 
 run() ->
@@ -115,22 +116,24 @@ run() ->
              , qos    => my_conf([qos])
              , expiry => my_conf([expiry])
              , clean_start => my_conf([clean_start])
+             , metrics => my_conf_key([metrics])
              },
   emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_sub, SubOpts}
+                       , conn_interval => emqttb_autorate:from_model(my_conf_key([conninterval]))
                        }),
-  cycle(0, my_conf([n_cycles]), my_conf([conninterval])).
+  cycle(0, my_conf([n_cycles])).
 
-cycle(Cycle, Max, _Interval) when Cycle >= Max ->
+cycle(Cycle, Max) when Cycle >= Max ->
   complete(ok);
-cycle(Cycle, Max, Interval) ->
+cycle(Cycle, Max) ->
   set_stage(ramp_up),
   N = my_conf([n_clients]),
-  {ok, _} = emqttb_group:set_target(?GROUP, N, Interval),
+  {ok, _} = emqttb_group:set_target(?GROUP, N),
   set_stage(ramp_down),
   {ok, _} = emqttb_group:set_target(?GROUP, 0, undefined),
-  cycle(Cycle + 1, Max, undefined).
+  cycle(Cycle + 1, Max).
 
 %%================================================================================
 %% Internal exports

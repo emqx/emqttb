@@ -18,7 +18,7 @@
 -behavior(emqttb_worker).
 
 %% API
--export([parse_metadata/1, my_autorate/1]).
+-export([parse_metadata/1, model/1]).
 
 %% behavior callbacks:
 -export([init_per_group/2, init/1, handle_message/3, terminate/2]).
@@ -35,11 +35,10 @@
 %%================================================================================
 
 -type config() :: #{ topic          := binary()
-                   , n_published    := lee:model_key()
                    , pubinterval    := lee:model_key()
                    , msg_size       := non_neg_integer()
+                   , metrics        := lee:model_key()
                    , qos            := emqttb:qos()
-                   , set_latency    := lee:key()
                    , retain         => boolean()
                    , metadata       => boolean()
                    , host_shift     => integer()
@@ -51,6 +50,21 @@
 %%================================================================================
 %% API
 %%================================================================================
+
+-spec model(atom()) -> lee:namespace().
+model(Group) ->
+  #{ conn_latency =>
+       emqttb_metrics:opstat(Group, connect)
+   , pub_latency =>
+       emqttb_metrics:opstat(Group, publish)
+   , n_published =>
+       {[metric],
+        #{ oneliner => "Total number of messages published by the group"
+         , id => {emqttb_published_messages, Group}
+         , labels => [group]
+         , metric_type => counter
+         }}
+   }.
 
 -spec parse_metadata(Msg) -> {ID, SeqNo, TS}
           when Msg :: binary(),
@@ -66,18 +80,14 @@ parse_metadata(<<ID:32, SeqNo:32, TS:64, _/binary>>) ->
 
 init_per_group(Group,
                #{ topic        := Topic
-                , n_published  := NPublishedMetricKey
                 , pubinterval  := PubInterval
                 , msg_size     := MsgSize
                 , qos          := QoS
-                , set_latency  := SetLatencyKey
+                , metrics      := MetricsKey
                 } = Conf) when is_binary(Topic),
-                               is_integer(MsgSize),
-                               is_list(SetLatencyKey) ->
+                               is_integer(MsgSize) ->
   AddMetadata = maps:get(metadata, Conf, false),
-  PubCnt = emqttb_metrics:from_model(NPublishedMetricKey),
-  emqttb_worker:new_opstat(Group, ?AVG_PUB_TIME),
-  {auto, PubRate} = emqttb_autorate:from_model(PubInterval),
+  PubRate = emqttb_autorate:get_counter(emqttb_autorate:from_model(PubInterval)),
   MetadataSize = case AddMetadata of
                    true  -> (32 + 32 + 64) div 8;
                    false -> 0
@@ -88,27 +98,31 @@ init_per_group(Group,
   #{ topic => Topic
    , message => message(max(0, MsgSize - MetadataSize))
    , pub_opts => [{qos, QoS}, {retain, Retain}]
-   , pub_counter => PubCnt
    , pubinterval => PubRate
    , metadata => AddMetadata
    , host_shift => HostShift
    , host_selection => HostSelection
+   , pub_opstat => emqttb_metrics:opstat_from_model(MetricsKey ++ [pub_latency])
+   , conn_opstat => emqttb_metrics:opstat_from_model(MetricsKey ++ [conn_latency])
+   , pub_counter => emqttb_metrics:from_model(MetricsKey ++ [n_published])
    }.
 
-init(PubOpts = #{pubinterval := I}) ->
+init(PubOpts = #{pubinterval := I, conn_opstat := ConnOpstat}) ->
   rand:seed(default),
   {SleepTime, N} = emqttb:get_duration_and_repeats(I),
   send_after_rand(SleepTime, {publish, N}),
   HostShift = maps:get(host_shift, PubOpts, 0),
   HostSelection = maps:get(host_selection, PubOpts, random),
-  {ok, Conn} = emqttb_worker:connect(#{ host_shift => HostShift
+  {ok, Conn} = emqttb_worker:connect(ConnOpstat,
+                                     #{ host_shift => HostShift
                                       , host_selection => HostSelection
                                       }),
   Conn.
 
 handle_message(Shared, Conn, {publish, N1}) ->
   #{ topic := TP, pubinterval := I, message := Msg0, pub_opts := PubOpts
-   , pub_counter := Cnt
+   , pub_counter := PubCounter
+   , pub_opstat := PubOpstat
    , metadata := AddMetadata
    } = Shared,
   {SleepTime, N2} = emqttb:get_duration_and_repeats(I),
@@ -119,8 +133,8 @@ handle_message(Shared, Conn, {publish, N1}) ->
         end,
   T = emqttb_worker:format_topic(TP),
   repeat(N1, fun() ->
-                 emqttb_worker:call_with_counter(?AVG_PUB_TIME, emqtt, publish, [Conn, T, Msg, PubOpts]),
-                 emqttb_metrics:counter_inc(Cnt, 1)
+                 emqttb_metrics:call_with_counter(PubOpstat, emqtt, publish, [Conn, T, Msg, PubOpts]),
+                 emqttb_metrics:counter_inc(PubCounter, 1)
              end),
   {ok, Conn};
 handle_message(_, Conn, _) ->
@@ -132,9 +146,6 @@ terminate(_Shared, Conn) ->
 %%================================================================================
 %% Internal functions
 %%================================================================================
-
-my_autorate(Group) ->
-  list_to_atom(atom_to_list(Group) ++ ".pub.rate").
 
 message(Size) ->
   list_to_binary([$A || _ <- lists:seq(1, Size)]).

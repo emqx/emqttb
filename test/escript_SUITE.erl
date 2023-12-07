@@ -27,8 +27,23 @@ suite() ->
 t_no_args(Config) when is_list(Config) ->
   ?assertMatch(0, run("")).
 
-t_basic_scenarios(Config) when is_list(Config) ->
+t_pub(Config) when is_list(Config) ->
   ?assertMatch(0, run("--loiter 0 @pub -t foo -I 1000 -N 0")).
+
+t_sub(Config) when is_list(Config) ->
+  ?assertMatch(0, run("--loiter 0 @sub -t foo -N 0")).
+
+t_conn(Config) when is_list(Config) ->
+  ?assertMatch(0, run("--loiter 0 @conn -N 0")).
+
+t_pubsub_fwd(Config) when is_list(Config) ->
+  ?assertMatch(0, run("--loiter 0 @pubsub_fwd")).
+
+t_sub_flapping(Config) when is_list(Config) ->
+  ?assertMatch(0, run("--loiter 0 @sub_flapping -t foo --cycles 1 -N 0")).
+
+t_persistent_session(Config) when is_list(Config) ->
+  ?assertMatch(0, run("@persistent_session --cycles 1 --pubtime 1ms")).
 
 t_set_group_config(Config) when is_list(Config) ->
   ?assertMatch(0, run("@g -p 9090")),

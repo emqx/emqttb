@@ -75,15 +75,8 @@ model() ->
               , cli_operand => "pubinterval"
               , cli_short => $i
               , autorate_id => 'pubsub_fwd/pubinterval'
-              , process_variable => [?SK(pubsub_fwd), pub, pub_latency, pending]
+              , process_variable => [?SK(pubsub_fwd), pub, metrics, pub_latency, pending]
               , error_coeff => -1
-              }}
-        , set_pub_latency =>
-            {[value, cli_param],
-             #{ oneliner => "Try to keep publishing time at this value (ms)"
-              , type => emqttb:duration_ms()
-              , default => 100
-              , cli_operand => "publatency"
               }}
           %% Metrics:
         , n_published =>
@@ -93,10 +86,8 @@ model() ->
               , metric_type => counter
               , labels => [scenario]
               }}
-        , pub_latency =>
-            emqttb_metrics:opstat('pubsub_fwd/pub', 'publish')
-        , conn_latency =>
-            emqttb_metrics:opstat('pubsub_fdw/pub', 'connect')
+        , metrics =>
+            emqttb_behavior_pub:model('pubsub_fwd/pub')
         }
    , sub =>
        #{ qos =>
@@ -106,14 +97,15 @@ model() ->
               , default => 1
               , cli_operand => "sub-qos"
               }}
+        , metrics =>
+            emqttb_behavior_sub:model('pubsub_fwd/sub')
         }
    , conninterval =>
-       {[value, cli_param],
-        #{ oneliner => "Client connection interval (microsecond)"
-         , type => emqttb:duration_us()
-         , default => 0
-         , cli_operand => "conninterval"
+       {[value, cli_param, autorate],
+        (emqttb_group:conninterval_model('pubsub_fwd/pub', [?SK(pubsub_fwd), pub, metrics, conn_latency, pending]))
+        #{ cli_operand => "conninterval"
          , cli_short => $I
+         , default_str => "10ms"
          }}
    , group =>
        {[value, cli_param],
@@ -180,15 +172,16 @@ subscribe_stage() ->
              , host_shift     => 0
              , host_selection => HostSelection
              , parse_metadata => true
+             , metrics        => my_conf_key([sub, metrics])
              },
   emqttb_group:ensure(#{ id            => ?SUB_GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_sub, SubOpts}
                        , start_n       => my_conf([start_n])
+                       , conn_interval => emqttb_autorate:from_model(my_conf_key([conninterval]))
                        }),
   N = my_conf([num_clients]) div 2,
-  Interval = my_conf([conninterval]),
-  {ok, _} = emqttb_group:set_target(?SUB_GROUP, N, Interval),
+  {ok, _} = emqttb_group:set_target(?SUB_GROUP, N),
   ok.
 
 publish_stage() ->
@@ -203,23 +196,22 @@ publish_stage() ->
                   false -> 0
               end,
   PubOpts = #{ topic          => <<TopicPrefix/binary, "%n">>
-             , n_published    => my_conf_key([pub, n_published])
              , pubinterval    => my_conf_key([pub, pubinterval])
              , msg_size       => my_conf([pub, msg_size])
              , qos            => my_conf([pub, qos])
-             , set_latency    => my_conf_key([pub, set_pub_latency])
              , metadata       => true
              , host_shift     => HostShift
              , host_selection => HostSelection
+             , metrics        => my_conf_key([pub, metrics])
              },
   emqttb_group:ensure(#{ id            => ?PUB_GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_pub, PubOpts}
                        , start_n       => my_conf([start_n])
+                       , conn_interval => emqttb_autorate:from_model(my_conf_key([conninterval]))
                        }),
   N = my_conf([num_clients]) div 2,
-  Interval = my_conf([conninterval]),
-  {ok, _} = emqttb_group:set_target(?PUB_GROUP, N, Interval),
+  {ok, _} = emqttb_group:set_target(?PUB_GROUP, N),
   ok.
 
 topic_prefix() ->

@@ -18,9 +18,9 @@
 %% Worker API:
 -export([my_group/0, my_id/0, my_clientid/0, my_hostname/0, my_cfg/1,
          send_after/2, send_after_rand/2, repeat/2,
-         connect/1, connect/4,
-         format_topic/1,
-         new_opstat/2, call_with_counter/4]).
+         connect/2, connect/5,
+         format_topic/1
+        ]).
 
 %% internal exports:
 -export([entrypoint/3, loop/1, start/3, init_per_group/3, model/0]).
@@ -134,12 +134,12 @@ my_hostname() ->
 %% MQTT
 %%--------------------------------------------------------------------------------
 
--spec connect(map()) -> gen_statem:start_ret().
-connect(Properties) ->
-  connect(Properties, [], [], []).
+-spec connect(emqttb_metrics:metric_ref(), map()) -> gen_statem:start_ret().
+connect(ConnOpstat, Properties) ->
+  connect(ConnOpstat, Properties, [], [], []).
 
--spec connect(map(), [emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
-connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
+-spec connect(emqttb_metrics:metric_ref(), map(), [emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
+connect(ConnOpstat, Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
   HostShift = maps:get(host_shift, Properties0, 0),
   HostSelection = maps:get(host_selection, Properties0, random),
   Properties = maps:without([host_shift, host_selection], Properties0),
@@ -164,39 +164,8 @@ connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
   ConnectFun = connect_fun(),
-  {ok, _Properties} = call_with_counter(connect, emqtt, ConnectFun, [Client]),
+  {ok, _Properties} = emqttb_metrics:call_with_counter(ConnOpstat, emqtt, ConnectFun, [Client]),
   {ok, Client}.
-
-%%--------------------------------------------------------------------------------
-%% Instrumentation
-%%--------------------------------------------------------------------------------
-
--spec call_with_counter(atom(), module(), atom(), list()) -> _.
-call_with_counter(Operation, Mod, Fun, Args) ->
-  Grp = my_group(),
-  emqttb_metrics:counter_inc(?GROUP_N_PENDING(Grp, Operation), 1),
-  T0 = os:system_time(microsecond),
-  try apply(Mod, Fun, Args)
-  catch
-    EC:Err ->
-      EC(Err)
-  after
-    T = os:system_time(microsecond),
-    emqttb_metrics:counter_dec(?GROUP_N_PENDING(Grp, Operation), 1),
-    emqttb_metrics:rolling_average_observe(?GROUP_OP_TIME(Grp, Operation), T - T0)
-  end.
-
--spec new_opstat(emqttb:group(), atom()) -> ok.
-new_opstat(Group, Operation) ->
-  emqttb_metrics:new_rolling_average(?GROUP_OP_TIME(Group, Operation),
-                                     [ {help, <<"Average run time of an operation (microseconds)">>}
-                                     , {labels, [group, operation]}
-                                     ]),
-  emqttb_metrics:new_counter(?GROUP_N_PENDING(Group, Operation),
-                             [ {help, <<"Number of pending operations">>}
-                             , {labels, [group, operation]}
-                             ]),
-  ok.
 
 %%================================================================================
 %% Internal exports

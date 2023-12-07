@@ -17,6 +17,9 @@
 
 -behavior(emqttb_worker).
 
+%% API:
+-export([model/1]).
+
 %% behavior callbacks:
 -export([init_per_group/2, init/1, handle_message/3, terminate/2]).
 
@@ -28,6 +31,7 @@
 
 -type config() :: #{ topic          := binary()
                    , qos            := 0..2
+                   , metrics        := lee:model_key()
                    , clean_start    => boolean()
                    , expiry         => non_neg_integer() | undefined
                    , host_shift     => integer()
@@ -37,55 +41,81 @@
 
 -type prototype() :: {?MODULE, config()}.
 
--define(CNT_SUB_MESSAGES(GRP), {emqttb_received_messages, GRP}).
--define(CNT_SUB_LATENCY(GRP), {emqttb_e2e_latency, GRP}).
--define(AVG_SUB_TIME, subscribe).
+%%================================================================================
+%% API
+%%================================================================================
+
+-spec model(atom()) -> lee:namespace().
+model(GroupId) ->
+  #{ n_received =>
+       {[metric],
+        #{ oneliner => "Total number of received messages"
+         , id => {emqttb_received_messages, GroupId}
+         , metric_type => counter
+         , labels => [group]
+         }}
+   , conn_latency =>
+       emqttb_metrics:opstat(GroupId, 'connect')
+   , sub_latency =>
+       emqttb_metrics:opstat(GroupId, 'subscribe')
+   , e2e_latency =>
+       {[metric],
+        #{ oneliner => "End-to-end latency"
+         , id => {emqttb_e2e_latency, GroupId}
+         , metric_type => rolling_average
+         , labels => [group]
+         , unit => "microsecond"
+         }}
+   }.
 
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
 
-init_per_group(Group,
-               #{ topic  := Topic
-                , qos    := _QoS
+init_per_group(_Group,
+               #{ topic   := Topic
+                , qos     := _QoS
+                , metrics := MetricsModelKey
                 } = Opts) when is_binary(Topic) ->
-  SubCnt = emqttb_metrics:new_counter(?CNT_SUB_MESSAGES(Group),
-                                      [ {help, <<"Number of received messages">>}
-                                      , {labels, [group]}
-                                      ]),
-  LatCnt = emqttb_metrics:new_rolling_average(?CNT_SUB_LATENCY(Group),
-                                              [ {help, <<"End-to-end latency">>}
-                                              , {labels, [group]}
-                                              ]),
-  emqttb_worker:new_opstat(Group, ?AVG_SUB_TIME),
   Defaults = #{ expiry => 0
               , clean_start => true
               , host_shift => 0
               , host_selection => random
               , parse_metadata => false
               },
-  maps:merge(Defaults, Opts #{sub_counter => SubCnt, latency_counter => LatCnt}).
+  Conf = maps:merge(Defaults, Opts),
+  Conf#{ conn_opstat => emqttb_metrics:opstat_from_model(MetricsModelKey ++ [conn_latency])
+       , sub_opstat => emqttb_metrics:opstat_from_model(MetricsModelKey ++ [sub_latency])
+       , e2e_latency => emqttb_metrics:from_model(MetricsModelKey ++ [e2e_latency])
+       , sub_counter => emqttb_metrics:from_model(MetricsModelKey ++ [n_received])
+       }.
 
-init(SubOpts0 = #{topic := T, qos := QoS, expiry := Expiry, clean_start := CleanStart}) ->
+init(SubOpts0 = #{ topic := T
+                 , qos := QoS
+                 , expiry := Expiry
+                 , clean_start := CleanStart
+                 , conn_opstat := ConnOpstat
+                 , sub_opstat  := SubOpstat
+                 }) ->
   SubOpts = maps:with([host_shift, host_selection], SubOpts0),
   Props = case Expiry of
             undefined -> SubOpts#{};
             _         -> SubOpts#{'Session-Expiry-Interval' => Expiry}
           end,
-  {ok, Conn} = emqttb_worker:connect(Props, [{clean_start, CleanStart}], [], []),
-  emqttb_worker:call_with_counter(?AVG_SUB_TIME, emqtt, subscribe, [Conn, emqttb_worker:format_topic(T), QoS]),
+  {ok, Conn} = emqttb_worker:connect(ConnOpstat, Props, [{clean_start, CleanStart}], [], []),
+  emqttb_metrics:call_with_counter(SubOpstat, emqtt, subscribe, [Conn, emqttb_worker:format_topic(T), QoS]),
   Conn.
 
-handle_message(#{sub_counter := Cnt, parse_metadata := ParseMetadata},
+handle_message(#{ parse_metadata := ParseMetadata, sub_counter := SubCnt, e2e_latency := E2ELatency},
                Conn,
-               {publish, #{client_pid := Pid, payload := Payload}}) when
-    Pid =:= Conn ->
-  emqttb_metrics:counter_inc(Cnt, 1),
+               {publish, #{client_pid := Pid, payload := Payload}}
+              ) when Pid =:= Conn ->
+  emqttb_metrics:counter_inc(SubCnt, 1),
   case ParseMetadata of
     true ->
       {_Id, _SeqNo, TS} = emqttb_behavior_pub:parse_metadata(Payload),
       Dt = os:system_time(microsecond) - TS,
-      emqttb_metrics:rolling_average_observe(?CNT_SUB_LATENCY(emqttb_worker:my_group()), Dt);
+      emqttb_metrics:rolling_average_observe(E2ELatency, Dt);
     false ->
       ok
   end,

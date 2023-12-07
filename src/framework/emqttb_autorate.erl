@@ -54,10 +54,8 @@
 %% `false' if everything is normal.
 -type scram_fun() :: fun((_IsOverride :: boolean()) -> {true, integer()} | false).
 
--type id() :: atom().
-
 -type config() ::
-        #{ id        := id()
+        #{ id        := emqttb:autorate()
          , conf_root := atom()
          , error     := fun(() -> number())
          , scram     => scram_fun()
@@ -86,7 +84,7 @@ ensure(Conf) ->
   {ok, Pid} = emqttb_autorate_sup:ensure(Conf#{parent => self()}),
   {auto, get_counter(Pid)}.
 
--spec get_counter(lee:key() | id() | pid()) -> counters:counters_ref().
+-spec get_counter(lee:key() | emqttb:autorate() | pid()) -> counters:counters_ref().
 get_counter(Pid) when is_pid(Pid) ->
   gen_server:call(Pid, get_counter);
 get_counter(Id) when is_atom(Id) ->
@@ -96,7 +94,10 @@ get_counter(Key) ->
   gen_server:call(?via(Id), get_counter).
 
 %% Set the current value to the specified value
--spec reset(atom() | pid(), integer()) -> ok.
+-spec reset(atom() | pid() | lee:ley(), integer()) -> ok.
+reset(Key, Val) when is_list(Key) ->
+  #mnode{metaparams = #{autorate_id := Id}} = lee_model:get(Key, ?MYMODEL),
+  reset(Id, Val);
 reset(Id, Val) ->
   gen_server:call(?via(Id), {reset, Val}).
 
@@ -232,9 +233,10 @@ create_autorates() ->
   ok.
 
 
--spec from_model(lee:key()) -> {auto, counter:counters_ref()}.
-from_model(ModelKey) ->
-  {auto, get_counter(ModelKey)}.
+-spec from_model(lee:key()) -> atom().
+from_model(Key) ->
+  #mnode{metaparams = #{autorate_id := Id}} = lee_model:get(Key, ?MYMODEL),
+  Id.
 
 %%================================================================================
 %% gen_server callbacks

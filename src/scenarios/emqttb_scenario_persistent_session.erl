@@ -94,7 +94,7 @@ model() ->
               , cli_operand => "pubinterval"
               , cli_short => $i
               , autorate_id      => 'persistent_session/pubinterval'
-              , process_variable => [?SK(persistent_session), pub, pub_latency, pending]
+              , process_variable => [?SK(persistent_session), pub, metrics, pub_latency, pending]
               , error_coeff => -1
               }}
         , n =>
@@ -104,13 +104,6 @@ model() ->
               , default => 10
               , cli_operand => "num-publishers"
               , cli_short => $P
-              }}
-        , set_pub_latency =>
-            {[value, cli_param],
-             #{ oneliner => "Try to keep publishing time at this value (ms)"
-              , type => emqttb:duration_ms()
-              , default_str => "100ms"
-              , cli_operand => "publatency"
               }}
         , topic_suffix =>
             {[value, cli_param],
@@ -128,18 +121,8 @@ model() ->
               , cli_operand => "pubtime"
               , cli_short => $T
               }}
-          %% Metrics:
-        , n_published =>
-            {[metric],
-             #{ oneliner => "Total number of published messages"
-              , id => {emqttb_published_messages, persistent_session}
-              , metric_type => counter
-              , labels => [scenario]
-              }}
-        , pub_latency =>
-            emqttb_metrics:opstat('persistent_session/pub', 'publish')
-        , conn_latency =>
-            emqttb_metrics:opstat('persistent_session/pub', 'connect')
+        , metrics =>
+            emqttb_behavior_pub:model('persistent_session/pub')
         }
    , sub =>
        #{ qos =>
@@ -164,14 +147,16 @@ model() ->
               , default => 16#FFFFFFFF
               , cli_operand => "expiry"
               }}
+        , metrics =>
+            emqttb_behavior_sub:model('persistent_session/sub')
         }
    , conninterval =>
-       {[value, cli_param],
-        #{ oneliner => "Client connection interval (microsecond)"
-         , type => emqttb:duration_us()
-         , default => 0
-         , cli_operand => "conninterval"
+       {[value, cli_param, autorate],
+        (emqttb_group:conninterval_model('persistent_session/pub',
+                                         [?SK(persistent_session), pub, metrics, conn_latency, pending]))
+        #{ cli_operand => "conninterval"
          , cli_short => $I
+         , default_str => "10ms"
          }}
    , group =>
        {[value, cli_param],
@@ -239,18 +224,19 @@ consume_stage(Cycle, S) ->
              , qos         => my_conf([sub, qos])
              , expiry      => my_conf([sub, expiry])
              , clean_start => Cycle =:= 0
+             , metrics     => my_conf_key([sub, metrics])
              },
   emqttb_group:ensure(#{ id            => ?SUB_GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_sub, SubOpts}
+                       , conn_interval => emqttb_autorate:from_model(my_conf_key([conninterval]))
                        }),
   N = my_conf([sub, n]),
-  Interval = my_conf([conninterval]),
-  {ok, N} = emqttb_group:set_target(?SUB_GROUP, N, Interval),
+  {ok, N} = emqttb_group:set_target(?SUB_GROUP, N),
   wait_consume_all(N, S),
   emqttb_group:stop(?SUB_GROUP),
   S#s{ to_consume = 0
-     , consumed   = emqttb_metrics:get_counter(?CNT_SUB_MESSAGES(?SUB_GROUP))
+     , consumed   = total_consumed_messages()
      }.
 
 publish_stage(S = #s{produced = NPub0, pubinterval = PubInterval}) ->
@@ -258,24 +244,23 @@ publish_stage(S = #s{produced = NPub0, pubinterval = PubInterval}) ->
   TopicSuffix = my_conf([pub, topic_suffix]),
   PubOpts = #{ topic       => <<TopicPrefix/binary, TopicSuffix/binary>>
              , pubinterval => my_conf_key([pub, pubinterval])
-             , n_published => my_conf_key([pub, n_published])
              , msg_size    => my_conf([pub, msg_size])
              , qos         => my_conf([pub, qos])
-             , set_latency => my_conf_key([pub, set_pub_latency])
+             , metrics     => my_conf_key([pub, metrics])
              , metadata    => true
              },
   emqttb_group:ensure(#{ id            => ?PUB_GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_pub, PubOpts}
+                       , conn_interval => emqttb_autorate:from_model(my_conf_key([conninterval]))
                        }),
-  Interval = my_conf([conninterval]),
-  {ok, _} = emqttb_group:set_target(?PUB_GROUP, my_conf([pub, n]), Interval),
+  {ok, _} = emqttb_group:set_target(?PUB_GROUP, my_conf([pub, n])),
   PubTime = my_conf([pub, pub_time]),
   timer:sleep(PubTime),
   PubIntervalCref = emqttb_autorate:get_counter('persistent_session/pubinterval'),
   PubInterval2 = counters:get(PubIntervalCref, 1),
   emqttb_group:stop(?PUB_GROUP),
-  NPub = emqttb_metrics:get_counter(emqttb_metrics:from_model(my_conf_key([pub, n_published]))),
+  NPub = emqttb_metrics:get_counter(emqttb_metrics:from_model(my_conf_key([pub, metrics, n_published]))),
   %% TODO: it doesn't take ramp up/down into account:
   prometheus_summary:observe(?PUB_THROUGHPUT, (NPub - NPub0) * timer:seconds(1) div PubTime),
   S#s{ produced = NPub
@@ -284,7 +269,7 @@ publish_stage(S = #s{produced = NPub0, pubinterval = PubInterval}) ->
      }.
 
 wait_consume_all(Nsubs, #s{to_consume = Nmsgs, consumed = Consumed}) ->
-  LastConsumedMessages = emqttb_metrics:get_counter(?CNT_SUB_MESSAGES(?SUB_GROUP)),
+  LastConsumedMessages = total_consumed_messages(),
   do_consume(Consumed + Nsubs * Nmsgs, LastConsumedMessages, max_checks_without_progress()).
 
 do_consume(_, _, 0) ->
@@ -311,7 +296,8 @@ topic_prefix() ->
   <<"pers_session/">>.
 
 total_consumed_messages() ->
-  emqttb_metrics:get_counter(?CNT_SUB_MESSAGES(?SUB_GROUP)).
+  CntrId = emqttb_metrics:from_model(my_conf_key([sub, metrics, n_received])),
+  emqttb_metrics:get_counter(CntrId).
 
 max_checks_without_progress() ->
   my_conf([max_stuck_time]) div ?CHECK_INTERVAL_MS.
