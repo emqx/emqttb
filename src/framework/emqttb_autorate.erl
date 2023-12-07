@@ -126,9 +126,22 @@ model() ->
          , cli_operand => "autorate"
          , cli_short   => $a
          }}
+   , process_variable  =>
+       {[value, cli_param],
+        #{ oneliner    => "Key of the metric that the autorate uses as a process variable"
+         , type        => lee:model_key()
+         , cli_operand => "pvar"
+         }}
+   , error_coeff       =>
+       {[value, cli_param],
+        #{ oneliner    => "Multiply error by this coefficient"
+         , type        => number()
+         , default     => 1
+         , cli_operand => "error-coeff"
+         }}
    , set_point         =>
        {[value, cli_param],
-        #{ oneliner    => "Value that the autorate will try to approach"
+        #{ oneliner    => "Value of the process variable that the autorate will try to keep"
          , type        => number()
          , default     => 0
          , cli_operand => "setpoint"
@@ -246,8 +259,10 @@ read_patch(autorate, Model) ->
      fun(Key) ->
          #mnode{metaparams = MPs} = lee_model:get(Key, ?MYMODEL),
          Id = ?m_attr(autorate, autorate_id, MPs),
+         Pvar = ?m_attr(autorate, process_variable, MPs),
          lee_lib:make_nested_patch(Model, [autorate],
                                    #{ [id] => Id
+                                    , [process_variable] => Pvar
                                     })
      end,
      lee_model:get_metatype_index(autorate, ?MYMODEL))};
