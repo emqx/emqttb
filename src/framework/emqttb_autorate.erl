@@ -200,6 +200,33 @@ model() ->
          , cli_operand => "update-interval"
          , cli_short   => $u
          }}
+   , scram =>
+       #{ enabled =>
+            {[value, cli_param],
+             #{ type        => boolean()
+              , default     => false
+              , cli_operand => "olp"
+              }}
+        , threshold =>
+            {[value, cli_param],
+             #{ type        => non_neg_integer()
+              , default     => 1000
+              , cli_operand => "olp-threshold"
+              }}
+        , hysteresis =>
+            {[value, cli_param],
+             #{ oneliner    => "Hysteresis (%) of overload detection"
+              , type        => typerefl:range(1, 100)
+              , default     => 50
+              , cli_operand => "olp-hysteresis"
+              }}
+        , override =>
+            {[value, cli_param],
+             #{ type        => emqttb:duration_us()
+              , default_str => "10s"
+              , cli_operand => "olp-override"
+              }}
+        }
    }.
 
 %%================================================================================
@@ -298,14 +325,13 @@ init(Config = #{id := Id, conf_root := ConfRoot}) ->
   Min = my_cfg(ConfRoot, [min]),
   Current = maps:get(init_val, Config, Min),
   Err = ErrF(),
-  ScramFun = maps:get(scram, Config, fun(_) -> false end),
   set_timer(ConfRoot),
   {ok, update_rate(#s{ id        = Id
                      , parent    = MRef
                      , current   = Current
                      , conf_root = ConfRoot
                      , error     = ErrF
-                     , scram_fun = ScramFun
+                     , scram_fun = make_scram_fun(Id, ConfRoot)
                      , meltdown  = false
                      , last_err  = Err
                      , last_t    = os:system_time(millisecond)
@@ -395,18 +421,45 @@ my_cfg(ConfRoot, Key) ->
 -spec make_error_fun(emqttb:autorate(), lee:key()) -> fun(() -> number()).
 make_error_fun(Id, ConfRoot) ->
   fun() ->
-      ProcessVarKey = my_cfg(ConfRoot, [process_variable]),
       SetPoint = my_cfg(Id, [set_point]),
       Coeff = my_cfg(ConfRoot, [error_coeff]),
-      MetricKey = emqttb_metrics:from_model(ProcessVarKey),
-      #mnode{metaparams = PVarMPs} = lee_model:get(ProcessVarKey, ?MYMODEL),
-      ProcessVar = case ?m_attr(metric, metric_type, PVarMPs) of
-                     counter ->
-                       emqttb_metrics:get_counter(MetricKey);
-                     rolling_average ->
-                       AvgWindow = 5000,
-                       emqttb_metrics:get_rolling_average(MetricKey, AvgWindow)
-                   end,
+      ProcessVar = read_pvar(ConfRoot),
       %% logger:error(#{autorate => Id, pvar => ProcessVar, setpoint => SetPoint, pvar_key => ProcessVarKey}),
       Coeff * (SetPoint - ProcessVar)
+  end.
+
+make_scram_fun(Id, ConfRoot) ->
+  fun(Meltdown) ->
+      Enabled = my_cfg(ConfRoot, [scram, enabled]),
+      Threshold = my_cfg(ConfRoot, [scram, threshold]),
+      Hysteresis = my_cfg(ConfRoot, [scram, hysteresis]),
+      Override = my_cfg(ConfRoot, [scram, override]),
+      PVar = read_pvar(ConfRoot),
+      if not Enabled ->
+          false;
+         Meltdown andalso PVar >= (Threshold * Hysteresis / 100) ->
+          {true, Override};
+         PVar >= Threshold ->
+          logger:warning("SCRAM is activated for autorate ~p. PV=~p. CV=~p.",
+                         [Id, PVar, Override]),
+          {true, Override};
+         Meltdown ->
+          logger:warning("SCRAM is deactivated for autorate ~p. PV=~p.",
+                         [Id, PVar]),
+          false;
+         true ->
+          false
+      end
+  end.
+
+read_pvar(ConfRoot) ->
+  ProcessVarKey = my_cfg(ConfRoot, [process_variable]),
+  #mnode{metaparams = PVarMPs} = lee_model:get(ProcessVarKey, ?MYMODEL),
+  MetricKey = emqttb_metrics:from_model(ProcessVarKey),
+  case ?m_attr(metric, metric_type, PVarMPs) of
+    counter ->
+      emqttb_metrics:get_counter(MetricKey);
+    rolling_average ->
+      AvgWindow = 5000,
+      emqttb_metrics:get_rolling_average(MetricKey, AvgWindow)
   end.

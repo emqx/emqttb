@@ -21,7 +21,7 @@ dialyzer: $(REBAR)
 
 .PHONY: test
 test: $(REBAR)
-	$(REBAR) do eunit, ct
+	$(REBAR) do compile, eunit, ct
 
 .PHONY: release
 release: compile docs

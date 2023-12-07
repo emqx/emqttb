@@ -380,50 +380,5 @@ maybe_monitor_parent(#{parent := Pid}) ->
 maybe_monitor_parent(_) ->
   undefined.
 
-%% create_autorate(GroupID, ConfID) ->
-%%   ID = my_autorate(GroupID),
-%%   DefaultConf = #{ [id] => ID
-%%                  },
-%%   emqttb_conf:patch(lee_lib:make_nested_patch(?MYMODEL, [autorate], DefaultConf)),
-%%   AutorateConf = #{ id        => ID
-%%                   , conf_root => ID
-%%                   , error     => autoscale_error(Metric, GroupID)
-%%                   , scram     => fun(Meltdown) -> autoscale_scram(GroupID, ConfID, Meltdown) end
-%%                   },
-%%   emqttb_autorate:ensure(AutorateConf).
-
-%% autoscale_scram(Group, ConfID, Meltdown) ->
-%%   MaxPending = ?CFG([groups, {ConfID}, scram, threshold]),
-%%   Hysteresis = ?CFG([groups, {ConfID}, scram, hysteresis]),
-%%   Override = ?CFG([groups, {ConfID}, scram, override]),
-%%   Pending = emqttb_metrics:get_counter(?GROUP_N_PENDING(Group, connect)),
-%%   if Meltdown andalso Pending >= (MaxPending * Hysteresis / 100) ->
-%%       {true, Override};
-%%      Pending >= MaxPending ->
-%%       logger:warning("SCRAM is activated for group ~p. Unacked connections: ~p. Connection interval is dropped to ~p us.",
-%%                      [Group, Pending, Override]),
-%%       {true, Override};
-%%      Meltdown ->
-%%       logger:warning("SCRAM is deactivated for group ~p. Unacked connections: ~p. Connection rate is restored to normal value.",
-%%                      [Group, Pending]),
-%%       false;
-%%      true ->
-%%       false
-%%   end.
-
-%% autoscale_error(MetricKey, Group) ->
-%%   %% Note that dependency of number of pending operations on connect
-%%   %% interval is inverse: lesser interval -> clients connect more
-%%   %% often -> more load -> more pending operations
-%%   %%
-%%   %% So the control must be reversed, and error is the negative of what one usually
-%%   %% expects:
-%%   %% Current - Target instead of Target - Current.
-%%   Metric = emqttb_metrics:from_model(MetricKey),
-%%   fun() ->
-%%       Target = ?CFG([groups, {Group}, target_conn_pending]),
-%%       emqttb_metrics:get_counter(?GROUP_N_PENDING(Group, connect)) - Target
-%%   end.
-
 dead_id_pool(Group) ->
   Group.

@@ -149,7 +149,7 @@ model() ->
 
 initial_config() ->
   emqttb_conf:string2patch("@a -a pubsub_fwd/pubinterval --pvar '[scenarios,pubsub_fwd,{},pub,metrics,pub_latency,pending]'") ++
-  emqttb_conf:string2patch("@a -a pubsub_fwd/conninterval --pvar '[scenarios,pubsub_fwd,{},pub,metrics,conn_latency,pending]'").
+  emqttb_conf:string2patch("@a -a pubsub_fwd/conninterval --pvar '[scenarios,pubsub_fwd,{},pub,metrics,conn_latency,pending]' --olp").
 
 run() ->
   set_stage(subscribe),

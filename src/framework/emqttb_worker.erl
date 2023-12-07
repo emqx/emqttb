@@ -368,33 +368,6 @@ model() ->
               , default     => verify_none
               }}
         }
-   , scram =>
-       #{ threshold =>
-            {[value, cli_param],
-             #{ type        => non_neg_integer()
-              , default     => 100
-              , cli_operand => "olp-threshold"
-              }}
-        , hysteresis =>
-            {[value, cli_param],
-             #{ oneliner    => "Hysteresis (%) of overload detection"
-              , type        => typerefl:range(1, 100)
-              , default     => 50
-              , cli_operand => "olp-hysteresis"
-              }}
-        , override =>
-            {[value, cli_param],
-             #{ type        => emqttb:duration_us()
-              , default_str => "10s"
-              , cli_operand => "olp-override"
-              }}
-        }
-   , target_conn_pending =>
-       {[value, cli_param],
-        #{ type        => non_neg_integer()
-         , default     => 10
-         , cli_operand => "target-conn-pending"
-         }}
    }.
 
 %%================================================================================

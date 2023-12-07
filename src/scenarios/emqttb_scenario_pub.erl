@@ -129,7 +129,7 @@ model() ->
 
 initial_config() ->
   emqttb_conf:string2patch("@a -a pub/pubinterval --pvar '[scenarios,pub,{},metrics,pub_latency,pending]'") ++
-    emqttb_conf:string2patch("@a -a pub/conninterval --pvar '[scenarios,pub,{},metrics,conn_latency,pending]'").
+    emqttb_conf:string2patch("@a -a pub/conninterval --pvar '[scenarios,pub,{},metrics,conn_latency,pending]' --olp").
 
 run() ->
   PubOpts = #{ topic       => my_conf([topic])

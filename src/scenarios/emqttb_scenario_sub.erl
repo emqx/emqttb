@@ -110,7 +110,7 @@ model() ->
    }.
 
 initial_config() ->
-  emqttb_conf:string2patch("@a -a sub/conninterval --pvar '[scenarios,sub,{},metrics,conn_latency,pending]'").
+  emqttb_conf:string2patch("@a -a sub/conninterval --pvar '[scenarios,sub,{},metrics,conn_latency,pending]' --olp").
 
 run() ->
   SubOpts = #{ topic  => my_conf([topic])

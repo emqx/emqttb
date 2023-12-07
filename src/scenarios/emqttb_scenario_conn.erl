@@ -92,7 +92,7 @@ model() ->
    }.
 
 initial_config() ->
-  emqttb_conf:string2patch("@a -a conn/conninterval --pvar '[scenarios,conn,{},metrics,conn_latency,pending]'").
+  emqttb_conf:string2patch("@a -a conn/conninterval --pvar '[scenarios,conn,{},metrics,conn_latency,pending]' --olp").
 
 run() ->
   GroupId = ?GROUP,

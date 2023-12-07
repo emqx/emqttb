@@ -185,7 +185,7 @@ model() ->
 
 initial_config() ->
   emqttb_conf:string2patch("@a -a persistent_session/pubinterval --pvar '[scenarios,persistent_session,{},pub,metrics,pub_latency,pending]'") ++
-    emqttb_conf:string2patch("@a -a persistent_session/conninterval --pvar '[scenarios,persistent_session,{},pub,metrics,conn_latency,pending]'").
+    emqttb_conf:string2patch("@a -a persistent_session/conninterval --pvar '[scenarios,persistent_session,{},pub,metrics,conn_latency,pending]' --olp").
 
 run() ->
   prometheus_summary:declare([ {name, ?PUB_THROUGHPUT}
