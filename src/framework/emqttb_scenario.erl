@@ -172,13 +172,12 @@ names(_) ->
 
 read_patch(scenario, _Model) ->
   %% Populate configuration with the default data:
-  Prio = -99999,
   Patch = lists:flatmap(
             fun(Module) ->
                 Module:initial_config()
             end,
             all_scenario_modules()),
-  {ok, Prio, Patch}.
+  {ok, 999999, Patch}.
 
 
 %%================================================================================
@@ -224,7 +223,7 @@ handle_call(_, _, S) ->
   {reply, {error, unknown_call}, S}.
 
 handle_cast(_, S) ->
-  {notrepy, S}.
+  {noreply, S}.
 
 terminate(_, _State) ->
   persistent_term:erase(?SCENARIO_GROUP_LEADER(group_leader())).

@@ -53,8 +53,9 @@ load_conf() ->
       maybe_load_conf_file(),
       maybe_dump_conf(),
       ok;
-    {error, Errors, _Warnings} ->
+    {error, Errors, Warnings} ->
       [logger:critical(E) || E <- Errors],
+      [logger:warning(E) || E <- Warnings],
       emqttb:setfail("invalid configuration"),
       emqttb:terminate()
   end.

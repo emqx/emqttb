@@ -57,7 +57,7 @@
 -type config() ::
         #{ id        := emqttb:autorate()
          , conf_root := atom()
-         , error     := fun(() -> number())
+         , error     => fun(() -> number())
          , scram     => scram_fun()
          , parent    => pid()
          , init_val  => integer()
@@ -149,7 +149,7 @@ model() ->
    , set_point         =>
        {[value, cli_param],
         #{ oneliner    => "Value of the process variable that the autorate will try to keep"
-         , type        => emqttb:duration_us()
+         , type        => number()
          , default     => 0
          , cli_operand => "setpoint"
          , cli_short   => $s
@@ -157,7 +157,7 @@ model() ->
    , min               =>
        {[value, cli_param],
         #{ oneliner    => "Minimum value of the controlled parameter"
-         , type        => emqttb:duration_us()
+         , type        => number()
          , default     => 0
          , cli_operand => "min"
          , cli_short   => $m
@@ -165,8 +165,8 @@ model() ->
    , max =>
        {[value, cli_param],
         #{ oneliner    => "Maximum value of the controlled parameter"
-         , type        => emqttb:duration_us()
-         , default_str => "10s"
+         , type        => number()
+         , default     => 100_000_000 % 100s
          , cli_operand => "max"
          , cli_short   => $M
          }}
@@ -218,7 +218,7 @@ meta_validate(autorate, Model) ->
   {Ids, _} = lists:unzip(ls(Model)),
   case length(lists:usort(Ids)) =:= length(Ids) of
     false -> {["Autorate IDs must be unique"], [], []};
-    true  -> {[], [], [{set, autorate_ids, Ids}]}
+    true  -> {[], [], []}
   end;
 meta_validate(autorate_id, _) ->
   {[], [], []}.
@@ -229,7 +229,7 @@ meta_validate(autorate_id, _) ->
 validate_node(autorate_id, Model, Data, Key, _) ->
   %% Check that ID matches with some of the autorates in the model:
   Id = lee:get(Model, Data, Key),
-  {ok, Ids} = lee_model:get_meta(autorate_ids, Model),
+  {Ids, _} = lists:unzip(ls(Model)),
   case lists:member(Id, Ids) of
     true  -> {[], []};
     false -> {["Unknown autorate " ++ atom_to_list(Id)], []}
@@ -400,12 +400,13 @@ make_error_fun(Id, ConfRoot) ->
       Coeff = my_cfg(ConfRoot, [error_coeff]),
       MetricKey = emqttb_metrics:from_model(ProcessVarKey),
       #mnode{metaparams = PVarMPs} = lee_model:get(ProcessVarKey, ?MYMODEL),
-      case ?m_attr(metric, metric_type, PVarMPs) of
-        counter ->
-          Coeff * (SetPoint - emqttb_metrics:get_counter(MetricKey));
-        rolling_average ->
-          AvgWindow = 250,
-          SetPoint = my_cfg(Id, [set_point]),
-          Coeff * (SetPoint - emqttb_metrics:get_rolling_average(MetricKey, AvgWindow))
-      end
+      ProcessVar = case ?m_attr(metric, metric_type, PVarMPs) of
+                     counter ->
+                       emqttb_metrics:get_counter(MetricKey);
+                     rolling_average ->
+                       AvgWindow = 5000,
+                       emqttb_metrics:get_rolling_average(MetricKey, AvgWindow)
+                   end,
+      %% logger:error(#{autorate => Id, pvar => ProcessVar, setpoint => SetPoint, pvar_key => ProcessVarKey}),
+      Coeff * (SetPoint - ProcessVar)
   end.

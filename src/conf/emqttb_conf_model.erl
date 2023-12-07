@@ -247,7 +247,7 @@ model() ->
             {[map, cli_action],
              #{ cli_operand => "ls"
               , key_elements => []
-              , oneliner => "List objects"
+              , oneliner => "List objects and exit"
               },
              #{ what =>
                   {[value, cli_positional],

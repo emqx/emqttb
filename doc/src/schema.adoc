@@ -23,19 +23,20 @@ automatically using https://controlguru.com/integral-reset-windup-jacketing-logi
 === Autoscale
 
 A special autorate controlling the rate of spawning new clients is implicitly created for each client group.
-Its name follows the pattern `<group_id>_autoscale`.
+Its name usually follows the pattern `%scenario%/conn_interval`.
 
 For example the following command can automatically adjust the rate of connections:
 
 [code,bash]
 ----
-./emqttb @conn -I 10ms -N 10_000 \
-   @g --host 172.22.0.13,172.22.0.6 \
-   @a -a conn_group_autoscale -V 1000
+./emqttb --pushgw @conn -I 10ms -N 5_000 \
+         @a -a conn/conninterval -V 1000 --Ti 0.01  --setpoint 100
 ----
 
-Note: autoscale can be applied to any group used by any scenario.
-Additionally, autoscale is used for overload protection, see section about <<value.groups._.scram.threshold,SCRAM>>.
+[id=autorate._.speed]
+== Maximum rate of change of the controlled parameter
+
+Note: by default this parameter is set to 0 for each autorate, effectively locking the control parameter in place.
 
 [id=interval]
 == Default interval between events
@@ -310,8 +311,3 @@ It's not desirable to switch between normal and SCRAM connection rate too often.
 == How often autorate is updated
 
 This parameter governs how often error is calculated and control parameter is updated.
-
-[id=autorate._.speed]
-== Maximum rate of change of the controlled parameter
-
-Note: this parameter can be set to 0 to effectively disable autorate and lock control parameter in place.
