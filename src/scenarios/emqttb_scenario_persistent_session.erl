@@ -33,6 +33,7 @@
 %% behavior callbacks:
 -export([ model/0
         , run/0
+        , initial_config/0
         ]).
 
 %% internal exports:
@@ -152,11 +153,12 @@ model() ->
         }
    , conninterval =>
        {[value, cli_param, autorate],
-        (emqttb_group:conninterval_model('persistent_session/pub',
-                                         [?SK(persistent_session), pub, metrics, conn_latency, pending]))
-        #{ cli_operand => "conninterval"
+        #{ oneliner => "Client connection interval"
+         , type => emqttb:duration_us()
+         , cli_operand => "conninterval"
          , cli_short => $I
          , default_str => "10ms"
+         , autorate_id => 'persistent_session/conninterval'
          }}
    , group =>
        {[value, cli_param],
@@ -182,6 +184,10 @@ model() ->
          , cli_operand => "max-stuck-time"
          }}
    }.
+
+initial_config() ->
+  emqttb_conf:string2patch("@a -a persistent_session/pubinterval --pvar '[scenarios,persistent_session,{},pub,metrics,pub_latency,pending]'") ++
+    emqttb_conf:string2patch("@a -a persistent_session/conninterval --pvar '[scenarios,persistent_session,{},pub,metrics,conn_latency,pending]'").
 
 run() ->
   prometheus_summary:declare([ {name, ?PUB_THROUGHPUT}

@@ -30,7 +30,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 
 %% lee_metatype callbacks:
--export([names/1, metaparams/1, meta_validate/2]).
+-export([names/1, metaparams/1, meta_validate/2, validate_node/5]).
 
 %% internal exports:
 -export([start_link/0]).
@@ -182,7 +182,7 @@ get_rolling_average(Key, Window) ->
 %%================================================================================
 
 names(_) ->
-  [metric].
+  [metric, metric_id].
 
 metaparams(metric) ->
   [ {mandatory, metric_type, typerefl:union([counter, gauge, rolling_average])}
@@ -190,7 +190,9 @@ metaparams(metric) ->
   , {mandatory, oneliner, string()}
   , {mandatory, labels, [atom()]}
   , {optional, unit, string()}
-  ].
+  ];
+metaparams(metric_id) ->
+  [].
 
 meta_validate(metric, Model) ->
   Ids = [begin
@@ -200,7 +202,21 @@ meta_validate(metric, Model) ->
   case length(lists:usort(Ids)) =:= length(Ids) of
     false -> {["Metric IDs must be unique"], [], []};
     true  -> {[], [], []}
-  end.
+  end;
+meta_validate(metric_id, _) ->
+  {[], [], []}.
+
+validate_node(metric_id, Model, Data, Key, _) ->
+  Metric = lee:get(Model, Data, Key),
+  case lists:member(Metric, lee_model:get_metatype_index(metric, Model)) of
+    true ->
+      {[], []};
+    false ->
+      Err = lee_lib:format("Unknown metric key: ~p", [Metric]),
+      {[Err], []}
+  end;
+validate_node(metric, _, _, _, _) ->
+  {[], []}.
 
 %%================================================================================
 %% gen_server callbacks

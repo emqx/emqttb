@@ -29,7 +29,7 @@
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 %% lee_metatype callbacks:
--export([names/1, metaparams/1, meta_validate_node/4, meta_validate/2, read_patch/2, validate_node/5]).
+-export([names/1, metaparams/1, meta_validate/2, validate_node/5]).
 
 %% internal exports:
 -export([start_link/1, model/0, from_model/1]).
@@ -127,7 +127,7 @@ model() ->
          , cli_short   => $a
          }}
    , process_variable  =>
-       {[value, cli_param],
+       {[value, cli_param, metric_id],
         #{ oneliner    => "Key of the metric that the autorate uses as a process variable"
          , type        => lee:model_key()
          , cli_operand => "pvar"
@@ -136,7 +136,7 @@ model() ->
        {[value, cli_param],
         #{ oneliner    => "Multiply error by this coefficient"
          , type        => number()
-         , default     => 1
+         , default     => -1
          , cli_operand => "error-coeff"
          }}
    , set_point         =>
@@ -203,28 +203,9 @@ names(_) ->
   [autorate, autorate_id].
 
 metaparams(autorate) ->
-  %% TBD: make it possible to configure alternative targets.
-  [ {mandatory, autorate_id, atom()}
-  , {mandatory, process_variable, lee:model_key()}
-  , {optional, error_coeff, number()}
-  ];
+  [{mandatory, autorate_id, atom()}];
 metaparams(autorate_id) ->
   [].
-
-
-meta_validate_node(autorate, Model, _Key, #mnode{metaparams = #{process_variable := ProcVarKey}}) ->
-  Error = {["process_variable parameter must point at a node of `metric' metatype"], []},
-  try lee_model:get(ProcVarKey, Model) of
-    #mnode{metatypes = MTs} ->
-      case lists:member(metric, MTs) of
-        true  -> {[], []};
-        false -> Error
-      end
-  catch
-    _:_ -> Error
-  end;
-meta_validate_node(autorate_id, _, _, _) ->
-  {[], []}.
 
 meta_validate(autorate, Model) ->
   Ids = [begin
@@ -242,39 +223,27 @@ meta_validate(autorate_id, _) ->
 -spec validate_node(lee:metatype(), lee:model(), _Staging :: lee:data(), lee:key(), #mnode{}) ->
     lee_lib:check_result().
 validate_node(autorate_id, Model, Data, Key, _) ->
+  %% Check that ID matches with some of the autorates in the model:
   Id = lee:get(Model, Data, Key),
   {ok, Ids} = lee_model:get_meta(autorate_ids, Model),
   case lists:member(Id, Ids) of
     true  -> {[], []};
     false -> {["Unknown autorate " ++ atom_to_list(Id)], []}
   end;
-validate_node(autorate, _, _, _, _) ->
-  {[], []}.
-
-read_patch(autorate, Model) ->
-  %% Create default instances:
-  Prio = -99999,
-  {ok, Prio,
-   lists:flatmap(
-     fun(Key) ->
-         #mnode{metaparams = MPs} = lee_model:get(Key, ?MYMODEL),
-         Id = ?m_attr(autorate, autorate_id, MPs),
-         Pvar = ?m_attr(autorate, process_variable, MPs),
-         lee_lib:make_nested_patch(Model, [autorate],
-                                   #{ [id] => Id
-                                    , [process_variable] => Pvar
-                                    })
-     end,
-     lee_model:get_metatype_index(autorate, ?MYMODEL))};
-read_patch(autorate_id, _) ->
-  {ok, 0, []}.
+validate_node(autorate, Model, Data, _Key, #mnode{metaparams = #{autorate_id := Id}}) ->
+  %% Check that the configuration is present:
+  case lee:list(Model, Data, [autorate, {Id}]) of
+    [_] ->
+      {[], []};
+    [] ->
+      {[lee_lib:format("Configuration for autorate ~p is missing", [Id])], []}
+  end.
 
 create_autorates() ->
   [begin
      #mnode{metaparams = MPs} = lee_model:get(Key, ?MYMODEL),
      Id = ?m_attr(autorate, autorate_id, MPs),
      {ok, _} = emqttb_autorate_sup:ensure(#{ id        => Id
-                                           , error     => make_error_fun(Key)
                                            , init_val  => ?CFG(Key)
                                            , conf_root => Id
                                            })
@@ -302,8 +271,14 @@ from_model(Key) ->
         , last_err  :: number()
         }).
 
-init(Config = #{id := Id, conf_root := ConfRoot, error := ErrF}) ->
+init(Config = #{id := Id, conf_root := ConfRoot}) ->
   logger:info("Starting autorate ~p", [Id]),
+  case Config of
+    #{error := ErrF} ->
+      ok;
+    _ ->
+      ErrF = make_error_fun(Id, ConfRoot)
+  end,
   MRef = case Config of
            #{parent := Parent} -> monitor(process, Parent);
            _                   -> undefined
@@ -415,24 +390,18 @@ clamp(Val, _, _) ->
 my_cfg(ConfRoot, Key) ->
   ?CFG([autorate, {ConfRoot} | Key]).
 
--spec make_error_fun(lee:key()) -> fun(() -> number()).
-make_error_fun(Key) ->
-  ModelKey = lee_model:get_model_key(Key),
-  #mnode{metaparams = MP} = lee_model:get(ModelKey, ?MYMODEL),
-  ProcessVarKey = ?m_attr(autorate, process_variable, MP),
-  Id = ?m_attr(autorate, autorate_id, MP),
-  Coeff = ?m_attr(autorate, error_coeff, MP, 1),
-  MetricKey = emqttb_metrics:from_model(ProcessVarKey),
-  %%
-  #mnode{metaparams = PVarMPs} = lee_model:get(ProcessVarKey, ?MYMODEL),
-  case ?m_attr(metric, metric_type, PVarMPs) of
-    counter ->
-      fun() ->
-          SetPoint = my_cfg(Id, [set_point]),
-          Coeff * (SetPoint - emqttb_metrics:get_counter(MetricKey))
-      end;
-    rolling_average ->
-      fun() ->
+-spec make_error_fun(emqttb:autorate(), lee:key()) -> fun(() -> number()).
+make_error_fun(Id, ConfRoot) ->
+  fun() ->
+      ProcessVarKey = my_cfg(ConfRoot, [process_variable]),
+      SetPoint = my_cfg(Id, [set_point]),
+      Coeff = my_cfg(ConfRoot, [error_coeff]),
+      MetricKey = emqttb_metrics:from_model(ProcessVarKey),
+      #mnode{metaparams = PVarMPs} = lee_model:get(ProcessVarKey, ?MYMODEL),
+      case ?m_attr(metric, metric_type, PVarMPs) of
+        counter ->
+          Coeff * (SetPoint - emqttb_metrics:get_counter(MetricKey));
+        rolling_average ->
           AvgWindow = 250,
           SetPoint = my_cfg(Id, [set_point]),
           Coeff * (SetPoint - emqttb_metrics:get_rolling_average(MetricKey, AvgWindow))

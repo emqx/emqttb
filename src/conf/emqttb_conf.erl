@@ -16,7 +16,7 @@
 -module(emqttb_conf).
 
 %% API:
--export([load_model/0, load_conf/0, get/1, list_keys/1, reload/0, patch/1]).
+-export([load_model/0, load_conf/0, get/1, list_keys/1, reload/0, patch/1, string2patch/1]).
 -export([compile_model/1]).
 
 -export_type([]).
@@ -136,13 +136,20 @@ metamodel() ->
                          , priority => -110
                          , file => "/etc/emqttb/emqttb.conf"
                          })
-  , lee_metatype:create(emqttb_mt_scenario)
+  , lee_metatype:create(emqttb_scenario)
   , lee_metatype:create(emqttb_metrics)
   , lee_metatype:create(emqttb_autorate)
   ].
 
 cli_args_getter() ->
   application:get_env(emqttb, cli_args, []).
+
+string2patch(Str) ->
+  %% Lazy attempt to parse string to a list of command line arguments
+  {match, L0} = re:run(Str, "'(.+)'|([^ ]+) *", [global, {capture, all_but_first, list}]),
+  L = lists:map(fun lists:append/1, L0),
+  {ok, Patch} = lee_cli:read(?MYMODEL, L),
+  Patch.
 
 %% maybe_show_help_and_exit() ->
 %%   ?CFG([help])

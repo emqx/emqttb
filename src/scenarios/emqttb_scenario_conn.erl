@@ -21,6 +21,7 @@
 %% behavior callbacks:
 -export([ model/0
         , run/0
+        , initial_config/0
         ]).
 
 %% internal exports:
@@ -46,10 +47,12 @@
 model() ->
   #{ conninterval =>
        {[value, cli_param, autorate],
-        (emqttb_group:conninterval_model('conn/conn', [?SK(conn), metrics, conn_latency, pending]))
-        #{ default_ref => [interval]
+        #{ oneliner => "Client connection interval"
+         , type => emqttb:duration_us()
+         , default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
+         , autorate_id => 'conn/conninterval'
          }}
    , n_clients =>
        {[value, cli_param],
@@ -87,6 +90,9 @@ model() ->
    , metrics =>
        emqttb_behavior_conn:model('conn/conn')
    }.
+
+initial_config() ->
+  emqttb_conf:string2patch("@a -a conn/conninterval --pvar '[scenarios,conn,{},metrics,conn_latency,pending]'").
 
 run() ->
   GroupId = ?GROUP,

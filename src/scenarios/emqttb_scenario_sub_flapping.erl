@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%%Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 
 %% behavior callbacks:
 -export([ model/0
+        , initial_config/0
         , run/0
         ]).
 
@@ -56,10 +57,12 @@ model() ->
          }}
    , conninterval =>
        {[value, cli_param, autorate],
-        (emqttb_group:conninterval_model('sub_flapping/sub', [?SK(sub_flapping), metrics, conn_latency, pending]))
-        #{ default_ref => [interval]
+        #{ oneliner => "Client connection interval"
+         , type => emqttb:duration_us()
+         , default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
+         , autorate_id => 'sub_flapping/conninterval'
          }}
    , n_clients =>
        {[value, cli_param],
@@ -110,6 +113,9 @@ model() ->
    , metrics =>
        emqttb_behavior_sub:model('sub_flapping/sub')
    }.
+
+initial_config() ->
+  emqttb_conf:string2patch("@a -a sub_flapping/conninterval --pvar '[scenarios,sub_flapping,{},metrics,conn_latency,pending]'").
 
 run() ->
   SubOpts = #{ topic  => my_conf([topic])

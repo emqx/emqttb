@@ -26,6 +26,7 @@
 %% behavior callbacks:
 -export([ model/0
         , run/0
+        , initial_config/0
         ]).
 
 %% internal exports:
@@ -102,10 +103,12 @@ model() ->
         }
    , conninterval =>
        {[value, cli_param, autorate],
-        (emqttb_group:conninterval_model('pubsub_fwd/pub', [?SK(pubsub_fwd), pub, metrics, conn_latency, pending]))
-        #{ cli_operand => "conninterval"
+        #{ oneliner => "Client connection interval"
+         , type => emqttb:duration_us()
+         , cli_operand => "conninterval"
          , cli_short => $I
          , default_str => "10ms"
+         , autorate_id => 'pubsub_fwd/conninterval'
          }}
    , group =>
        {[value, cli_param],
@@ -145,6 +148,10 @@ model() ->
          , cli_operand => "random-hosts"
          }}
    }.
+
+initial_config() ->
+  emqttb_conf:string2patch("@a -a pubsub_fwd/pubinterval --pvar '[scenarios,pubsub_fwd,{},pub,metrics,pub_latency,pending]'") ++
+  emqttb_conf:string2patch("@a -a pubsub_fwd/conninterval --pvar '[scenarios,pubsub_fwd,{},pub,metrics,conn_latency,pending]'").
 
 run() ->
   set_stage(subscribe),

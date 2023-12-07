@@ -18,8 +18,7 @@
 -behavior(gen_server).
 
 %% API:
--export([ensure/1, stop/1, set_target/2, set_target/3, set_target_async/3, broadcast/2, report_dead_id/2, info/0,
-         conninterval_model/2]).
+-export([ensure/1, stop/1, set_target/2, set_target/3, set_target_async/3, broadcast/2, report_dead_id/2, info/0]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
@@ -55,15 +54,6 @@
 %%================================================================================
 %% API funcions
 %%================================================================================
-
--spec conninterval_model(emqttb:group_id(), lee:model_key()) -> map().
-conninterval_model(Group, AutoscaleMetric) ->
-  #{ oneliner => "Client connection interval"
-   , autorate_id => Group
-   , type => emqttb:duration_us()
-   , error_coeff => -1
-   , process_variable => AutoscaleMetric
-   }.
 
 -spec ensure(group_config()) -> ok.
 ensure(Conf) ->

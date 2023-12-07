@@ -21,6 +21,7 @@
 %% behavior callbacks:
 -export([ model/0
         , run/0
+        , initial_config/0
         ]).
 
 %% internal exports:
@@ -80,7 +81,7 @@ model() ->
          , default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
-         , autorate_id => 'pub/conn'
+         , autorate_id => 'pub/conninterval'
          , process_variable => [?SK(pub), metrics, conn_latency, pending]
          }}
    , pubinterval =>
@@ -128,6 +129,10 @@ model() ->
    , metrics =>
        emqttb_behavior_pub:model('pub/pub')
    }.
+
+initial_config() ->
+  emqttb_conf:string2patch("@a -a pub/pubinterval --pvar '[scenarios,pub,{},metrics,pub_latency,pending]'") ++
+    emqttb_conf:string2patch("@a -a pub/conninterval --pvar '[scenarios,pub,{},metrics,conn_latency,pending]'").
 
 run() ->
   PubOpts = #{ topic       => my_conf([topic])

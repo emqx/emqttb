@@ -15,11 +15,17 @@
 %%--------------------------------------------------------------------
 -module(emqttb_scenario).
 
+-behavior(lee_metatype).
+-behavior(gen_server).
+
 %% API:
 -export([set_stage/1, set_stage/2, stage/1, complete/1, loiter/0,
          model/0, list_enabled_scenarios/0, run/1, stop/1,
          my_scenario/0, my_conf_key/1, my_conf/1, module/1, name/1,
          info/0]).
+
+%% lee_metatype callbacks:
+-export([names/1, read_patch/2]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2, terminate/2]).
@@ -44,9 +50,14 @@
 %% Behavior declaration
 %%================================================================================
 
--callback run() -> ok.
-
+%% Model fragment for the scenario:
 -callback model() -> lee:lee_module().
+
+%% Callback that creates the default configuration for the scenario:
+-callback initial_config() -> lee:patch().
+
+%% This callback executes the scenario:
+-callback run() -> ok.
 
 %% -callback name() -> atom().
 
@@ -151,6 +162,24 @@ info() ->
          }
     end,
     all_scenario_modules()).
+
+%%================================================================================
+%% Behavior callbacks
+%%================================================================================
+
+names(_) ->
+  [scenario].
+
+read_patch(scenario, _Model) ->
+  %% Populate configuration with the default data:
+  Prio = -99999,
+  Patch = lists:flatmap(
+            fun(Module) ->
+                Module:initial_config()
+            end,
+            all_scenario_modules()),
+  {ok, Prio, Patch}.
+
 
 %%================================================================================
 %% External exports
