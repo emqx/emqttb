@@ -47,6 +47,7 @@ t_group(_Config) ->
        {ok, Pid} = emqttb_group:start_link(#{ id            => Group
                                             , client_config => #{}
                                             , behavior      => {emqttb_dummy_behavior, #{}}
+                                            , conn_interval => 'conn/conn'
                                             }),
        {ok, NActual} = emqttb_group:set_target(Group, NClients, 1),
        ?assert(NActual >= NClients),
@@ -91,6 +92,7 @@ error_scenario(Config) ->
        {ok, Pid} = emqttb_group:start_link(#{ id            => Group
                                             , client_config => #{}
                                             , behavior      => {emqttb_dummy_behavior, Config}
+                                            , conn_interval => 'conn/conn'
                                             }),
        emqttb_group:set_target_async(Group, NClients, 1),
        %% Wait until the first worker start:

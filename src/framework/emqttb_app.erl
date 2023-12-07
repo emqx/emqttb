@@ -14,8 +14,9 @@
 
 start(_StartType, _StartArgs) ->
   emqttb_conf:load_model(),
-  emqttb_conf:load_conf(),
   Sup = emqttb_sup:start_link(),
+  emqttb_conf:load_conf(),
+  maybe_perform_special_action(),
   emqttb_autorate:create_autorates(),
   emqttb_scenario:run_scenarios(),
   CLIArgs = application:get_env(?APP, cli_args, []),
@@ -51,4 +52,24 @@ maybe_start_distr() ->
       os:cmd("epmd -daemon"),
       Opts = #{dist_listen => true},
       net_kernel:start(Name, Opts)
+  end.
+
+maybe_perform_special_action() ->
+  case ?CFG_LIST([actions, ls, {}]) of
+    [] ->
+      ok;
+    [Key] ->
+      What = ?CFG(Key ++ [what]),
+      Keys = lee_model:get_metatype_index(What, ?MYMODEL),
+      MP = case What of
+             metric -> id;
+             autorate -> autorate_id
+           end,
+      lists:foreach(
+        fun(K) ->
+            #mnode{metaparams = #{MP := Id}} = lee_model:get(K, ?MYMODEL),
+            io:format("~p~n", [Id])
+        end,
+        Keys),
+      emqttb:terminate()
   end.

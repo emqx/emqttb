@@ -29,7 +29,7 @@
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 %% lee_metatype callbacks:
--export([names/1, metaparams/1, meta_validate_node/4, meta_validate/2]).
+-export([names/1, metaparams/1, meta_validate_node/4, meta_validate/2, read_patch/2, validate_node/5]).
 
 %% internal exports:
 -export([start_link/1, model/0, from_model/1]).
@@ -120,7 +120,7 @@ start_link(Conf = #{id := Id}) ->
 
 model() ->
   #{ id =>
-       {[value, cli_param],
+       {[value, cli_param, autorate_id],
         #{ type        => atom()
          , default     => default
          , cli_operand => "autorate"
@@ -187,14 +187,16 @@ model() ->
 %%================================================================================
 
 names(_) ->
-  [autorate].
+  [autorate, autorate_id].
 
 metaparams(autorate) ->
   %% TBD: make it possible to configure alternative targets.
   [ {mandatory, autorate_id, atom()}
   , {mandatory, process_variable, lee:model_key()}
   , {optional, error_coeff, number()}
-  ].
+  ];
+metaparams(autorate_id) ->
+  [].
 
 
 meta_validate_node(autorate, Model, _Key, #mnode{metaparams = #{process_variable := ProcVarKey}}) ->
@@ -207,7 +209,9 @@ meta_validate_node(autorate, Model, _Key, #mnode{metaparams = #{process_variable
       end
   catch
     _:_ -> Error
-  end.
+  end;
+meta_validate_node(autorate_id, _, _, _) ->
+  {[], []}.
 
 meta_validate(autorate, Model) ->
   Ids = [begin
@@ -216,22 +220,51 @@ meta_validate(autorate, Model) ->
          end || Key <- lee_model:get_metatype_index(autorate, Model)],
   case length(lists:usort(Ids)) =:= length(Ids) of
     false -> {["Autorate IDs must be unique"], [], []};
-    true  -> {[], [], []}
-  end.
+    true  -> {[], [], [{set, autorate_ids, Ids}]}
+  end;
+meta_validate(autorate_id, _) ->
+  {[], [], []}.
+
+
+-spec validate_node(lee:metatype(), lee:model(), _Staging :: lee:data(), lee:key(), #mnode{}) ->
+    lee_lib:check_result().
+validate_node(autorate_id, Model, Data, Key, _) ->
+  Id = lee:get(Model, Data, Key),
+  {ok, Ids} = lee_model:get_meta(autorate_ids, Model),
+  case lists:member(Id, Ids) of
+    true  -> {[], []};
+    false -> {["Unknown autorate " ++ atom_to_list(Id)], []}
+  end;
+validate_node(autorate, _, _, _, _) ->
+  {[], []}.
+
+read_patch(autorate, Model) ->
+  %% Create default instances:
+  Prio = -99999,
+  {ok, Prio,
+   lists:flatmap(
+     fun(Key) ->
+         #mnode{metaparams = MPs} = lee_model:get(Key, ?MYMODEL),
+         Id = ?m_attr(autorate, autorate_id, MPs),
+         lee_lib:make_nested_patch(Model, [autorate],
+                                   #{ [id] => Id
+                                    })
+     end,
+     lee_model:get_metatype_index(autorate, ?MYMODEL))};
+read_patch(autorate_id, _) ->
+  {ok, 0, []}.
 
 create_autorates() ->
   [begin
      #mnode{metaparams = MPs} = lee_model:get(Key, ?MYMODEL),
      Id = ?m_attr(autorate, autorate_id, MPs),
-     emqttb_conf:patch([{set, [autorate, {Id}], []}]),
      {ok, _} = emqttb_autorate_sup:ensure(#{ id        => Id
                                            , error     => make_error_fun(Key)
                                            , init_val  => ?CFG(Key)
                                            , conf_root => Id
                                            })
-   end || Key <- lee_model:get_metatype_index(autorate, ?MYMODEL)], %% TODO: wrong
+   end || Key <- lee_model:get_metatype_index(autorate, ?MYMODEL)],
   ok.
-
 
 -spec from_model(lee:key()) -> atom().
 from_model(Key) ->
@@ -255,6 +288,7 @@ from_model(Key) ->
         }).
 
 init(Config = #{id := Id, conf_root := ConfRoot, error := ErrF}) ->
+  logger:info("Starting autorate ~p", [Id]),
   MRef = case Config of
            #{parent := Parent} -> monitor(process, Parent);
            _                   -> undefined
