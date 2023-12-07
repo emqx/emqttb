@@ -203,7 +203,7 @@ run() ->
                              , {help, <<"Read throughput for the persistent session">>}
                              ]),
   prometheus_counter:declare([ {name, ?N_STUCK}
-                             , {help, <<"Number of times when when the consumer got stuck">>}
+                             , {help, <<"Number of times the consumer got stuck">>}
                              ]),
   NProd = try emqttb_metrics:get_counter(?CNT_PUB_MESSAGES(?PUB_GROUP))
           catch _:_ -> 0
