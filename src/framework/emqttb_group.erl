@@ -254,6 +254,7 @@ do_set_target(Target, InitInterval, OnComplete, S = #s{ scaling = Scaling
                  true         -> down
               end,
   maybe_cancel_previous(Scaling),
+  emqttb_autorate:activate(Autorate),
   case Direction of
     stay ->
       OnComplete({ok, N}),
