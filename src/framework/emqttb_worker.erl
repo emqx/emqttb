@@ -18,9 +18,9 @@
 %% Worker API:
 -export([my_group/0, my_id/0, my_clientid/0, my_hostname/0, my_cfg/1,
          send_after/2, send_after_rand/2, repeat/2,
-         connect/1, connect/4,
-         format_topic/1,
-         new_opstat/2, call_with_counter/4]).
+         connect/2, connect/5,
+         format_topic/1
+        ]).
 
 %% internal exports:
 -export([entrypoint/3, loop/1, start/3, init_per_group/3, model/0]).
@@ -134,24 +134,25 @@ my_hostname() ->
 %% MQTT
 %%--------------------------------------------------------------------------------
 
--spec connect(map()) -> gen_statem:start_ret().
-connect(Properties) ->
-  connect(Properties, [], [], []).
+-spec connect(emqttb_metrics:metric_ref(), map()) -> gen_statem:start_ret().
+connect(ConnOpstat, Properties) ->
+  connect(ConnOpstat, Properties, [], [], []).
 
--spec connect(map(), [emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
-connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
+-spec connect(emqttb_metrics:metric_ref(), map(), [emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
+connect(ConnOpstat, Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
   HostShift = maps:get(host_shift, Properties0, 0),
   HostSelection = maps:get(host_selection, Properties0, random),
   Properties = maps:without([host_shift, host_selection], Properties0),
-  Username  = my_cfg([client, username]),
-  Password  = my_cfg([client, password]),
-  SSL       = my_cfg([ssl, enable]),
-  KeepAlive = my_cfg([connection, keepalive]),
+  Username    = my_cfg([client, username]),
+  Password    = my_cfg([client, password]),
+  SSL         = my_cfg([ssl, enable]),
+  KeepAlive   = my_cfg([connection, keepalive]),
+  MaxInflight = my_cfg([connection, inflight]),
   Options = [ {username,     Username} || Username =/= undefined]
          ++ [ {password,     Password} || Password =/= undefined]
          ++ [ {ssl_opts,     CustomSslOptions ++ ssl_opts()} || SSL]
          ++ [ {clientid,     my_clientid()}
-            , {max_inflight, my_cfg([connection, inflight])}
+            , {max_inflight, MaxInflight}
             , {hosts,        broker_hosts(HostSelection, HostShift)}
             , {port,         get_port()}
             , {proto_ver,    my_cfg([connection, proto_ver])}
@@ -159,44 +160,13 @@ connect(Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
             , {owner,        self()}
             , {ssl,          SSL}
             , {tcp_opts,     CustomTcpOptions ++ tcp_opts()}
-            , {properties,   Properties}
+            , {properties,   Properties #{'Receive-Maximum' => MaxInflight}}
             , {keepalive,    KeepAlive}
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
   ConnectFun = connect_fun(),
-  {ok, _Properties} = call_with_counter(connect, emqtt, ConnectFun, [Client]),
+  {ok, _Properties} = emqttb_metrics:call_with_counter(ConnOpstat, emqtt, ConnectFun, [Client]),
   {ok, Client}.
-
-%%--------------------------------------------------------------------------------
-%% Instrumentation
-%%--------------------------------------------------------------------------------
-
--spec call_with_counter(atom(), module(), atom(), list()) -> _.
-call_with_counter(Operation, Mod, Fun, Args) ->
-  Grp = my_group(),
-  emqttb_metrics:counter_inc(?GROUP_N_PENDING(Grp, Operation), 1),
-  T0 = os:system_time(microsecond),
-  try apply(Mod, Fun, Args)
-  catch
-    EC:Err ->
-      EC(Err)
-  after
-    T = os:system_time(microsecond),
-    emqttb_metrics:counter_dec(?GROUP_N_PENDING(Grp, Operation), 1),
-    emqttb_metrics:rolling_average_observe(?GROUP_OP_TIME(Grp, Operation), T - T0)
-  end.
-
--spec new_opstat(emqttb:group(), atom()) -> ok.
-new_opstat(Group, Operation) ->
-  emqttb_metrics:new_rolling_average(?GROUP_OP_TIME(Group, Operation),
-                                     [ {help, <<"Average run time of an operation (microseconds)">>}
-                                     , {labels, [group, operation]}
-                                     ]),
-  emqttb_metrics:new_counter(?GROUP_N_PENDING(Group, Operation),
-                             [ {help, <<"Number of pending operations">>}
-                             , {labels, [group, operation]}
-                             ]),
-  ok.
 
 %%================================================================================
 %% Internal exports
@@ -398,33 +368,6 @@ model() ->
               , default     => verify_none
               }}
         }
-   , scram =>
-       #{ threshold =>
-            {[value, cli_param],
-             #{ type        => non_neg_integer()
-              , default     => 100
-              , cli_operand => "olp-threshold"
-              }}
-        , hysteresis =>
-            {[value, cli_param],
-             #{ oneliner    => "Hysteresis (%) of overload detection"
-              , type        => typerefl:range(1, 100)
-              , default     => 50
-              , cli_operand => "olp-hysteresis"
-              }}
-        , override =>
-            {[value, cli_param],
-             #{ type        => emqttb:duration_us()
-              , default_str => "10s"
-              , cli_operand => "olp-override"
-              }}
-        }
-   , target_conn_pending =>
-       {[value, cli_param],
-        #{ type        => non_neg_integer()
-         , default     => 10
-         , cli_operand => "target-conn-pending"
-         }}
    }.
 
 %%================================================================================

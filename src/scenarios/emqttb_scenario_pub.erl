@@ -21,6 +21,7 @@
 %% behavior callbacks:
 -export([ model/0
         , run/0
+        , initial_config/0
         ]).
 
 %% internal exports:
@@ -74,27 +75,22 @@ model() ->
          , default => 256
          }}
    , conninterval =>
-       {[value, cli_param],
+       {[value, cli_param, autorate],
         #{ oneliner => "Client connection interval (microsecond)"
          , type => emqttb:duration_us()
          , default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
+         , autorate_id => 'pub/conninterval'
          }}
    , pubinterval =>
-       {[value, cli_param],
+       {[value, cli_param, autorate],
         #{ oneliner => "Message publishing interval (microsecond)"
          , type => emqttb:duration_us()
          , default_ref => [interval]
          , cli_operand => "pubinterval"
          , cli_short => $i
-         }}
-   , set_pub_latency =>
-       {[value, cli_param],
-        #{ oneliner => "Try to keep publishing time at this value (ms)"
-         , type => emqttb:duration_ms()
-         , default => 100
-         , cli_operand => "publatency"
+         , autorate_id => 'pub/pubinterval'
          }}
    , n_clients =>
        {[value, cli_param],
@@ -113,14 +109,6 @@ model() ->
          , cli_short => $g
          , target_node => [groups]
          }}
-   , pub_autorate =>
-       {[value, cli_param, pointer],
-        #{ oneliner    => "ID of the autorate config used to tune publish interval"
-         , type        => atom()
-         , default     => default
-         , cli_operand => "pubautorate"
-         , target_node => [autorate]
-         }}
    , metadata =>
        {[value, cli_param],
         #{ oneliner    => "Add metadata to the messages"
@@ -135,22 +123,28 @@ model() ->
          , default => 0
          , cli_operand => "start-n"
          }}
+   , metrics =>
+       emqttb_behavior_pub:model('pub/pub')
    }.
 
+initial_config() ->
+  emqttb_conf:string2patch("@a -a pub/pubinterval --pvar '[scenarios,pub,{},metrics,pub_latency,pending]'") ++
+    emqttb_conf:string2patch("@a -a pub/conninterval --pvar '[scenarios,pub,{},metrics,conn_latency,pending]' --olp").
+
 run() ->
-  PubOpts = #{ topic        => my_conf([topic])
-             , pubinterval  => my_conf([pubinterval])
-             , pub_autorate => my_conf([pub_autorate])
-             , msg_size     => my_conf([msg_size])
-             , qos          => my_conf([qos])
-             , retain       => my_conf([retain])
-             , set_latency  => my_conf_key([set_pub_latency])
-             , metadata     => my_conf([metadata])
+  PubOpts = #{ topic       => my_conf([topic])
+             , pubinterval => my_conf_key([pubinterval])
+             , msg_size    => my_conf([msg_size])
+             , qos         => my_conf([qos])
+             , retain      => my_conf([retain])
+             , metadata    => my_conf([metadata])
+             , metrics     => my_conf_key([metrics])
              },
   emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_pub, PubOpts}
                        , start_n       => my_conf([start_n])
+                       , conn_interval => emqttb_autorate:from_model(my_conf_key([conninterval]))
                        }),
   Interval = my_conf([conninterval]),
   set_stage(ramp_up),

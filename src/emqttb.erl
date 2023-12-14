@@ -26,7 +26,7 @@
          parse_addresses/1, parse_duration_us/1, parse_duration_ms/1, parse_duration_s/1,
          parse_byte_size/1, wait_time/0]).
 
--export_type([n_clients/0]).
+-export_type([n_clients/0, autorate/0]).
 
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").

@@ -13,8 +13,12 @@
 -include("emqttb.hrl").
 
 start(_StartType, _StartArgs) ->
+  emqttb_conf:load_model(),
   Sup = emqttb_sup:start_link(),
   emqttb_conf:load_conf(),
+  maybe_perform_special_action(),
+  emqttb_autorate:create_autorates(),
+  emqttb_scenario:run_scenarios(),
   CLIArgs = application:get_env(?APP, cli_args, []),
   emqttb_grafana:annotate(["Start emqttb " | lists:join($ , CLIArgs)]),
   post_init(),
@@ -48,4 +52,19 @@ maybe_start_distr() ->
       os:cmd("epmd -daemon"),
       Opts = #{dist_listen => true},
       net_kernel:start(Name, Opts)
+  end.
+
+maybe_perform_special_action() ->
+  case ?CFG_LIST([actions, ls, {}]) of
+    [] ->
+      ok;
+    [Key] ->
+      case ?CFG(Key ++ [what]) of
+        metric ->
+          Objs = emqttb_metrics:ls(?MYMODEL);
+        autorate ->
+          {Objs, _} = lists:unzip(emqttb_autorate:ls(?MYMODEL))
+      end,
+      lists:foreach(fun(K) -> io:format("~p~n", [K]) end, Objs),
+      emqttb:terminate()
   end.

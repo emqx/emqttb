@@ -18,7 +18,7 @@
 -behavior(gen_server).
 
 %% API:
--export([ensure/1, stop/1, set_target/3, set_target_async/3, broadcast/2, report_dead_id/2, info/0]).
+-export([ensure/1, stop/1, set_target/2, set_target/3, set_target_async/3, broadcast/2, report_dead_id/2, info/0]).
 
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
@@ -35,12 +35,16 @@
 %% Type declarations
 %%================================================================================
 
+-type prototype() :: emqttb_behavior_pub:prototype()
+                   | emqttb_behavior_sub:prototype()
+                   | emqttb_behavior_conn:prototype().
+
 -type group_config() ::
         #{ id            := atom()
          , client_config := atom()
-         , behavior      := {module(), map()}
+         , behavior      := prototype()
+         , conn_interval := atom()
          , parent        => pid()
-         , autorate      => atom()
          , start_n       => integer()
          }.
 
@@ -59,6 +63,11 @@ ensure(Conf) ->
 stop(ID) ->
   logger:info("Stopping group ~p", [ID]),
   emqttb_group_sup:stop(ID).
+
+-spec set_target(emqttb:group(), NClients) -> NClients
+          when NClients :: emqttb:n_cycles().
+set_target(Group, NClients) ->
+  set_target(Group, NClients, undefined).
 
 %% @doc Autoscale the group to the target number of workers. Returns
 %% value when the target or a ratelimit has been reached, or error
@@ -125,6 +134,7 @@ info() ->
         , scaling      :: #r{} | undefined
         , target       :: non_neg_integer() | undefined
         , interval     :: counters:counters_ref()
+        , autorate     :: atom()
         , scale_timer  :: reference() | undefined
         , tick_timer   :: reference()
         , next_id = 0  :: non_neg_integer()
@@ -138,11 +148,16 @@ init([Conf]) ->
   #{ id := ID
    , client_config := ConfID
    , behavior := {Behavior, BehSettings}
+   , conn_interval := ConnIntervalAutorateId
    } = Conf,
   ?tp(info, "Starting worker group",
       #{ id         => ID
        , group_conf => ConfID
        }),
+  emqttb_metrics:new_counter(?GROUP_N_WORKERS(ID),
+                             [ {help, <<"Number of workers in the group">>}
+                             , {labels, [group]}
+                             ]),
   ets:new(dead_id_pool(ID), [ordered_set, public, named_table]),
   StartN = maps:get(start_n, Conf, 0),
   persistent_term:put(?GROUP_LEADER_TO_GROUP_ID(self()), ID),
@@ -150,14 +165,14 @@ init([Conf]) ->
   persistent_term:put(?GROUP_CONF_ID(self()), ConfID),
   BehSharedState = emqttb_worker:init_per_group(Behavior, ID, BehSettings),
   persistent_term:put(?GROUP_BEHAVIOR_SHARED_STATE(self()), BehSharedState),
-  declare_metrics(ID),
-  {auto, Autorate} = create_autorate(ID, ConfID),
+  Autorate = emqttb_autorate:get_counter(ConnIntervalAutorateId),
   S = #s{ id          = ID
         , behavior    = Behavior
         , conf_prefix = [groups, ConfID]
         , tick_timer  = set_tick_timer()
         , parent_ref  = maybe_monitor_parent(Conf)
         , interval    = Autorate
+        , autorate    = ConnIntervalAutorateId
         , next_id     = StartN
         },
   {ok, S}.
@@ -231,7 +246,7 @@ wait_group_stop([MRef|Rest]) ->
 
 do_set_target(Target, InitInterval, OnComplete, S = #s{ scaling = Scaling
                                                       , id = ID
-                                                      , interval = Interval
+                                                      , autorate = Autorate
                                                       }) ->
   N = n_clients(S),
   Direction = if Target > N   -> up;
@@ -239,14 +254,15 @@ do_set_target(Target, InitInterval, OnComplete, S = #s{ scaling = Scaling
                  true         -> down
               end,
   maybe_cancel_previous(Scaling),
+  emqttb_autorate:activate(Autorate),
   case Direction of
     stay ->
       OnComplete({ok, N}),
-      S#s{scaling = undefined, target = Target, interval = Interval};
+      S#s{scaling = undefined, target = Target};
     _ ->
       case InitInterval of
         _ when is_integer(InitInterval) ->
-          emqttb_autorate:reset(my_autorate(ID), InitInterval);
+          emqttb_autorate:reset(Autorate, InitInterval);
         undefined ->
           ok
       end,
@@ -364,58 +380,6 @@ maybe_monitor_parent(#{parent := Pid}) ->
   monitor(process, Pid);
 maybe_monitor_parent(_) ->
   undefined.
-
-declare_metrics(ID) ->
-  emqttb_metrics:new_counter(?GROUP_N_WORKERS(ID),
-                             [ {help, <<"Number of workers in the group">>}
-                             , {labels, [group]}
-                             ]),
-  emqttb_worker:new_opstat(ID, connect).
-
-create_autorate(GroupID, ConfID) ->
-  ID = my_autorate(GroupID),
-  DefaultConf = #{ [id] => ID
-                 },
-  emqttb_conf:patch(lee_lib:make_nested_patch(?MYMODEL, [autorate], DefaultConf)),
-  AutorateConf = #{ id        => ID
-                  , conf_root => ID
-                  , error     => fun() -> autoscale_error(GroupID) end
-                  , scram     => fun(Meltdown) -> autoscale_scram(GroupID, ConfID, Meltdown) end
-                  },
-  emqttb_autorate:ensure(AutorateConf).
-
-autoscale_scram(Group, ConfID, Meltdown) ->
-  MaxPending = ?CFG([groups, {ConfID}, scram, threshold]),
-  Hysteresis = ?CFG([groups, {ConfID}, scram, hysteresis]),
-  Override = ?CFG([groups, {ConfID}, scram, override]),
-  Pending = emqttb_metrics:get_counter(?GROUP_N_PENDING(Group, connect)),
-  if Meltdown andalso Pending >= (MaxPending * Hysteresis / 100) ->
-      {true, Override};
-     Pending >= MaxPending ->
-      logger:warning("SCRAM is activated for group ~p. Unacked connections: ~p. Connection interval is dropped to ~p us.",
-                     [Group, Pending, Override]),
-      {true, Override};
-     Meltdown ->
-      logger:warning("SCRAM is deactivated for group ~p. Unacked connections: ~p. Connection rate is restored to normal value.",
-                     [Group, Pending]),
-      false;
-     true ->
-      false
-  end.
-
-autoscale_error(Group) ->
-  %% Note that dependency of number of pending operations on connect
-  %% interval is inverse: lesser interval -> clients connect more
-  %% often -> more load -> more pending operations
-  %%
-  %% So the control must be reversed, and error is the negative of what one usually
-  %% expects:
-  %% Current - Target instead of Target - Current.
-  Target = ?CFG([groups, {Group}, target_conn_pending]),
-  emqttb_metrics:get_counter(?GROUP_N_PENDING(Group, connect)) - Target.
-
-my_autorate(Group) ->
-  list_to_atom(atom_to_list(Group) ++ "_autoscale").
 
 dead_id_pool(Group) ->
   Group.

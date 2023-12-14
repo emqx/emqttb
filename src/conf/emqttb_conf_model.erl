@@ -18,7 +18,7 @@
 %% API:
 -export([model/0]).
 
--export_type([]).
+-export_type([object_type/0]).
 
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
@@ -26,6 +26,9 @@
 %%================================================================================
 %% Type declarations
 %%================================================================================
+
+-type object_type() :: autorate | metric.
+-reflect_type([object_type/0]).
 
 %%================================================================================
 %% API funcions
@@ -239,6 +242,21 @@ model() ->
               }}
         }
    , scenarios => emqttb_scenario:model()
+   , actions =>
+       #{ ls =>
+            {[map, cli_action],
+             #{ cli_operand => "ls"
+              , key_elements => []
+              , oneliner => "List objects and exit"
+              },
+             #{ what =>
+                  {[value, cli_positional],
+                   #{ oneliner => "Type of objects to list"
+                    , type => object_type()
+                    , cli_arg_position => 1
+                    }}
+              }}
+        }
    , groups =>
        {[map, cli_action, default_instance],
         #{ cli_operand  => "g"
@@ -246,7 +264,7 @@ model() ->
          },
         emqttb_worker:model()}
    , autorate =>
-       {[map, cli_action, default_instance],
+       {[map, cli_action],
         #{ cli_operand  => "a"
          , key_elements => [[id]]
          },

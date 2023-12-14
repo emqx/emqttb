@@ -1,4 +1,5 @@
 :!sectids:
+:stem:
 = Documentation
 
 [id=cluster.node_name]
@@ -20,22 +21,53 @@ This can be very expensive in man-hours and computing resources.
 In order to prevent that, emqttb can tune some parameters (such as message publishing interval)
 automatically using https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/[PI controller].
 
+The following formula is used for the error function:
+
+stem:[e=(a_{SP} - a_{PV}) a_{coeff}]
+
 === Autoscale
 
 A special autorate controlling the rate of spawning new clients is implicitly created for each client group.
-Its name follows the pattern `<group_id>_autoscale`.
+Its name usually follows the pattern `%scenario%/conn_interval`.
+
+
+By default, the number of pending (unacked) connections is used as the process variable.
+Number of pending connections is a metric that responds very fast to target overload, so it makes a reasonable default.
 
 For example the following command can automatically adjust the rate of connections:
 
 [code,bash]
 ----
-./emqttb @conn -I 10ms -N 10_000 \
-   @g --host 172.22.0.13,172.22.0.6 \
-   @a -a conn_group_autoscale -V 1000
+./emqttb --pushgw @conn -I 10ms -N 5_000 \
+         @a -a conn/conninterval -V 1000 --setpoint 10
 ----
 
-Note: autoscale can be applied to any group used by any scenario.
-Additionally, autoscale is used for overload protection, see section about <<value.groups._.scram.threshold,SCRAM>>.
+
+[id=autorate._.id]
+== ID of the autorate configuration
+
+Autorate configuration can be referred by id.
+This value must be equal to one of the elements returned by `emqttb @ls autorate` command.
+
+
+[id=autorate._.speed]
+== Maximum rate of change of the controlled parameter
+
+Note: by default this parameter is set to 0 for each autorate, effectively locking the control parameter in place.
+
+
+[id=autorate._.process_variable]
+== Process variable
+
+This parameter specifies ID of the metric that senses pressure on the SUT and serves as the process variable (PV).
+Its value must be equal to one of the metric IDs returned by `emqttb @ls metric` command.
+
+[id=autorate._.setpoint]
+== Setpoint
+
+The desired value of the process variable (PV) is called the setpoint.
+Autorate adjusts the value of the control variable (CV) to bring the PV close to the setpoint.
+
 
 [id=interval]
 == Default interval between events
@@ -49,11 +81,6 @@ Supported units:
 * `h` : hours
 
 If unit is not specified then `ms` is assumed.
-
-[id=autorate._.id]
-== ID of the autorate configuration
-
-Autorate configuration can be referred by id.
 
 [id=scenarios.sub]
 == Run scenario sub
@@ -277,14 +304,6 @@ The following substitutions are supported:
 
 How often the clients will send `PING` MQTT message to the broker on idle connections.
 
-[id=groups._.target_conn_pending]
-== Target number of unacked connections
-
-In order to optimize the connection rate autoscale relies on the number of unacked (pending) connections.
-This parameter configures the value that emqttb autoscale will try to approach.
-
-Number of pending connections is a metric that responds very fast to target overload, so we use it.
-
 
 [id=groups._.scram.threshold]
 == Maximum unacked CONNECT packets
@@ -310,8 +329,3 @@ It's not desirable to switch between normal and SCRAM connection rate too often.
 == How often autorate is updated
 
 This parameter governs how often error is calculated and control parameter is updated.
-
-[id=autorate._.speed]
-== Maximum rate of change of the controlled parameter
-
-Note: this parameter can be set to 0 to effectively disable autorate and lock control parameter in place.

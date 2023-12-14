@@ -15,17 +15,23 @@
 %%--------------------------------------------------------------------
 -module(emqttb_scenario).
 
+-behavior(lee_metatype).
+-behavior(gen_server).
+
 %% API:
 -export([set_stage/1, set_stage/2, stage/1, complete/1, loiter/0,
          model/0, list_enabled_scenarios/0, run/1, stop/1,
          my_scenario/0, my_conf_key/1, my_conf/1, module/1, name/1,
          info/0]).
 
+%% lee_metatype callbacks:
+-export([names/1, read_patch/2]).
+
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2, terminate/2]).
 
 %% internal exports:
--export([start_link/1]).
+-export([start_link/1, run_scenarios/0]).
 
 -export_type([result/0]).
 
@@ -44,9 +50,16 @@
 %% Behavior declaration
 %%================================================================================
 
+%% Model fragment for the scenario:
+-callback model() -> lee:lee_module().
+
+%% Callback that creates the default configuration for the scenario:
+-callback initial_config() -> lee:patch().
+
+%% This callback executes the scenario:
 -callback run() -> ok.
 
--callback model() -> lee:lee_module().
+%% -callback name() -> atom().
 
 %%================================================================================
 %% API functions
@@ -151,12 +164,40 @@ info() ->
     all_scenario_modules()).
 
 %%================================================================================
+%% Behavior callbacks
+%%================================================================================
+
+names(_) ->
+  [scenario].
+
+read_patch(scenario, _Model) ->
+  %% Populate configuration with the default data:
+  Patch = lists:flatmap(
+            fun(Module) ->
+                Module:initial_config()
+            end,
+            all_scenario_modules()),
+  {ok, 999999, Patch}.
+
+
+%%================================================================================
 %% External exports
 %%================================================================================
 
 -spec start_link(module()) -> {ok, pid()}.
 start_link(Module) ->
   gen_server:start_link({local, Module}, ?MODULE, [Module], []).
+
+-spec run_scenarios() -> ok.
+run_scenarios() ->
+  lists:foreach(
+    fun([scenarios, Name]) ->
+        case lee:list(?MYCONF, [?SK(Name)]) of
+          [] -> ok;
+          [_] -> emqttb_scenario:run(Name)
+        end
+    end,
+    lee_model:get_metatype_index(scenario, ?MYMODEL)).
 
 %%================================================================================
 %% gen_server callbacks
@@ -182,9 +223,9 @@ handle_call(_, _, S) ->
   {reply, {error, unknown_call}, S}.
 
 handle_cast(_, S) ->
-  {notrepy, S}.
+  {noreply, S}.
 
-terminate(_, State) ->
+terminate(_, _State) ->
   persistent_term:erase(?SCENARIO_GROUP_LEADER(group_leader())).
 
 %%================================================================================

@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,5 +65,5 @@ do_collect() ->
   Data = prometheus_text_format:format(),
   Headers = [],
   Options = [],
-  {ok, Code, _RespHeaders, ClientRef} = hackney:post(Url, Headers, Data, Options),
+  {ok, _Code, _RespHeaders, ClientRef} = hackney:post(Url, Headers, Data, Options),
   hackney:skip_body(ClientRef).

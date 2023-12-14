@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%%Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 
 %% behavior callbacks:
 -export([ model/0
+        , initial_config/0
         , run/0
         ]).
 
@@ -30,7 +31,7 @@
 -include("emqttb.hrl").
 -include_lib("typerefl/include/types.hrl").
 
--import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, set_stage/2, set_stage/1]).
+-import(emqttb_scenario, [complete/1, loiter/0, my_conf/1, my_conf_key/1, set_stage/2, set_stage/1]).
 
 %%================================================================================
 %% Type declarations
@@ -55,12 +56,13 @@ model() ->
          , cli_short => $t
          }}
    , conninterval =>
-       {[value, cli_param],
+       {[value, cli_param, autorate],
         #{ oneliner => "Client connection interval"
          , type => emqttb:duration_us()
          , default_ref => [interval]
          , cli_operand => "conninterval"
          , cli_short => $I
+         , autorate_id => 'sub_flapping/conninterval'
          }}
    , n_clients =>
        {[value, cli_param],
@@ -108,29 +110,36 @@ model() ->
          , cli_operand => "cycles"
          , cli_short => $C
          }}
+   , metrics =>
+       emqttb_behavior_sub:model('sub_flapping/sub')
    }.
+
+initial_config() ->
+  emqttb_conf:string2patch("@a -a sub_flapping/conninterval --pvar '[scenarios,sub_flapping,{},metrics,conn_latency,pending]' --olp").
 
 run() ->
   SubOpts = #{ topic  => my_conf([topic])
              , qos    => my_conf([qos])
              , expiry => my_conf([expiry])
              , clean_start => my_conf([clean_start])
+             , metrics => my_conf_key([metrics])
              },
   emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])
                        , behavior      => {emqttb_behavior_sub, SubOpts}
+                       , conn_interval => emqttb_autorate:from_model(my_conf_key([conninterval]))
                        }),
-  cycle(0, my_conf([n_cycles]), my_conf([conninterval])).
+  cycle(0, my_conf([n_cycles])).
 
-cycle(Cycle, Max, _Interval) when Cycle >= Max ->
+cycle(Cycle, Max) when Cycle >= Max ->
   complete(ok);
-cycle(Cycle, Max, Interval) ->
+cycle(Cycle, Max) ->
   set_stage(ramp_up),
   N = my_conf([n_clients]),
-  {ok, _} = emqttb_group:set_target(?GROUP, N, Interval),
+  {ok, _} = emqttb_group:set_target(?GROUP, N),
   set_stage(ramp_down),
   {ok, _} = emqttb_group:set_target(?GROUP, 0, undefined),
-  cycle(Cycle + 1, Max, undefined).
+  cycle(Cycle + 1, Max).
 
 %%================================================================================
 %% Internal exports

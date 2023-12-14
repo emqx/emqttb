@@ -16,7 +16,7 @@
 -module(emqttb_conf).
 
 %% API:
--export([load_conf/0, get/1, list_keys/1, reload/0, patch/1]).
+-export([load_model/0, load_conf/0, get/1, list_keys/1, reload/0, patch/1, string2patch/1]).
 -export([compile_model/1]).
 
 -export_type([]).
@@ -33,26 +33,30 @@
 %% API funcions
 %%================================================================================
 
-load_conf() ->
+load_model() ->
   case compile_model(emqttb_conf_model:model()) of
     {ok, Model} ->
-      Storage = lee_storage:new(lee_persistent_term_storage, ?CONF_STORE),
       persistent_term:put(?MODEL_STORE, Model),
-      case lee:init_config(Model, Storage) of
-        {ok, _Data, _Warnings} ->
-          maybe_load_repeat(),
-          maybe_load_conf_file(),
-          maybe_dump_conf(),
-          ok;
-        {error, Errors, _Warnings} ->
-          [logger:critical(E) || E <- Errors],
-          emqttb:setfail("invalid configuration"),
-          emqttb:terminate()
-      end;
+      ok;
     {error, Errors} ->
       logger:critical("Configuration model is invalid!"),
       [logger:critical(E) || E <- Errors],
       emqttb:setfail("invalid configuration model"),
+      emqttb:terminate()
+  end.
+
+load_conf() ->
+  Storage = lee_storage:new(lee_persistent_term_storage, ?CONF_STORE),
+  case lee:init_config(?MYMODEL, Storage) of
+    {ok, _Data, _Warnings} ->
+      maybe_load_repeat(),
+      maybe_load_conf_file(),
+      maybe_dump_conf(),
+      ok;
+    {error, Errors, Warnings} ->
+      [logger:critical(E) || E <- Errors],
+      [logger:warning(E) || E <- Warnings],
+      emqttb:setfail("invalid configuration"),
       emqttb:terminate()
   end.
 
@@ -133,11 +137,20 @@ metamodel() ->
                          , priority => -110
                          , file => "/etc/emqttb/emqttb.conf"
                          })
-  , lee_metatype:create(emqttb_mt_scenario)
+  , lee_metatype:create(emqttb_scenario)
+  , lee_metatype:create(emqttb_metrics)
+  , lee_metatype:create(emqttb_autorate)
   ].
 
 cli_args_getter() ->
   application:get_env(emqttb, cli_args, []).
+
+string2patch(Str) ->
+  %% Lazy attempt to parse string to a list of command line arguments
+  {match, L0} = re:run(Str, "'(.+)'|([^ ]+) *", [global, {capture, all_but_first, list}]),
+  L = lists:map(fun lists:append/1, L0),
+  {ok, Patch} = lee_cli:read(?MYMODEL, L),
+  Patch.
 
 %% maybe_show_help_and_exit() ->
 %%   ?CFG([help])

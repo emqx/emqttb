@@ -17,34 +17,52 @@
 
 -behavior(emqttb_worker).
 
+%% API:
+-export([model/1]).
+
 %% behavior callbacks:
 -export([init_per_group/2, init/1, handle_message/3, terminate/2]).
 
--export_type([]).
+-export_type([prototype/0, config/0]).
 
 %%================================================================================
 %% Type declarations
 %%================================================================================
 
+-type config() :: #{ expiry => non_neg_integer()
+                   , clean_start => boolean()
+                   , metrics := lee:model_key()
+                   }.
+
+-type prototype() :: {?MODULE, config()}.
+
+%%================================================================================
+%% API
+%%================================================================================
+
+model(GroupId) ->
+  #{ conn_latency =>
+       emqttb_metrics:opstat(GroupId, connect)
+   }.
+
 %%================================================================================
 %% behavior callbacks
 %%================================================================================
 
-init_per_group(_Group, Opts) ->
-  Expiry = maps:get(expiry, Opts, 0),
-  CleanStart = maps:get(clean_start, Opts, true),
-  HostShift = maps:get(host_shift, Opts, 0),
-  HostSelection = maps:get(host_selection, Opts, random),
-  #{ expiry      => Expiry
-   , clean_start => CleanStart
-   }.
+init_per_group(_Group, Opts = #{metrics := MetricsKey}) ->
+  Defaults = #{ expiry => 0
+              , clean_start => true
+              },
+  Config = maps:merge(Defaults, Opts),
+  Config#{ conn_opstat => emqttb_metrics:opstat_from_model(MetricsKey ++ [conn_latency])
+         }.
 
-init(Opts0 = #{clean_start := CleanStart, expiry := Expiry}) ->
+init(#{clean_start := CleanStart, expiry := Expiry, conn_opstat := ConnOpstat}) ->
   Props = case Expiry of
             undefined -> #{};
             _         -> #{'Session-Expiry-Interval' => Expiry}
           end,
-  {ok, Conn} = emqttb_worker:connect(Props, [{clean_start, CleanStart}], [], []),
+  {ok, Conn} = emqttb_worker:connect(ConnOpstat, Props, [{clean_start, CleanStart}], [], []),
   Conn.
 
 handle_message(_, Conn, _) ->
