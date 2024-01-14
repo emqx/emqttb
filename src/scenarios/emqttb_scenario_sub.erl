@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%%Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,6 +98,12 @@ model() ->
          , default => false
          , cli_operand => "parse-metadata"
          }}
+   , verify_sequence =>
+       {[value, cli_param],
+        #{ type => boolean()
+         , default => false
+         , cli_operand => "verify-sequence"
+         }}
    , clean_start =>
        {[value, cli_param],
         #{ type => boolean()
@@ -117,6 +123,7 @@ run() ->
              , qos    => my_conf([qos])
              , expiry => my_conf([expiry])
              , parse_metadata => my_conf([parse_metadata])
+             , verify_sequence => my_conf([verify_sequence])
              , clean_start => my_conf([clean_start])
              , metrics => my_conf_key([metrics])
              },

@@ -74,7 +74,7 @@ model(Group) ->
                ID :: integer(),
                SeqNo :: non_neg_integer(),
                TS :: integer().
-parse_metadata(<<ID:32, SeqNo:32, TS:64, _/binary>>) ->
+parse_metadata(<<ID:32, SeqNo:64, TS:64, _/binary>>) ->
   {ID, SeqNo, TS}.
 
 %%================================================================================
@@ -92,7 +92,7 @@ init_per_group(Group,
   AddMetadata = maps:get(metadata, Conf, false),
   PubRate = emqttb_autorate:get_counter(emqttb_autorate:from_model(PubInterval)),
   MetadataSize = case AddMetadata of
-                   true  -> (32 + 32 + 64) div 8;
+                   true  -> (32 + 64 + 64) div 8;
                    false -> 0
                  end,
   HostShift = maps:get(host_shift, Conf, 0),
@@ -168,7 +168,7 @@ message_metadata() ->
   SeqNo = msg_seqno(),
   ID = erlang:phash2({node(), self()}),
   TS = os:system_time(microsecond),
-  <<ID:32, SeqNo:32, TS:64>>.
+  <<ID:32, SeqNo:64, TS:64>>.
 
 msg_seqno() ->
   case get(emqttb_behavior_pub_seqno) of
