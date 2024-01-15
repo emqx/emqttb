@@ -93,6 +93,13 @@ model(GroupId) ->
          , id => {emqttb_repeat_size, GroupId}
          , labels => [group]
          }}
+   , n_streams =>
+       {[metric],
+        #{ oneliner => "Number of sequences"
+         , metric_type => gauge
+         , id => {emqttb_n_sequences, GroupId}
+         , labels => [group]
+         }}
 
    , e2e_latency =>
        {[metric],
@@ -122,8 +129,10 @@ init_per_group(_Group,
               , parse_metadata => ParseMetadata
               , verify_sequence => false
               },
+  NStreams = emqttb_metrics:from_model(MetricsModelKey ++ [n_streams]),
+  emqttb_metrics:gauge_set(NStreams, 0),
   Conf = maps:merge(Defaults, Opts),
-  ets:new(?seq_tab, [named_table, public, {write_concurrency, true}]),
+  ensure_sequence_table(),
   Conf#{ conn_opstat => emqttb_metrics:opstat_from_model(MetricsModelKey ++ [conn_latency])
        , sub_opstat => emqttb_metrics:opstat_from_model(MetricsModelKey ++ [sub_latency])
        , e2e_latency => emqttb_metrics:from_model(MetricsModelKey ++ [e2e_latency])
@@ -132,6 +141,7 @@ init_per_group(_Group,
        , gap_size => emqttb_metrics:from_model(MetricsModelKey ++ [gap_size])
        , number_of_repeats => emqttb_metrics:from_model(MetricsModelKey ++ [number_of_repeats])
        , repeat_size => emqttb_metrics:from_model(MetricsModelKey ++ [repeat_size])
+       , n_streams => NStreams
        }.
 
 init(SubOpts0 = #{ topic := T
@@ -183,11 +193,13 @@ terminate(_Shared, Conn) ->
 %% Internal functions
 %%================================================================================
 
-verify_sequence(#{number_of_gaps := NGaps, gap_size := GapSize, number_of_repeats := NRepeats, repeat_size := RepeatSize},
+verify_sequence(#{ number_of_gaps := NGaps, gap_size := GapSize, number_of_repeats := NRepeats
+                 , repeat_size := RepeatSize, n_streams := NStreams},
                 From, Topic, SeqNo) ->
   Key = {From, emqttb_worker:my_id(), Topic},
   case ets:lookup(?seq_tab, Key) of
     [] ->
+      emqttb_metrics:counter_inc(NStreams, 1),
       ok;
     [{_, OldSeqNo}] when SeqNo =:= OldSeqNo + 1 ->
       ok;
@@ -201,3 +213,14 @@ verify_sequence(#{number_of_gaps := NGaps, gap_size := GapSize, number_of_repeat
       emqttb_metrics:rolling_average_observe(RepeatSize, SeqNo - OldSeqNo + 1)
   end,
   ets:insert(?seq_tab, {Key, SeqNo}).
+
+ensure_sequence_table() ->
+  catch ets:new(?seq_tab,
+                [ named_table
+                , set
+                , public
+                , {write_concurrency, true}
+                , {read_concurrency, true}
+                , {heir, whereis(emqttb_metrics), ?seq_tab}
+                ]),
+  ok.

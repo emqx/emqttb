@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -164,6 +164,10 @@ connect(ConnOpstat, Properties0, CustomOptions, CustomTcpOptions, CustomSslOptio
             , {keepalive,    KeepAlive}
             ],
   {ok, Client} = emqtt:start_link(CustomOptions ++ Options),
+  %% dbg:tracer(),
+  %% dbg:p(Client, [c, s, r]),
+  %% dbg:tpl({emqtt, '_', '_'}, x),
+  %% logger:error("Debug ~p", [CustomOptions ++ Options]),
   ConnectFun = connect_fun(),
   {ok, _Properties} = emqttb_metrics:call_with_counter(ConnOpstat, emqtt, ConnectFun, [Client]),
   {ok, Client}.
