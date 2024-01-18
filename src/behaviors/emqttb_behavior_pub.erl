@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@
                    , metadata       => boolean()
                    , host_shift     => integer()
                    , host_selection => random | round_robin
+                   , clean_start    => boolean()
+                   , expiry         => non_neg_integer() | undefined
                    }.
 
 -type prototype() :: {?MODULE, config()}.
@@ -102,21 +104,26 @@ init_per_group(Group,
    , metadata => AddMetadata
    , host_shift => HostShift
    , host_selection => HostSelection
+   , expiry => maps:get(expiry, Conf, undefined)
+   , clean_start => maps:get(clean_start, Conf, true)
    , pub_opstat => emqttb_metrics:opstat_from_model(MetricsKey ++ [pub_latency])
    , conn_opstat => emqttb_metrics:opstat_from_model(MetricsKey ++ [conn_latency])
    , pub_counter => emqttb_metrics:from_model(MetricsKey ++ [n_published])
    }.
 
-init(PubOpts = #{pubinterval := I, conn_opstat := ConnOpstat}) ->
+init(PubOpts = #{pubinterval := I, conn_opstat := ConnOpstat,
+                 expiry := Expiry, clean_start := CleanStart}) ->
   rand:seed(default),
   {SleepTime, N} = emqttb:get_duration_and_repeats(I),
   send_after_rand(SleepTime, {publish, N}),
   HostShift = maps:get(host_shift, PubOpts, 0),
   HostSelection = maps:get(host_selection, PubOpts, random),
-  {ok, Conn} = emqttb_worker:connect(ConnOpstat,
-                                     #{ host_shift => HostShift
-                                      , host_selection => HostSelection
-                                      }),
+  Props = case Expiry of
+            undefined -> #{};
+            _         -> #{'Session-Expiry-Interval' => Expiry}
+          end,
+  {ok, Conn} = emqttb_worker:connect(ConnOpstat, Props#{host_shift => HostShift, host_selection => HostSelection},
+                                    [{clean_start, CleanStart}], [], []),
   Conn.
 
 handle_message(Shared, Conn, {publish, N1}) ->
