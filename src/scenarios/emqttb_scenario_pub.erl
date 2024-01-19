@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%%Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -122,6 +122,20 @@ model() ->
          , type => integer()
          , default => 0
          , cli_operand => "start-n"
+         }}
+   , expiry =>
+       {[value, cli_param],
+        #{ type => union(non_neg_integer(), undefined)
+         , default => undefined
+         , cli_operand => "expiry"
+         , cli_short => $x
+         }}
+   , clean_start =>
+       {[value, cli_param],
+        #{ type => boolean()
+         , default => true
+         , cli_operand => "clean-start"
+         , cli_short => $c
          }}
    , metrics =>
        emqttb_behavior_pub:model('pub/pub')

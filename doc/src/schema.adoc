@@ -199,6 +199,15 @@ Topic is a mandatory parameter. It supports the following substitutions:
 * `%h` is replaced with the hostname
 
 
+[id=scenarios.pub._.clean_start]
+== Clean start
+Set https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901039[clean start] flag in the CONNECT packet.
+
+[id=scenarios.pub._.expiry]
+== Session Expiry Interval
+Add https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901048[Session Expiry Interval] property to the CONNECT packet.
+
+
 [id=scenarios.pubsub_forward]
 == run scenario pubsub_forward
 
