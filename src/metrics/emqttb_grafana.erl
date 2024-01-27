@@ -16,24 +16,45 @@
 -module(emqttb_grafana).
 
 %% API:
--export([annotate/2, annotate/1]).
+-export([annotate/2, annotate/1, annotate_range/4]).
+
+-export([parse_comma_separated/1]).
 
 -include("emqttb.hrl").
+-include_lib("typerefl/include/types.hrl").
 
 %%================================================================================
-%% API funcions
+%% Type declarations
+%%================================================================================
+
+-type tags() :: [string()].
+-typerefl_from_string({tags/0, ?MODULE, parse_comma_separated}).
+
+-reflect_type([tags/0]).
+
+%%================================================================================
+%% API functions
 %%================================================================================
 
 -spec annotate(iolist()) -> ok.
 annotate(Text) ->
   annotate(Text, []).
 
+-spec annotate_range(iolist(), [string()], integer(), integer()) -> ok.
+annotate_range(Text, Tags, Time, TimeEnd) ->
+  Range = #{time => Time, 'timeEnd' => TimeEnd},
+  annotate(Text, Tags, Range).
+
 -spec annotate(iolist(), [atom() | string()]) -> ok.
 annotate(Text, Tags0) ->
+  annotate(Text, Tags0, #{}).
+
+-spec annotate(iolist(), [atom() | string()], map()) -> ok.
+annotate(Text, Tags0, Data) ->
   case ?CFG([metrics, grafana, enabled]) of
     true ->
       Tags = lists:map(fun ensure_string/1, Tags0),
-      spawn(fun() -> do_annotate(Text, Tags) end),
+      spawn(fun() -> do_annotate(Text, Tags, Data) end),
       ok;
     false ->
       ok
@@ -43,7 +64,7 @@ annotate(Text, Tags0) ->
 %% Internal functions
 %%================================================================================
 
-do_annotate(Text, Tags) ->
+do_annotate(Text, Tags, Data0) ->
   Url = ?CFG([metrics, grafana, url]) ++ "/api/annotations",
   AuthToken = case ?CFG([metrics, grafana, api_key]) of
                 false -> [];
@@ -54,9 +75,9 @@ do_annotate(Text, Tags) ->
               false -> [];
               Login -> [{basic_auth, {Login, ?CFG([metrics, grafana, password])}}]
             end,
-  Data = #{ text => iolist_to_binary(Text)
-          , tags => [<<"emqttb">>, <<"mqtt">> | Tags]
-          },
+  Data = Data0#{ text => iolist_to_binary(Text)
+               , tags => [<<"emqttb">>, <<"mqtt">> | Tags]
+               },
   {ok, Code, _RespHeaders, ClientRef} = hackney:post(Url, Headers, jsone:encode(Data), Options),
   case Code of
     200 ->
@@ -69,4 +90,7 @@ do_annotate(Text, Tags) ->
 ensure_string(Atom) when is_atom(Atom) ->
   atom_to_binary(Atom);
 ensure_string(Str) ->
-  Str.
+  list_to_binary(Str).
+
+parse_comma_separated(Str) ->
+  {ok, string:tokens(Str, ",")}.

@@ -75,9 +75,11 @@
 -type ifaddr_list() :: list(typerefl:ip_address()).
 -typerefl_from_string({ifaddr_list/0, ?MODULE, parse_addresses}).
 
+-type n_cycles() :: non_neg_integer() | undefined.
+
 -reflect_type([scenario/0, stage/0, group/0, transport/0, proto_ver/0, qos/0,
                net_port/0, hosts/0, ifaddr_list/0, ssl_verify/0, host_selection/0,
-               duration_ms/0, duration_us/0, duration_s/0, byte_size/0]).
+               duration_ms/0, duration_us/0, duration_s/0, byte_size/0, n_cycles/0]).
 
 %%================================================================================
 %% API funcions
@@ -87,6 +89,7 @@
 -spec main([string()]) -> no_return().
 main(Args) ->
   application:set_env(emqttb, cli_args, Args),
+  application:set_env(emqttb, start_time, os:system_time(millisecond)),
   {ok, _} = application:ensure_all_started(?APP, permanent),
   %% Wait for completion of the scenarios:
   MRef = monitor(process, whereis(emqttb_scenarios_sup)),
@@ -133,6 +136,7 @@ get_duration_and_repeats(CRef) ->
 
 -spec terminate() -> no_return().
 terminate() ->
+  annotate_run(),
   case application:get_env(emqttb, is_fail, false) of
     false ->
       timer:sleep(100), %% Ugly: give logger time to flush events...
@@ -143,6 +147,11 @@ terminate() ->
       timer:sleep(100), %% Ugly: give logger time to flush events...
       halt(1)
   end.
+
+annotate_run() ->
+  Motto = ?CFG([metrics, grafana, motto]),
+  Tags = ?CFG([metrics, grafana, motto_tags]),
+  emqttb_grafana:annotate_range(Motto, Tags, application:get_env(emqttb, start_time, 0), os:system_time(millisecond)).
 
 parse_addresses(Str) ->
   L = [inet:parse_address(I) || I <- string:tokens(Str, ", ")],

@@ -64,8 +64,8 @@ stop(ID) ->
   logger:info("Stopping group ~p", [ID]),
   emqttb_group_sup:stop(ID).
 
--spec set_target(emqttb:group(), NClients) -> NClients
-          when NClients :: emqttb:n_cycles().
+-spec set_target(emqttb:group(), NClients) -> {ok, NClients} | {error, new_target}
+          when NClients :: emqttb:n_clients().
 set_target(Group, NClients) ->
   set_target(Group, NClients, undefined).
 
@@ -81,7 +81,7 @@ set_target(Group, NClients) ->
 %%
 %% Order of workers' removal during ramping down is not specified.
 -spec set_target(emqttb:group(), NClients, emqttb:interval() | undefined) ->
-             {ok, NClients} | {error, new_target | {ratelimited, atom(), NClients}}
+             {ok, NClients} | {error, new_target}
           when NClients :: emqttb:n_clients().
 set_target(Id, Target, Interval) ->
   gen_server:call(?via(Id), {set_target, Target, Interval}, infinity).

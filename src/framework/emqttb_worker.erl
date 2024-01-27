@@ -138,7 +138,7 @@ my_hostname() ->
 connect(ConnOpstat, Properties) ->
   connect(ConnOpstat, Properties, [], [], []).
 
--spec connect(emqttb_metrics:metric_ref(), map(), [emqtt:option()], [gen_tcp:option()], [ssl:option()]) -> gen_statem:start_ret().
+-spec connect(emqttb_metrics:metric_ref(), map(), [emqtt:option()], [gen_tcp:option()], [ssl:tls_option()]) -> gen_statem:start_ret().
 connect(ConnOpstat, Properties0, CustomOptions, CustomTcpOptions, CustomSslOptions) ->
   HostShift = maps:get(host_shift, Properties0, 0),
   HostSelection = maps:get(host_selection, Properties0, random),
@@ -172,7 +172,7 @@ connect(ConnOpstat, Properties0, CustomOptions, CustomTcpOptions, CustomSslOptio
 %% Internal exports
 %%================================================================================
 
--spec entrypoint(module(), emqttb:group_id(), integer()) -> no_return().
+-spec entrypoint(module(), emqttb:group(), integer()) -> no_return().
 entrypoint(Behavior, Group, Number) ->
   %% We need to trap exits to make sure the counter is decremented in
   %% the end.
