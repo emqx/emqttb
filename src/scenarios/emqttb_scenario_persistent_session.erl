@@ -252,6 +252,7 @@ publish_stage(S = #s{produced = NPub0, pubinterval = PubInterval}) ->
              , qos         => my_conf([pub, qos])
              , metrics     => my_conf_key([pub, metrics])
              , metadata    => true
+             , random      => true
              },
   emqttb_group:ensure(#{ id            => ?PUB_GROUP
                        , client_config => my_conf([group])

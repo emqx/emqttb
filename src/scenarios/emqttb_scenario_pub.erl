@@ -74,6 +74,13 @@ model() ->
          , cli_short => $s
          , default => 256
          }}
+   , random =>
+       {[value, cli_param],
+        #{ oneliner => "Randomize message contents"
+         , type => boolean()
+         , cli_operand => "random"
+         , default => false
+         }}
    , conninterval =>
        {[value, cli_param, autorate],
         #{ oneliner => "Client connection interval (microsecond)"

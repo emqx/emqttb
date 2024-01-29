@@ -37,10 +37,6 @@
 %% Type declarations
 %%================================================================================
 
--type n_cycles() :: non_neg_integer() | undefined.
-
--reflect_type([n_cycles/0]).
-
 -define(GROUP, sub).
 
 %%================================================================================
@@ -105,7 +101,7 @@ model() ->
          }}
    , n_cycles =>
        {[value, cli_param],
-        #{ type => n_cycles()
+        #{ type => emqttb:n_cycles()
          , default => 10
          , cli_operand => "cycles"
          , cli_short => $C

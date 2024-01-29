@@ -179,6 +179,20 @@ model() ->
                    , type        => union(false, string())
                    , default     => false
                    }}
+             , motto =>
+                 {[value, os_env, cli_param],
+                  #{ oneliner    => "Add Grafana annotation at the end of the run"
+                   , type        => string()
+                   , default     => ""
+                   , cli_operand => "motto"
+                   }}
+             , motto_tags =>
+                 {[value, os_env, cli_param],
+                  #{ oneliner    => "Custom tags added to the Grafana annotation span"
+                   , type        => emqttb_grafana:tags()
+                   , default     => []
+                   , cli_operand => "motto-tags"
+                   }}
              }
         }
    , convenience =>

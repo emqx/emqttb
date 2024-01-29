@@ -42,6 +42,7 @@
                    , retain         => boolean()
                    , metadata       => boolean()
                    , host_shift     => integer()
+                   , random         => boolean()
                    , host_selection => random | round_robin
                    , clean_start    => boolean()
                    , expiry         => non_neg_integer() | undefined
@@ -97,13 +98,16 @@ init_per_group(Group,
   HostShift = maps:get(host_shift, Conf, 0),
   HostSelection = maps:get(host_selection, Conf, random),
   Retain = maps:get(retain, Conf, false),
+  Size = max(0, MsgSize - MetadataSize),
   #{ topic => Topic
-   , message => message(max(0, MsgSize - MetadataSize))
+   , message => message(Size)
+   , size => Size
    , pub_opts => [{qos, QoS}, {retain, Retain}]
    , pubinterval => PubRate
    , metadata => AddMetadata
    , host_shift => HostShift
    , host_selection => HostSelection
+   , random => maps:get(random, Conf, false)
    , expiry => maps:get(expiry, Conf, undefined)
    , clean_start => maps:get(clean_start, Conf, true)
    , pub_opstat => emqttb_metrics:opstat_from_model(MetricsKey ++ [pub_latency])
@@ -131,12 +135,15 @@ handle_message(Shared, Conn, {publish, N1}) ->
    , pub_counter := PubCounter
    , pub_opstat := PubOpstat
    , metadata := AddMetadata
+   , random := Random
+   , size := Size
    } = Shared,
   {SleepTime, N2} = emqttb:get_duration_and_repeats(I),
   send_after(SleepTime, {publish, N2}),
-  Msg = case AddMetadata of
-          true  -> [message_metadata(), Msg0];
-          false -> Msg0
+  Msg = if AddMetadata andalso Random -> [message_metadata(), rand:bytes(Size)];
+           Random -> rand:bytes(Size);
+           AddMetadata -> [message_metadata(), Msg0];
+           true -> Msg0
         end,
   T = emqttb_worker:format_topic(TP),
   repeat(N1, fun() ->
