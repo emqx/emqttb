@@ -47,6 +47,7 @@ $(WWW): $(DOCBOOK) $(XSLTNG)
 	cd $$(dirname $@) ;\
 	java -jar $(CURDIR)/$(XSLTNG) resource-base-uri='./' chunk-output-base-uri='./' \
                                 verbatim-syntax-highlight-languages='bash erlang' \
+                                mathml-js='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js' \
                                 chunk=index.html persistent-toc=true chunk-nav=true $(CURDIR)/$<
 	cp -R _build/lee_doc/docbook-xslTNG-2.1.2/resources/* $$(dirname $@)
 

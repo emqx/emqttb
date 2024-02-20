@@ -48,6 +48,7 @@ For example the following command can automatically adjust the rate of connectio
 
 Autorate configuration can be referred by id.
 This value must be equal to one of the elements returned by `emqttb @ls autorate` command.
+Full list is also available in <<autorate>>
 
 
 [id=autorate._.speed]
@@ -61,6 +62,7 @@ Note: by default this parameter is set to 0 for each autorate, effectively locki
 
 This parameter specifies ID of the metric that senses pressure on the SUT and serves as the process variable (PV).
 Its value must be equal to one of the metric IDs returned by `emqttb @ls metric` command.
+Full list can be also found in <<metrics>>.
 
 [id=autorate._.setpoint]
 == Setpoint
@@ -313,26 +315,29 @@ The following substitutions are supported:
 
 How often the clients will send `PING` MQTT message to the broker on idle connections.
 
+[id=autorate._.scram.enabled]
+== SCRAM
+Normally, autorate adjusts the control variable gradually.
+However, sometimes the system under test becomes overloaded suddenly, and in this case slowly decreasing the pressure may not be efficient enough.
+To combat this situation, `emqttb` has "SCRAM" mechanism, that immediately resets the control variable to a <<value.autorate.$$_$$.scram.override,configured safe value>>.
+This happens when the value of process variable exceeds the <<value.autorate.$$_$$.scram.threshold,threshold>>.
 
-[id=groups._.scram.threshold]
-== Maximum unacked CONNECT packets
-`emqttb` can automatically slow down creating new workers in a group when the broker is unable to accept connections in real time.
-
-`emqttb` keeps track of the number of un-acked `CONNECT` packets, and once becomes larger than the threshold,
-the group temporarily enters "SCRAM" mode where
-it overrides the rate to the <<value.groups.$$_$$.scram.override,specified value>>.
 SCRAM mode remains in effect until the number of pending connections becomes less than
-_threshold_ * <<value.groups.$$_$$.scram.hysteresis,hystersis>> / 100.
+_threshold_ * <<value.autorate.$$_$$.scram.hysteresis,hystersis>> / 100.
 
-[id=groups._.scram.override]
+
+[id=autorate._.scram.threshold]
+== SCRAM threshold
+
+
+[id=autorate._.scram.override]
 == SCRAM rate override
-Replace whatever configured (or calculated via autorate) connection rate value with this value when broker is not keeping up with the new connections.
+Replace configured (or calculated via autorate) value of the control variable with this value when the system under test is not keeping up with the load.
 
 
-[id=groups._.scram.hysteresis]
+[id=autorate._.scram.hysteresis]
 == SCRAM hysteresis
 It's not desirable to switch between normal and SCRAM connection rate too often.
-
 
 [id=autorate._.update_interval]
 == How often autorate is updated
