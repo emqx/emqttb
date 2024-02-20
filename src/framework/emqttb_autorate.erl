@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 %% lee_metatype callbacks:
--export([names/1, metaparams/1, meta_validate/2, validate_node/5]).
+-export([names/1, metaparams/1, meta_validate/2, validate_node/5, description/3]).
 
 %% internal exports:
 -export([start_link/1, model/0, from_model/1]).
@@ -283,6 +283,18 @@ create_autorates() ->
 from_model(Key) ->
   #mnode{metaparams = #{autorate_id := Id}} = lee_model:get(Key, ?MYMODEL),
   Id.
+
+description(autorate = MT, Model, _Options) ->
+  Chapter = autorate,
+  Content = [begin
+               #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
+               Title = atom_to_list(?m_attr(autorate, autorate_id, Attrs)),
+               lee_doc:refer_value(Model, Chapter, Key, Title)
+             end || Key <- lee_model:get_metatype_index(MT, Model)
+            ],
+  lee_doc:chapter(MT, "Automatically adjusted values", Content);
+description(_, _, _) ->
+  [].
 
 %%================================================================================
 %% gen_server callbacks
