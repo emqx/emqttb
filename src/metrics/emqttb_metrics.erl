@@ -108,7 +108,8 @@ call_with_counter({AvgTime, NPending}, Mod, Fun, Args) ->
   T0 = os:system_time(microsecond),
   try apply(Mod, Fun, Args)
   catch
-    EC:Err ->
+    EC:Err:Stack ->
+      logger:error("~p:~p~p~n~p:~p~nStack:~p", [Mod, Fun, Args, EC, Err, Stack]),
       EC(Err)
   after
     T = os:system_time(microsecond),

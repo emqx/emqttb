@@ -106,6 +106,25 @@ WARNING: In order to measure latency accurately, the scenario should ensure that
 Otherwise clock skew between different load generator instances will introduce a systematic error.
 
 
+[id=scenarios.sub._.verify_sequence]
+== Verify sequence of messages
+
+When this option is enabled, emqttb will parse the metadata embedded in the messages and check for missing or duplicated messages.
+This option implies <<value.scenarios.sub._.parse_metadata>>.
+
+Errors about missing messages and warnings about duplicate messages are printed to the `emqttb.log`.
+Relevant prometheus metrics include:
+
+- `emqttb_repeats_number` -- number of times when the sequence number of the message goes backwards
+- `emqttb_gaps_number` -- number of times when the sequence number of the message skips the messages (a gap)
+- `emqttb_repeat_size` -- rolling average; size of the repeated sequence
+- `emqttb_gap_size` -- rolling average; size of the gap
+
+
+WARNING: Publishers should insert metadata into the payloads in order for this feature to work.
+
+WARNING: This feature can use a lot of RAM to store the sequence numbers for each triple of sender client id, receiver client id, and MQTT topic.
+
 === Client groups
 
 - `sub`

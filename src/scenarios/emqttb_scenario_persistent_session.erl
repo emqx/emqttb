@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -142,7 +142,7 @@ model() ->
         , expiry =>
             {[value, cli_param],
              #{ oneliner => "Session expiry interval"
-              , type => non_neg_integer()
+              , type => range(0, 16#FFFFFFFF)
               , default => 16#FFFFFFFF
               , cli_operand => "expiry"
               }}
@@ -180,6 +180,13 @@ model() ->
          , type => emqttb:duration_ms()
          , default_str => "10s"
          , cli_operand => "max-stuck-time"
+         }}
+   , verify_sequence =>
+       {[value, cli_param],
+        #{ oneliner => "Run message sequence number analysis to check for gaps and unexpected repeats"
+         , type => boolean()
+         , default => false
+         , cli_operand => "verify-sequence"
          }}
    }.
 
@@ -224,11 +231,12 @@ do_run(S0, N) ->
 
 consume_stage(Cycle, S) ->
   TopicPrefix = topic_prefix(),
-  SubOpts = #{ topic       => <<TopicPrefix/binary, "#">>
-             , qos         => my_conf([sub, qos])
-             , expiry      => my_conf([sub, expiry])
-             , clean_start => Cycle =:= 0
-             , metrics     => my_conf_key([sub, metrics])
+  SubOpts = #{ topic           => <<TopicPrefix/binary, "#">>
+             , qos             => my_conf([sub, qos])
+             , expiry          => my_conf([sub, expiry])
+             , clean_start     => Cycle =:= 0
+             , metrics         => my_conf_key([sub, metrics])
+             , verify_sequence => my_conf([verify_sequence])
              },
   emqttb_group:ensure(#{ id            => ?SUB_GROUP
                        , client_config => my_conf([group])
