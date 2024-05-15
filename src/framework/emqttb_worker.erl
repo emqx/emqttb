@@ -371,6 +371,14 @@ model() ->
               , type        => emqttb:ssl_verify()
               , default     => verify_none
               }}
+        , keylog =>
+            {[value, cli_param, os_env],
+             #{ oneliner    => "Location of the TLS keylog file"
+              , type        => union(undefined, string())
+              , default     => undefined
+              , cli_operand => "ssl-keylog"
+              , os_env      => "SSLKEYLOGFILE"
+              }}
         }
    }.
 
@@ -469,10 +477,12 @@ ifaddr() ->
 ssl_opts() ->
   Cert    = my_cfg([ssl, certfile]),
   Keyfile = my_cfg([ssl, keyfile]),
+  Keylog  = my_cfg([ssl, keylog]),
   [{certfile, Cert} || Cert =/= []] ++
   [{keyfile, Keyfile} || Keyfile =/= []] ++
   [ {ciphers, all_ssl_ciphers()}
   , {verify, my_cfg([ssl, verify])}
+  , {keep_secrets, Keylog =/= undefined}
   ].
 
 all_ssl_ciphers() ->
