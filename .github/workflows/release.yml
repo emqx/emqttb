@@ -143,9 +143,19 @@ jobs:
           export BUILD_WITHOUT_QUIC=1
           make release
 
+      - name: Test
+        shell: bash
+        run: |
+          brew install emqx
+          emqx start
+          mkdir test-package
+          cp *.tar.gz test-package/
+          cd test-package
+          tar xfz emqttb*.tar.gz
+          bin/emqttb --loiter 5s @pub -t test @g --host localhost
+
       - if: failure()
         run: cat rebar3.crashdump
-      - run: ./_build/default/bin/emqttb
       - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         if: startsWith(github.ref, 'refs/tags/')
         with:
