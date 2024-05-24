@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: ghcr.io/emqx/emqx-builder/5.0-34:1.13.4-25.1.2-3-ubuntu22.04
+      image: ghcr.io/emqx/emqx-builder/5.3-6:1.15.7-26.2.3-1-ubuntu24.04
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           ref: ${{ github.event.inputs.ref }}
           fetch-depth: 0
@@ -43,7 +43,7 @@ jobs:
           make release
           tar czf docs.tar.gz _build/lee_doc/html _build/lee_doc/man _build/lee_doc/src/
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: docs
           path: docs.tar.gz
@@ -56,29 +56,30 @@ jobs:
       fail-fast: false
       matrix:
         otp:
-          - "25.1.2-3"
+          - "25.3.2-2"
+          - "26.2.3-1"
         os:
+          - ubuntu24.04
           - ubuntu22.04
           - ubuntu20.04
-          - ubuntu18.04
-          - ubuntu16.04
+          - debian12
           - debian11
           - debian10
-          - debian9
           - el9
           - el8
           - el7
           - amzn2
-    container:
-      image: ghcr.io/emqx/emqx-builder/5.0-34:1.13.4-${{ matrix.otp }}-${{ matrix.os }}
+          - amzn2023
+    env:
+      EMQX_BUILDER: ghcr.io/emqx/emqx-builder/5.3-6:1.15.7-${{ matrix.otp }}-${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           ref: ${{ github.event.inputs.ref }}
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
           name: docs
           path: .
@@ -86,17 +87,23 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          git config --global --add safe.directory $(pwd)
           tar xf docs.tar.gz
-          export CAN_BUILD_DOCS=false
-          make release
+          docker run -t --rm -v $(pwd):/emqttb -w /emqttb -e CAN_BUILD_DOCS=false -e REBAR=/usr/local/bin/rebar3 $EMQX_BUILDER bash -c 'git config --global --add safe.directory /emqttb && make release'
+      - name: Test
+        shell: bash
+        run: |
+          mkdir test-package
+          cp *.tar.gz test-package/
+          cd test-package
+          docker network create emqttb
+          docker run -d --name emqx --network emqttb emqx/emqx:latest
+          docker run -t --rm -v $(pwd):/emqttb -w /emqttb --network emqttb $EMQX_BUILDER bash -c 'tar xfz emqttb*.tar.gz && bin/emqttb --loiter 5s @pub -t test @g --host emqx'
       - if: failure()
         run: cat rebar3.crashdump
-      - run: ./_build/default/bin/emqttb
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: packages
+          name: packages-${{ matrix.os }}-${{ matrix.otp }}
           path: ./*.tar.gz
 
   mac:
@@ -104,15 +111,17 @@ jobs:
       fail-fast: false
       matrix:
         macos:
-          - macos-12
+          - macos-13
+          - macos-14
         otp:
           - "25"
+          - "26"
 
     runs-on: ${{ matrix.macos }}
     needs: docs
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           ref: ${{ github.event.inputs.ref }}
           fetch-depth: 0
@@ -121,7 +130,7 @@ jobs:
           brew install coreutils erlang@${{ matrix.otp }}
           brew link --force erlang@${{ matrix.otp }}
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
           name: docs
           path: .
@@ -131,15 +140,26 @@ jobs:
         run: |
           tar xf docs.tar.gz
           export CAN_BUILD_DOCS=false
+          export BUILD_WITHOUT_QUIC=1
           make release
+
+      - name: Test
+        shell: bash
+        run: |
+          brew install emqx
+          emqx start
+          mkdir test-package
+          cp *.tar.gz test-package/
+          cd test-package
+          tar xfz emqttb*.tar.gz
+          bin/emqttb --loiter 5s @pub -t test @g --host localhost
 
       - if: failure()
         run: cat rebar3.crashdump
-      - run: ./_build/default/bin/emqttb
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: packages
+          name: packages-${{ matrix.macos }}-${{ matrix.otp }}
           path: ./*.tar.gz
 
   release:
@@ -150,12 +170,13 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') && !inputs.dryrun
 
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
-          name: packages
+          pattern: "packages-*"
           path: packages
+          merge-multiple: true
       - name: Create Release
-        uses: actions/create-release@v1
+        uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
