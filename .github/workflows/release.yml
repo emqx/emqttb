@@ -95,7 +95,9 @@ jobs:
           mkdir test-package
           cp *.tar.gz test-package/
           cd test-package
-          docker run -t --rm -v $(pwd):/emqttb -w /emqttb $EMQX_BUILDER bash -c 'tar xfz emqttb*.tar.gz && timeout -s 9 5s bin/emqttb @pub -t t/%n'
+          docker network create emqttb
+          docker run -d --name emqx --network emqttb emqx/emqx:latest
+          docker run -t --rm -v $(pwd):/emqttb -w /emqttb --network emqttb $EMQX_BUILDER bash -c 'tar xfz emqttb*.tar.gz && bin/emqttb --loiter 5s @pub -t test @g --host emqx'
       - if: failure()
         run: cat rebar3.crashdump
       - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
