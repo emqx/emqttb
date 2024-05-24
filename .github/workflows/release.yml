@@ -88,7 +88,14 @@ jobs:
         shell: bash
         run: |
           tar xf docs.tar.gz
-          docker run -t --rm -v $(pwd):/emqttb -w /emqttb -e CAN_BUILD_DOCS=false -e REBAR=/usr/local/bin/rebar3 $EMQX_BUILDER bash -c 'git config --global --add safe.directory /emqttb && make release && timeout -s 9 5s ./emqttb @pub -t t/%n'
+          docker run -t --rm -v $(pwd):/emqttb -w /emqttb -e CAN_BUILD_DOCS=false -e REBAR=/usr/local/bin/rebar3 $EMQX_BUILDER bash -c 'git config --global --add safe.directory /emqttb && make release'
+      - name: Test
+        shell: bash
+        run: |
+          mkdir test-package
+          cp *.tar.gz test-package/
+          cd test-package
+          docker run -t --rm -v $(pwd):/emqttb -w /emqttb $EMQX_BUILDER bash -c 'tar xfz emqttb*.tar.gz && timeout -s 9 5s bin/emqttb @pub -t t/%n'
       - if: failure()
         run: cat rebar3.crashdump
       - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3

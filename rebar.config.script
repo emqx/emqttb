@@ -77,7 +77,7 @@ end,
 
 NewConfig =
 [ {escript_incl_apps,
-   [emqttb |
+   [emqttb, gproc |
     [ quicer || IsQuicSupp ]
    ]}
 , Profiles
