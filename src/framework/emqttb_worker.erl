@@ -190,7 +190,9 @@ entrypoint(Behavior, Group, Number) ->
   emqttb_metrics:counter_inc(?GROUP_N_WORKERS(my_group()), 1),
   logger:set_process_metadata(#{domain => [group, Group]}),
   try apply(Behavior, init, [my_settings()]) of
-    State -> loop(State)
+    State ->
+          emqttb_group:report_live_id(my_group(), my_id()),
+          loop(State)
   catch
     EC:Err:Stack ->
       ?tp(error, emqttb_worker_crash,
