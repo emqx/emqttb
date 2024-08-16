@@ -331,7 +331,7 @@ scale_down(0, S) ->
 scale_down(NRepeats, S = #s{id = Group}) ->
   case ets:first(live_id_pool(Group)) of
     '$end_of_table' ->
-      ok;
+      S;
     Id ->
       case ets:lookup(live_id_pool(Group), Id) of
         [] ->
