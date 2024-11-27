@@ -311,6 +311,7 @@ description(_, _, _) ->
         , meltdown  :: boolean()
         , last_t    :: integer()
         , last_err  :: number()
+        , init_val  :: number()
         }).
 
 init(Config = #{id := Id, conf_root := ConfRoot}) ->
@@ -349,6 +350,7 @@ init(Config = #{id := Id, conf_root := ConfRoot}) ->
                      , meltdown  = false
                      , last_err  = Err
                      , last_t    = os:system_time(millisecond)
+                     , init_val  = Current
                      })}.
 
 handle_call(activate, _From, S) ->
@@ -387,14 +389,16 @@ update_rate(S = #s{ last_t    = LastT
                   , id        = Id
                   , scram_fun = Scram
                   , meltdown  = Meltdown0
+                  , init_val  = InitVal
                   }) ->
   %% 0. Get current error
   T = os:system_time(millisecond),
   Dt = (T - LastT) / timer:seconds(1),
   Err = ErrF(),
   %% 1. Get config
-  Min = my_cfg(ConfRoot, [min]),
-  Max = my_cfg(ConfRoot, [max]),
+  %% Make sure the initial value is always in the min/max range:
+  Min = min(InitVal, my_cfg(ConfRoot, [min])),
+  Max = max(InitVal, my_cfg(ConfRoot, [max])),
   MaxSpeed = my_cfg(ConfRoot, [speed]),
   Kp = my_cfg(ConfRoot, [k_p]),
   Ti = my_cfg(ConfRoot, [t_i]),
