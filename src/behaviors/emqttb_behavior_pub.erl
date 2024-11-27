@@ -117,7 +117,6 @@ init_per_group(Group,
 
 init(PubOpts = #{pubinterval := I, conn_opstat := ConnOpstat,
                  expiry := Expiry, clean_start := CleanStart}) ->
-  rand:seed(default),
   {SleepTime, N} = emqttb:get_duration_and_repeats(I),
   send_after_rand(SleepTime, {publish, N}),
   HostShift = maps:get(host_shift, PubOpts, 0),
