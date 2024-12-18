@@ -210,7 +210,7 @@ verify_sequence(#{ number_of_gaps := NGaps, gap_size := GapSize, number_of_repea
     [{_, OldSeqNo}] ->
       logger:info("Repeat detected: ~p ~p; ~p", [OldSeqNo, SeqNo, Key]),
       emqttb_metrics:counter_inc(NRepeats, 1),
-      emqttb_metrics:rolling_average_observe(RepeatSize, SeqNo - OldSeqNo + 1)
+      emqttb_metrics:rolling_average_observe(RepeatSize, OldSeqNo - SeqNo + 1)
   end,
   ets:insert(?seq_tab, {Key, SeqNo}).
 
