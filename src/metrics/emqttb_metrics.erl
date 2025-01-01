@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ from_model(ModelKey) ->
 opstat_from_model(Key) ->
   {from_model(Key ++ [avg_time]), from_model(Key ++ [pending])}.
 
--spec opstat(atom(), atom()) -> lee:namespace().
+-spec opstat(atom(), atom()) -> lee:lee_module().
 opstat(Group, Operation) ->
   #{ avg_time =>
        {[metric],

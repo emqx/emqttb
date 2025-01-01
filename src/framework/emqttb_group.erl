@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023, 2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,14 +80,14 @@ set_target(Group, NClients) ->
 %% fast, not scaling down. Scaling down is rather memory-expensive.
 %%
 %% Order of workers' removal during ramping down is not specified.
--spec set_target(emqttb:group(), NClients, emqttb:interval() | undefined) ->
+-spec set_target(emqttb:group(), NClients, emqttb:duration_us() | undefined) ->
              {ok, NClients} | {error, new_target}
           when NClients :: emqttb:n_clients().
 set_target(Id, Target, Interval) ->
   gen_server:call(?via(Id), {set_target, Target, Interval}, infinity).
 
 %% @doc Async version of `set_target'
--spec set_target_async(emqttb:group(), emqttb:n_clients(), emqttb:interval()) -> ok.
+-spec set_target_async(emqttb:group(), emqttb:n_clients(), emqttb:duration_us()) -> ok.
 set_target_async(Id, Target, Interval) ->
   gen_server:cast(?via(Id), {set_target, Target, Interval}).
 

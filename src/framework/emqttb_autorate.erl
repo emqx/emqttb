@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ ls(Model) ->
      {Id, Key}
    end || Key <- lee_model:get_metatype_index(autorate, Model)].
 
--spec ensure(config()) -> {auto, counter:counters_ref()}.
+-spec ensure(config()) -> {auto, counters:counters_ref()}.
 ensure(Conf) ->
   {ok, Pid} = emqttb_autorate_sup:ensure(Conf#{parent => self()}),
   {auto, get_counter(Pid)}.
@@ -96,7 +96,7 @@ get_counter(Autorate) ->
   gen_server:call(server(Autorate), get_counter).
 
 %% Set the current value to the specified value
--spec reset(atom() | pid() | lee:ley(), integer()) -> ok.
+-spec reset(atom() | pid() | lee:key(), integer()) -> ok.
 reset(Autorate, Val) ->
   gen_server:call(server(Autorate), {reset, Val}).
 
