@@ -33,9 +33,6 @@ release: compile docs
 	@$(REBAR) as emqttb tar
 	@$(CURDIR)/scripts/rename-package.sh
 
-$(DOCBOOK): scripts/docgen.escript compile
-	escript	scripts/docgen.escript $@
-
 .PHONY: docs
 docs: doc/info/emqttb.info doc/html/index.html
 
@@ -46,8 +43,8 @@ doc/html/index.html: $(TEXINFO)
 # -c MATHJAX_CONFIGURATION="$(MATHJAX_OPTS)"
 	texi2any -I doc/lee --html -c INFO_JS_DIR=js -c HTML_MATH=mathjax -o doc/html/ $<
 
-$(TEXINFO): compile
-	./scripts/docgen.escript doc/lee
+$(TEXINFO): scripts/docgen.escript compile
+	$(CURDIR)/scripts/docgen.escript doc/lee
 
 .PHONY: clean
 clean: distclean

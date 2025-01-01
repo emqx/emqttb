@@ -1,5 +1,5 @@
 #!/usr/bin/escript
-%%! -pa _build/default/lib/lee/ebin -pa _build/default/lib/typerefl/ebin  -pa _build/default/lib/emqttb/ebin -pa ./_build/default/checkouts/lee/ebin
+%%! -pa _build/default/lib/lee/ebin -pa _build/default/lib/typerefl/ebin  -pa _build/default/lib/emqttb/ebin
 %% -*- erlang -*-
 
 -include_lib("lee/include/lee.hrl").

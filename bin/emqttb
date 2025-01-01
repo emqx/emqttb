@@ -11,7 +11,13 @@ ERTS_PATH=$RUNNER_ROOT_DIR/erts-$ERTS_VSN/bin
 ulimit -n $(ulimit -Hn)
 
 help() {
-    info "${RUNNER_ROOT_DIR}/doc/info/emqttb.info" "$@"
+    local file
+    file="${RUNNER_ROOT_DIR}/doc/info/emqttb.info"
+    if command -v emacs; then
+        emacs -eval "(info \"${file}\")"
+    else
+        info "${file}" "${@}"
+    fi
 }
 
 if [ $# -eq 2 ] && [ $1 = "--help" ]; then

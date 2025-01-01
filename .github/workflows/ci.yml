@@ -24,7 +24,7 @@ jobs:
     - name: Install additional packages
       run: |
         apt-get update
-        apt-get install -y openjdk-11-jdk asciidoctor xsltproc docbook-xsl
+        apt-get install -y texinfo
     - name: Compile and run tests
       env:
         BUILD_WITHOUT_QUIC: "true"
