@@ -52,6 +52,14 @@ Copyright @copyright{} 2022-2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 @chapter All Configurable Values
   @include value.texi
 
+@node Autorate
+@chapter List of autorate variables
+  @include autorate.texi
+
+@node Metrics
+@chapter List of metrics
+  @include metric.texi
+
 @node Index
   @unnumbered Index
 

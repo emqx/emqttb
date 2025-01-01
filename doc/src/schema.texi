@@ -77,16 +77,16 @@
   Supported units:
 
   @table @samp
-  @item us
-  microseconds
-  @item ms
-  milliseconds
-  @item s
-  seconds
-  @item min
-  minutes
-  @item h
-  hours
+    @item us
+    microseconds
+    @item ms
+    milliseconds
+    @item s
+    seconds
+    @item min
+    minutes
+    @item h
+    hours
   @end table
 
   If unit is not specified then @samp{ms} is assumed.

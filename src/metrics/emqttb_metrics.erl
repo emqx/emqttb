@@ -220,16 +220,19 @@ validate_node(metric, _, _, _, _) ->
   {[], []}.
 
 description(metric = MT, Model, _Options) ->
-  Chapter = metrics,
   Content = [begin
                #mnode{metaparams = MPs} = lee_model:get(Key, Model),
-               Oneliner = ?m_attr(metric, oneliner, MPs, ""),
-               {refsection, [{'xml:id', lee_doc:format_key(Chapter, Key)}],
-                [ {title, [lee_lib:term_to_string(Key)]}
-                , {para, [Oneliner]}
-                ]}
+               Labels = ?m_attr(metric, labels, MPs),
+               Type = ?m_attr(metric, metric_type, MPs),
+               {PromId, _} = ?m_attr(metric, id, MPs),
+               [ #doclet{mt = metric, tag = metric, key = Key}
+               , #doclet{mt = metric, tag = type, data = atom_to_binary(Type)}
+               , #doclet{mt = metric, tag = prometheus_id, data = atom_to_binary(PromId)}
+               , #doclet{mt = metric, tag = labels, data = lists:map(fun atom_to_binary/1, Labels)}
+               , lee_doc:get_oneliner(metric, Model, Key)
+               ]
              end || Key <- lee_model:get_metatype_index(MT, Model)],
-  lee_doc:chapter(Chapter, "Metrics", Content);
+  [#doclet{mt = metric, tag = container, data = Content}];
 description(_, _, _) ->
   [].
 

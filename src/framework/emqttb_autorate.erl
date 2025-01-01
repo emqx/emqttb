@@ -29,7 +29,7 @@
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 %% lee_metatype callbacks:
--export([names/1, metaparams/1, meta_validate/2, validate_node/5, description/3]).
+-export([names/1, metaparams/1, meta_validate/2, validate_node/5, description/3, doc_refer/4]).
 
 %% internal exports:
 -export([start_link/1, model/0, from_model/1]).
@@ -313,16 +313,23 @@ from_model(Key) ->
   #mnode{metaparams = #{autorate_id := Id}} = lee_model:get(Key, ?MYMODEL),
   Id.
 
-description(autorate = MT, Model, _Options) ->
-  Chapter = autorate,
+description(autorate = MT, Model, Options) ->
   Content = [begin
                #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
                Title = atom_to_list(?m_attr(autorate, autorate_id, Attrs)),
-               lee_doc:refer_value(Model, Chapter, Key, Title)
+               [ #doclet{mt = autorate, tag = autorate, key = Key, data = Title}
+               , lee_doc:get_oneliner(autorate, Model, Key)
+               , lee_metatype:doc_refer(value, Model, Options, Key)
+               ]
              end || Key <- lee_model:get_metatype_index(MT, Model)
             ],
-  lee_doc:chapter(MT, "Automatically adjusted values", Content);
+  [#doclet{mt = autorate, tag = container, data = Content}];
 description(_, _, _) ->
+  [].
+
+doc_refer(autorate, _Model, _Options, Key) ->
+  [#doclet{mt = autorate, tag = see_also, data = #doc_xref{mt = autorate, key = Key}}];
+doc_refer(_, _Model, _Options, _Key) ->
   [].
 
 %%================================================================================

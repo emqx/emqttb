@@ -89,7 +89,7 @@ model() ->
               , cli_operand => "rest-listen"
               }}
         , tls =>
-            {[value, os_env, undocumented], % TODO
+            {[value, os_env],
              #{ oneliner => "Enable TLS for REST listener"
               , type     => boolean()
               , default  => false
