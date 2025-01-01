@@ -1,6 +1,8 @@
-#!/usr/bin/escript
+#!/usr/bin/env escript
 %%! -pa _build/default/lib/lee/ebin -pa _build/default/lib/typerefl/ebin  -pa _build/default/lib/emqttb/ebin
 %% -*- erlang -*-
+
+-mode(compile).
 
 -include_lib("lee/include/lee.hrl").
 

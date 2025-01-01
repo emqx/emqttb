@@ -44,7 +44,7 @@ doc/html/index.html: $(TEXINFO)
 	texi2any -I doc/lee --html -c INFO_JS_DIR=js -c HTML_MATH=mathjax -o doc/html/ $<
 
 $(TEXINFO): scripts/docgen.escript compile
-	$(CURDIR)/scripts/docgen.escript doc/lee
+	scripts/docgen.escript doc/lee
 
 .PHONY: clean
 clean: distclean
