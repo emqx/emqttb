@@ -128,14 +128,24 @@ start_link(Conf = #{id := Id}) ->
 model() ->
   #{ id =>
        {[value, cli_param, autorate_id],
-        #{ type        => atom()
+        #{ oneliner    => "ID of the autorate configuration"
+         , doc         => "Autorate identifier.
+                           This value must be equal to one of the elements returned by @code{emqttb @@ls autorate} command.
+                           Full list is also available in FIXME <<autorate>>
+                           "
+         , type        => atom()
          , default     => default
          , cli_operand => "autorate"
          , cli_short   => $a
          }}
    , process_variable  =>
        {[value, cli_param, metric_id],
-        #{ oneliner    => "Key of the metric that the autorate uses as a process variable"
+        #{ oneliner    => "Process variable"
+         , doc         => "This parameter specifies ID of the metric that senses pressure on the SUT and serves as the process variable (PV).
+                           Its value must be equal to one of the metric IDs returned by @code{emqttb @@ls metric} command.
+
+                           Full list can be also found in FIXME <<metrics>>.
+                           "
          , type        => lee:model_key()
          , cli_operand => "pvar"
          }}
@@ -148,7 +158,10 @@ model() ->
          }}
    , set_point         =>
        {[value, cli_param],
-        #{ oneliner    => "Value of the process variable that the autorate will try to keep"
+        #{ oneliner    => "Set point"
+         , doc         => "The desired value of the process variable (PV) is called the setpoint.
+                           Autorate adjusts the value of the control variable (CV) to bring the PV close to the setpoint.
+                           "
          , type        => number()
          , default     => 0
          , cli_operand => "setpoint"
@@ -172,14 +185,18 @@ model() ->
          }}
    , speed =>
        {[value, cli_param],
-        #{ type        => non_neg_integer()
+        #{ oneliner    => "Speed"
+         , doc         => "Maximum rate of change of the controlled parameter.
+
+                           Note: by default this parameter is set to 0 for each autorate, effectively locking the control parameter in place."
+         , type        => non_neg_integer()
          , default     => 0
          , cli_operand => "speed"
          , cli_short   => $V
          }}
    , k_p =>
        {[value, cli_param],
-        #{ oneliner    => "Controller gain"
+        #{ oneliner    => "Controller gain, @math{k_p}"
          , type        => number()
          , default     => 0.05
          , cli_operand => "Kp"
@@ -187,7 +204,7 @@ model() ->
          }}
    , t_i =>
        {[value, cli_param],
-        #{ oneliner    => "Controller reset time"
+        #{ oneliner    => "Controller reset time, @math{t_i}"
          , type        => number()
          , default     => 1
          , cli_operand => "Ti"
@@ -195,7 +212,9 @@ model() ->
          }}
    , update_interval =>
        {[value, cli_param],
-        #{ type        => emqttb:duration_ms()
+        #{ oneliner    => "Autorate update interval"
+         , doc         => "This parameter governs how often error is calculated and control parameter is updated.\n"
+         , type        => emqttb:duration_ms()
          , default     => 100
          , cli_operand => "update-interval"
          , cli_short   => $u
@@ -203,7 +222,9 @@ model() ->
    , scram =>
        #{ enabled =>
             {[value, cli_param],
-             #{ type        => boolean()
+             #{ oneliner    => "Enable SCRAM"
+              , doc         => "@doc-scram"
+              , type        => boolean()
               , default     => false
               , cli_operand => "olp"
               }}
@@ -215,14 +236,22 @@ model() ->
               }}
         , hysteresis =>
             {[value, cli_param],
-             #{ oneliner    => "Hysteresis (%) of overload detection"
+             #{ oneliner    => "SCRAM hysteresis"
+              , doc         => "Hysteresis is defined as percent of the threshold.
+
+                                It is used to prevent frequent switching between normal and SCRAM modes of operation.
+                                "
               , type        => typerefl:range(1, 100)
               , default     => 50
               , cli_operand => "olp-hysteresis"
               }}
         , override =>
             {[value, cli_param],
-             #{ type        => emqttb:duration_us()
+             #{ oneliner    => "SCRAM rate override"
+              , doc         => "Replace configured (or calculated via autorate) value of the control variable with this value
+                                when the system under test is not keeping up with the load.
+                                "
+              , type        => emqttb:duration_us()
               , default_str => "10s"
               , cli_operand => "olp-override"
               }}

@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023, 2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,22 +35,20 @@
 %%================================================================================
 
 model() ->
-  #{ '$doc_root' =>
-       {[doc_root],
-        #{ oneliner    => "A scriptable load generator for MQTT"
-         , app_name    => "EMQTT bench daemon"
-         , prog_name   => "emqttb"
-         }}
-   , cluster =>
+  #{ cluster =>
        #{ node_name =>
             {[value, os_env],
-             #{ type     => atom()
+             #{ oneliner => "Node name"
+              , doc      => "Note: erlang distribution is disabled when node name is @code{undefined}.\n"
+              , type     => atom()
               , default  => undefined
               }}
         }
    , interval          =>
        {[value, cli_param],
-        #{ type        => emqttb:duration_us()
+        #{ oneliner    => "Default interval between events"
+         , doc         => "@doc-interval"
+         , type        => emqttb:duration_us()
          , default_str => "10ms"
          , cli_operand => "max-rate"
          , cli_short   => $R
@@ -72,7 +70,18 @@ model() ->
               }}
         }
    , restapi =>
-       #{ listen_port =>
+       #{ enabled =>
+            {[value, os_env, cli_param],
+             #{ oneliner    => "Enable REST API"
+              , doc         => "@option{--restapi} CLI argument enables REST API
+                                (available at @url{http://127.0.0.0:8017} by default),
+                                and it also means that the script keeps running after completing the scenarios.
+                                "
+              , type        => boolean()
+              , default     => false
+              , cli_operand => "restapi"
+              }}
+        , listen_port =>
             {[value, os_env, cli_param],
              #{ oneliner    => "REST API listening interface/port"
               , type        => typerefl:listen_port_ip4()
@@ -84,12 +93,6 @@ model() ->
              #{ oneliner => "Enable TLS for REST listener"
               , type     => boolean()
               , default  => false
-              }}
-        , enabled =>
-            {[value, os_env, cli_param],
-             #{ type        => boolean()
-              , default     => false
-              , cli_operand => "restapi"
               }}
         }
    , logging =>
@@ -199,11 +202,10 @@ model() ->
        #{ again =>
             {[value, cli_param],
              #{ oneliner    => "Repeat the last execution"
-              , doc         => "<para>
-                                  Note: it tries best to restore the previous environment,
-                                  so it only makes sense to use this option alone, as
-                                  it overrides other options.
-                                </para>"
+              , doc         => "Note: it tries best to restore the previous environment,
+                                so it only makes sense to use this option alone, as
+                                it overrides other options.
+                                "
               , type        => boolean()
               , default     => false
               , cli_operand => "again"
@@ -211,13 +213,11 @@ model() ->
         , conf_dump =>
             {[value, os_env, cli_param],
              #{ oneliner    => "Name of the repeat file or `undefined`"
-              , doc         => "<para>
-                                  If set to a string value, emqttb will dump its configuration
-                                 to a \"repeat\" file that can be used to quickly repeat the last run.
-                               </para>
-                               <para>
-                                 Note: only the successful runs of the script are saved.
-                               </para>"
+              , doc         => "If set to a string value, emqttb will dump its configuration
+                                to a \"repeat\" file that can be used to quickly repeat the last run.
+
+                                Note: only the successful runs of the script are saved.
+                                "
               , type        => union([undefined, string()])
               , default     => ".emqttb.repeat"
               , cli_operand => "conf-dump-file"
@@ -240,16 +240,14 @@ model() ->
         , keep_running =>
             {[value, os_env, cli_param],
              #{ oneliner => "Keep the process running after completing all the scenarios"
-              , doc => "<para>
-                          By default, when started without REST API, emqttb script terminates
-                          after completing all the scenarios, which is useful for scripting.
-                          However, when running with REST API, such behavior is undesirable.
-                          So when REST is enabled, the default behavior is different: the
-                          process keeps running waiting for commands.
-                        </para>
-                        <para>
-                          This flag can be used to explicitly override this behavior.
-                        </para>"
+              , doc => "By default, when started without REST API, emqttb script terminates
+                        after completing all the scenarios, which is useful for scripting.
+                        However, when running with REST API, such behavior is undesirable.
+                        So when REST is enabled, the default behavior is different: the
+                        process keeps running waiting for commands.
+
+                        This flag can be used to explicitly override this behavior.
+                        "
               , type => boolean()
               , default_ref => [restapi, enabled]
               , cli_operand => "keep-running"
@@ -273,13 +271,19 @@ model() ->
         }
    , groups =>
        {[map, cli_action, default_instance],
-        #{ cli_operand  => "g"
+        #{ oneliner     => "Client configuration"
+         , doc          => "Client configuration is kept separate from the scenario config.
+                            This is done so scenarios could share client configuration.
+                            "
+         , cli_operand  => "g"
          , key_elements => [[id]]
          },
         emqttb_worker:model()}
    , autorate =>
        {[map, cli_action],
-        #{ cli_operand  => "a"
+        #{ oneliner     => "Autorate configuration"
+         , doc          => "@doc-autorate"
+         , cli_operand  => "a"
          , key_elements => [[id]]
          },
         emqttb_autorate:model()}

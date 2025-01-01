@@ -238,6 +238,7 @@ make_model(Module) ->
    #{ cli_operand => atom_to_list(Name)
     , key_elements => []
     , oneliner => lists:concat(["Run scenario ", Name])
+    , doc => doc_macro(Module)
     },
    maps:merge(
      #{ loiter =>
@@ -258,3 +259,8 @@ all_scenario_modules() ->
                                                     , M:module_info()
                                                     ),
         ?MODULE <- Behaviors].
+
+doc_macro(Module) ->
+  <<"emqttb_scenario_", Rest/binary>> = atom_to_binary(Module),
+  Name = binary:replace(Rest, <<"_">>, <<"-">>, [global]),
+  <<"@doc-scenario-", Name/binary>>.

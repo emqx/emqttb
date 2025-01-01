@@ -1,0 +1,62 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename emqttb.info
+@settitle EMQTTB
+@c %**end of header
+@copying
+A scriptable autotuning MQTT load generator.
+
+Copyright @copyright{} 2022-2025 EMQ Technologies Co., Ltd. All Rights Reserved.
+
+@end copying
+
+@include schema.texi
+
+@c The document itself
+
+@titlepage
+  @title EMQTTB
+  @subtitle A scriptable autotuning MQTT load generator
+  @page
+  @vskip 0pt plus 1filll
+  @insertcopying
+@end titlepage
+
+@c Output the table of the contents at the beginning.
+@contents
+
+@ifnottex
+  @node Top
+  @top EMQTTB
+
+  @insertcopying
+@end ifnottex
+
+@include intro.texi
+
+@node Invokation
+@chapter Invokation
+  @node CLI
+  @section CLI Arguments
+  @lowersections
+    @include cli_param.texi
+  @raisesections
+
+  @node OS Environment Variables
+  @section OS Environment Variables
+  @lowersections
+    @include os_env.texi
+  @raisesections
+
+@node All Values
+@chapter All Configurable Values
+  @include value.texi
+
+@node Index
+  @unnumbered Index
+
+  @syncodeindex vr cp
+  @syncodeindex fn cp
+  @printindex cp
+
+@bye

@@ -305,16 +305,20 @@ model() ->
               }}
         , keepalive =>
             {[value, cli_param],
-             #{ type => emqttb:duration_s()
+             #{ oneliner    => "Keepalive time"
+              , doc         => "How often the clients will send @code{PING} MQTT message to the broker on idle connections."
+              , type        => emqttb:duration_s()
               , default_str => "60s"
               , cli_operand => "keepalive"
-              , cli_short => $k
+              , cli_short   => $k
               }}
         }
    , client =>
        #{ clientid =>
             {[value, cli_param],
-             #{ type        => binary()
+             #{ oneliner    => "ClientID pattern"
+              , doc         => "@doc-clientid"
+              , type        => binary()
               , default     => <<"%h-%g-%n">>
               , cli_operand => "clientid"
               , cli_short   => $i
@@ -340,6 +344,7 @@ model() ->
        #{ ifaddr =>
             {[value, cli_param],
              #{ oneliner    => "Local IP addresses"
+              , doc         => "@doc-ifaddr"
               , type        => emqttb:ifaddr_list()
               , default     => []
               , cli_operand => "ifaddr"
