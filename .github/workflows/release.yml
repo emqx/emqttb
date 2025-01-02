@@ -33,7 +33,7 @@ jobs:
         name: Install additional packages
         run: |
           apt-get update
-          apt-get install -y openjdk-11-jdk asciidoctor xsltproc docbook-xsl python3-pygments
+          apt-get install -y texinfo install-info
 
       - name: Build
         shell: bash
@@ -41,7 +41,7 @@ jobs:
           export BUILD_WITHOUT_QUIC=1
           git config --global --add safe.directory $(pwd)
           make release
-          tar czf docs.tar.gz _build/lee_doc/html _build/lee_doc/man _build/lee_doc/src/
+          tar czf docs.tar.gz doc/html doc/info
 
       - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:

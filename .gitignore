@@ -24,3 +24,7 @@ TAGS
 /*.tar.gz
 /emqttb
 /libquicer_nif.so
+doc/lee
+doc/info
+doc/html
+perf.data

@@ -1,0 +1,196 @@
+@c Put long definitions here
+
+@macro doc-clientid
+  Pattern used to generate ClientID.
+
+  The following substitutions are supported:
+
+  @table @samp
+    @item %n
+    replaced with the worker ID (integer)
+    @item %g
+    replaced with the group ID
+    @item %h
+    replaced with the hostname
+  @end table
+
+@end macro
+
+@macro doc-ifaddr
+  Bind a specific local IP address to the connection.
+  If multiple IP addresses are given, workers choose local address using round-robin algorithm.
+
+  @quotation Warning
+    Setting a local address for a client TCP connection explicitly has a nasty side effect:
+    when you do this @code{gen_tpc} calls @code{bind} on this address to get a free ephemeral port.
+    But the OS doesn't know that in advance that we won't be listening on the port, so it reserves the local port number for the connection.
+    However, when we connect to multiple EMQX brokers, we do want to reuse local ports.
+    So don't use this option when the number of local addresses is less than the number of remote addresses.
+  @end quotation
+
+@end macro
+
+@macro doc-interval
+  Supported units:
+
+  @table @samp
+    @item us
+    microseconds
+    @item ms
+    milliseconds
+    @item s
+    seconds
+    @item min
+    minutes
+    @item h
+    hours
+  @end table
+
+  If unit is not specified then @samp{ms} is assumed.
+
+@end macro
+
+@macro doc-scenario-sub
+  This scenario starts @code{-N} workers, which subscribe to a specified topic.
+  The only mandatory parameter is @code{--topic}, which supports pattern substitutions.
+
+  @heading Client groups
+  @code{sub}
+
+@end macro
+
+@macro doc-scenario-conn
+  This scenario starts @code{-N} workers, which connect to the broker and then simply linger around.
+
+  @heading Client groups
+  @code{conn}
+
+@end macro
+
+@macro doc-scenario-pub
+  This scenario starts @code{-N} workers, which publish messages to the specified topic at period @code{--pubinterval}.
+  The only mandatory parameter is @code{--topic}, which supports pattern substitutions.
+
+  @heading Client groups
+  @code{pub}
+
+  @heading Basic usage example
+  @example
+  emqttb @@pub -t foo/%n -N 100 -i 10ms -s 1kb
+  @end example
+
+
+  In this example the loadgen connects to the default broker @url{mqtt://localhost:1883},
+  starts 100 publishers which send messages to topic with the suffix of the worker id every 10 milliseconds.
+  Size of the messages is 1kb.
+
+  @heading Changing client settings
+  @example
+  emqttb @@pub -t foo/%n @@g --ssl --transport ws -h 127.0.0.1
+  @end example
+
+  In this example settings of the default client group has been changed: TLS encryption is enabled, and WebSocket transport is used.
+  Also the hostname of the broker is specified explicitly.
+
+  @example
+  emqttb @@pub -t foo/%n -q 1 -g pub @@g -g pub --ssl --transport ws -h 127.0.0.1
+  @end example
+
+  The above example is similar to the previous one, except QoS of the messages is set to 1,
+  and a dedicated client configuration with id `pub` is used for the publishers.
+  It's useful for running multiple scenarios (e.g. @code{@@pub} and @code{@@sub}) in parallel, when they must use different settings.
+  For example, it can be used for testing MQTT bridge.
+
+  @heading Tuning publishing rate automatically
+
+  By default, @code{@@pub} scenario keeps @code{pubinterval} constant.
+  However, in some situations it should be tuned dynamically:
+  suppose one wants to measure what publishing rate the broker can sustain while keeping publish latency under @code{--publatency}.
+
+  This is also useful for preventing system overload.
+  Generating too much load can bring the system down, and the test has to be started all over again with different parameters.
+  Sometimes finding the correct rate takes many attempts, wasting human and machine time.
+  Dynamic tuning of the publishing rate for keeping the latency constant can help in this situation.
+
+  By default the maximum speed of rate adjustment is set to 0, effectively locking the @code{pubinterval} at a constant value.
+  To enable automatic tuning, the autorate speed @code{-V} must be set to a non-zero value, also it makes sense to set
+  the minimum (@code{-m}) and maximum (@code{-M}) values of the autorate:
+
+  @example
+  emqttb @@pub -t foo -i 1s -q 1 --publatency 50ms @@a -V 10 -m 0 -M 10000
+  @end example
+
+  Once automatic adjustment of the publishing interval is enabled, @code{-i} parameter sets the starting value of the publish interval,
+  rather than the constant value. So the above example reads like this:
+
+  Publish messages to topic @code{foo} with QoS 1, starting at the publishing interval of 1000 milliseconds, dynamically adjusting it
+  so to keep the publishing latency around 50 milliseconds. The publishing interval is kept between 0 and 10 seconds,
+  and the maximum rate of its change is 10 milliseconds per second.
+
+@end macro
+
+@macro doc-scenario-pubsub-fwd
+  First all subscribers connect and subscribe to the brokers, then the publishers start to connect and publish.
+  The default is to use full forwarding of messages between the nodes:
+  that is, each publisher client publishes to a topic subscribed by a single client, and both clients reside on distinct nodes.
+
+  Full forwarding of messages is the default and can be set by full_forwarding.
+
+  @heading Client Groups
+  @itemize
+    @item
+    @code{pubsub_forward.pub}
+    @item
+    @code{pubsub_forward.sub}
+  @end itemize
+
+  @heading Basic Usage
+
+  @example
+  ./emqttb --restapi @@pubsub_fwd --publatency 10ms --num-clients 400 -i 70ms \
+                     @@g -h 172.25.0.2:1883,172.25.0.3:1883,172.25.0.4:1883
+  @end example
+
+  In this example the loadgen connects to a list of brokers in a round-robin in the declared order.
+  First all the subscribers, then the publishers,
+  with the difference that publishers will shift the given host list by one position to ensure each publisher and subscriber pair will reside on different hosts,
+  thus forcing all messages to be forwarded.
+
+@end macro
+
+@macro doc-scenario-persistent-session
+  This scenario starts @code{-N} workers, which connect to the broker and then simply linger around.
+
+  This scenario measures throughput of MQTT broker in presence of persistent sessions.
+  It is split in two stages that repeat in a loop:
+
+  @enumerate
+    @item
+    @samp{consume} stage where subscribers (re)connect to the broker with `clean_session=false` and ingest saved messages
+    @item
+    @samp{publish} stage where subscribers disconnect, and another group of clients publishes messages to the topics
+  @end enumerate
+
+  This separation helps to measure throughput of writing and reading messages independently.
+
+  Publish stage runs for a @ref{value/scenarios/persistent_session/_/pub/pub_time,set period of time}.
+  It's possible to adjust publishing rate via autorate.
+
+  Consume stages runs until the subscribers ingest all published messages,
+  or until @ref{value/scenarios/persistent_session/_/max_stuck_time,timeout}.
+  Please note that throughput measurement is not reliable when the consume stage is aborted due to timeout.
+
+  @heading Client Groups
+  @itemize
+    @item
+    @code{persistent_session.pub}
+    @item
+    @code{persistent_session.sub}
+  @end itemize
+
+@end macro
+
+@macro doc-scenario-sub-flapping
+  FIXME
+
+@end macro

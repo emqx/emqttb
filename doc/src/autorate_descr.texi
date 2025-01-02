@@ -1,0 +1,46 @@
+When the loadgen creates too much traffic, the system may get overloaded.
+In this case, the test usually has to be restarted all over again with different parameters.
+This can be very expensive in man-hours and computing resources.
+
+In order to prevent that, emqttb can tune some parameters (such as message publishing interval)
+automatically using
+@url{https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/,PI controller}.
+
+The following formula is used for the error function:
+
+@math{e=(a_{SP} - a_{PV}) a_{coeff}}
+
+@node Autoscale
+@section Autoscale
+
+A special autorate controlling the rate of spawning new clients is implicitly created for each client group.
+Its name usually follows the pattern @code{%scenario%/conn_interval}.
+
+By default, the number of pending (unacked) connections is used as the process variable.
+Number of pending connections is a metric that responds very fast to target overload, so it makes a reasonable default.
+
+For example the following command can automatically adjust the rate of connections:
+
+@example
+./emqttb --pushgw @@conn -I 10ms -N 5_000 \
+   @@a -a conn/conninterval -V 1000 --setpoint 10
+@end example
+
+@node SCRAM
+@section SCRAM
+
+Normally, autorate adjusts the control variable gradually.
+However, sometimes the system under test becomes overloaded suddenly, and in this case slowly decreasing the pressure may not be efficient enough.
+To combat this situation, @code{emqttb} has "SCRAM" mechanism, that immediately resets the control variable to a @ref{value/autorate/_/scram/override,configured safe value}.
+This happens when the value of process variable exceeds a @ref{value/autorate/_/scram/threshold,certain threshold}.
+
+SCRAM mode remains in effect until the number of pending connections becomes less than @math{\frac{t h}{100}}
+where @math{t} is threshold, and @math{h} is @ref{value/autorate/_/scram/hysteresis,hystersis}.
+
+@node Autorate List
+@section List of autorate variables
+@include autorate.texi
+
+@node Metrics List
+@section List of metrics
+@include metric.texi

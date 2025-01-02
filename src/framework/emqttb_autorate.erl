@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 %% gen_server callbacks:
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 %% lee_metatype callbacks:
--export([names/1, metaparams/1, meta_validate/2, validate_node/5, description/3]).
+-export([names/1, metaparams/1, meta_validate/2, validate_node/5, description/3, doc_refer/4]).
 
 %% internal exports:
 -export([start_link/1, model/0, from_model/1]).
@@ -86,7 +86,7 @@ ls(Model) ->
      {Id, Key}
    end || Key <- lee_model:get_metatype_index(autorate, Model)].
 
--spec ensure(config()) -> {auto, counter:counters_ref()}.
+-spec ensure(config()) -> {auto, counters:counters_ref()}.
 ensure(Conf) ->
   {ok, Pid} = emqttb_autorate_sup:ensure(Conf#{parent => self()}),
   {auto, get_counter(Pid)}.
@@ -96,7 +96,7 @@ get_counter(Autorate) ->
   gen_server:call(server(Autorate), get_counter).
 
 %% Set the current value to the specified value
--spec reset(atom() | pid() | lee:ley(), integer()) -> ok.
+-spec reset(atom() | pid() | lee:key(), integer()) -> ok.
 reset(Autorate, Val) ->
   gen_server:call(server(Autorate), {reset, Val}).
 
@@ -128,14 +128,24 @@ start_link(Conf = #{id := Id}) ->
 model() ->
   #{ id =>
        {[value, cli_param, autorate_id],
-        #{ type        => atom()
+        #{ oneliner    => "ID of the autorate configuration"
+         , doc         => "Autorate identifier.
+                           This value must be equal to one of the elements returned by @code{emqttb @@ls autorate} command.
+                           Full list is also available in @ref{Autorate List}.
+                           "
+         , type        => atom()
          , default     => default
          , cli_operand => "autorate"
          , cli_short   => $a
          }}
    , process_variable  =>
        {[value, cli_param, metric_id],
-        #{ oneliner    => "Key of the metric that the autorate uses as a process variable"
+        #{ oneliner    => "Process variable"
+         , doc         => "This parameter specifies ID of the metric that senses pressure on the SUT and serves as the process variable (PV).
+                           Its value must be equal to one of the metric IDs returned by @code{emqttb @@ls metric} command.
+
+                           Full list can be also found in @ref{Metrics List}.
+                           "
          , type        => lee:model_key()
          , cli_operand => "pvar"
          }}
@@ -148,7 +158,10 @@ model() ->
          }}
    , set_point         =>
        {[value, cli_param],
-        #{ oneliner    => "Value of the process variable that the autorate will try to keep"
+        #{ oneliner    => "Set point"
+         , doc         => "The desired value of the process variable (PV) is called the setpoint.
+                           Autorate adjusts the value of the control variable (CV) to bring the PV close to the setpoint.
+                           "
          , type        => number()
          , default     => 0
          , cli_operand => "setpoint"
@@ -172,14 +185,18 @@ model() ->
          }}
    , speed =>
        {[value, cli_param],
-        #{ type        => non_neg_integer()
+        #{ oneliner    => "Speed"
+         , doc         => "Maximum rate of change of the controlled parameter.
+
+                           Note: by default this parameter is set to 0 for each autorate, effectively locking the control parameter in place."
+         , type        => non_neg_integer()
          , default     => 0
          , cli_operand => "speed"
          , cli_short   => $V
          }}
    , k_p =>
        {[value, cli_param],
-        #{ oneliner    => "Controller gain"
+        #{ oneliner    => "Controller gain, @math{k_p}"
          , type        => number()
          , default     => 0.05
          , cli_operand => "Kp"
@@ -187,7 +204,7 @@ model() ->
          }}
    , t_i =>
        {[value, cli_param],
-        #{ oneliner    => "Controller reset time"
+        #{ oneliner    => "Controller reset time, @math{t_i}"
          , type        => number()
          , default     => 1
          , cli_operand => "Ti"
@@ -195,7 +212,9 @@ model() ->
          }}
    , update_interval =>
        {[value, cli_param],
-        #{ type        => emqttb:duration_ms()
+        #{ oneliner    => "Autorate update interval"
+         , doc         => "This parameter governs how often error is calculated and control parameter is updated.\n"
+         , type        => emqttb:duration_ms()
          , default     => 100
          , cli_operand => "update-interval"
          , cli_short   => $u
@@ -203,7 +222,9 @@ model() ->
    , scram =>
        #{ enabled =>
             {[value, cli_param],
-             #{ type        => boolean()
+             #{ oneliner    => "Enable SCRAM"
+              , doc         => "@xref{SCRAM}\n"
+              , type        => boolean()
               , default     => false
               , cli_operand => "olp"
               }}
@@ -215,14 +236,22 @@ model() ->
               }}
         , hysteresis =>
             {[value, cli_param],
-             #{ oneliner    => "Hysteresis (%) of overload detection"
+             #{ oneliner    => "SCRAM hysteresis"
+              , doc         => "Hysteresis is defined as percent of the threshold.
+
+                                It is used to prevent frequent switching between normal and SCRAM modes of operation.
+                                "
               , type        => typerefl:range(1, 100)
               , default     => 50
               , cli_operand => "olp-hysteresis"
               }}
         , override =>
             {[value, cli_param],
-             #{ type        => emqttb:duration_us()
+             #{ oneliner    => "SCRAM rate override"
+              , doc         => "Replace configured (or calculated via autorate) value of the control variable with this value
+                                when the system under test is not keeping up with the load.
+                                "
+              , type        => emqttb:duration_us()
               , default_str => "10s"
               , cli_operand => "olp-override"
               }}
@@ -284,16 +313,23 @@ from_model(Key) ->
   #mnode{metaparams = #{autorate_id := Id}} = lee_model:get(Key, ?MYMODEL),
   Id.
 
-description(autorate = MT, Model, _Options) ->
-  Chapter = autorate,
+description(autorate = MT, Model, Options) ->
   Content = [begin
                #mnode{metaparams = Attrs} = lee_model:get(Key, Model),
                Title = atom_to_list(?m_attr(autorate, autorate_id, Attrs)),
-               lee_doc:refer_value(Model, Chapter, Key, Title)
+               [ #doclet{mt = autorate, tag = autorate, key = Key, data = Title}
+               , lee_doc:get_oneliner(autorate, Model, Key)
+               , lee_metatype:doc_refer(value, Model, Options, Key)
+               ]
              end || Key <- lee_model:get_metatype_index(MT, Model)
             ],
-  lee_doc:chapter(MT, "Automatically adjusted values", Content);
+  [#doclet{mt = autorate, tag = container, data = Content}];
 description(_, _, _) ->
+  [].
+
+doc_refer(autorate, _Model, _Options, Key) ->
+  [#doclet{mt = autorate, tag = see_also, data = #doc_xref{mt = autorate, key = Key}}];
+doc_refer(_, _Model, _Options, _Key) ->
   [].
 
 %%================================================================================

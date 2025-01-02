@@ -34,8 +34,8 @@ CopyDocsSteps =
 case CanBuildDocs() of
     true ->
         [ {mkdir, "doc"}
-        , {copy, "_build/lee_doc/html/", "doc/html"}
-        , {copy, "_build/lee_doc/man/", "doc/man"}
+        , {copy, "doc/html/", "doc/html"}
+        , {copy, "doc/info/", "doc/info"}
         ];
     false ->
         []

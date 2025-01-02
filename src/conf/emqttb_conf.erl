@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023, 2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 -module(emqttb_conf).
 
 %% API:
--export([load_model/0, load_conf/0, get/1, list_keys/1, reload/0, patch/1, string2patch/1]).
+-export([load_model/0, model/0, load_conf/0, get/1, list_keys/1, reload/0, patch/1, string2patch/1]).
 -export([compile_model/1]).
 
 -export_type([]).
@@ -32,6 +32,9 @@
 %%================================================================================
 %% API funcions
 %%================================================================================
+
+model() ->
+  ?MYMODEL.
 
 load_model() ->
   case compile_model(emqttb_conf_model:model()) of

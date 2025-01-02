@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2024 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -305,16 +305,20 @@ model() ->
               }}
         , keepalive =>
             {[value, cli_param],
-             #{ type => emqttb:duration_s()
+             #{ oneliner    => "Keepalive time"
+              , doc         => "How often the clients will send @code{PING} MQTT message to the broker on idle connections."
+              , type        => emqttb:duration_s()
               , default_str => "60s"
               , cli_operand => "keepalive"
-              , cli_short => $k
+              , cli_short   => $k
               }}
         }
    , client =>
        #{ clientid =>
             {[value, cli_param],
-             #{ type        => binary()
+             #{ oneliner    => "ClientID pattern"
+              , doc         => "@doc-clientid"
+              , type        => binary()
               , default     => <<"%h-%g-%n">>
               , cli_operand => "clientid"
               , cli_short   => $i
@@ -340,6 +344,7 @@ model() ->
        #{ ifaddr =>
             {[value, cli_param],
              #{ oneliner    => "Local IP addresses"
+              , doc         => "@doc-ifaddr"
               , type        => emqttb:ifaddr_list()
               , default     => []
               , cli_operand => "ifaddr"
@@ -467,7 +472,7 @@ ifaddr() ->
       [{ifaddr, IfAddr}]
   end.
 
--spec ssl_opts() -> [ssl:option()].
+-spec ssl_opts() -> [ssl:tls_option()].
 ssl_opts() ->
   Cert    = my_cfg([ssl, certfile]),
   Keyfile = my_cfg([ssl, keyfile]),

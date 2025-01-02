@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2023 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2022-2023, 2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@
 
 -type host_selection() :: round_robin | random.
 
--type ifaddr_list() :: list(typerefl:ip_address()).
+-type ifaddr_list() :: [inet:ip_address()].
 -typerefl_from_string({ifaddr_list/0, ?MODULE, parse_addresses}).
 
 -type n_cycles() :: non_neg_integer() | undefined.
@@ -123,7 +123,7 @@ duration_to_sleep(DurationUs) when DurationUs >= 1_000 ->
 duration_to_sleep(DurationUs) ->
   {1, 1_000 div DurationUs}.
 
--spec get_duration_and_repeats(counters:counters_ref() | non_neg_integer()) ->
+-spec get_duration_and_repeats(counters:counters_ref() | emqttb:duration_us()) ->
         {non_neg_integer(), 1..1000}.
 get_duration_and_repeats(I) when is_integer(I) ->
   duration_to_sleep(I);
