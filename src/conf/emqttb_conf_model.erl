@@ -282,7 +282,7 @@ model() ->
    , autorate =>
        {[map, cli_action],
         #{ oneliner     => "Autorate configuration"
-         , doc          => "@doc-autorate"
+         , doc          => "@xref{Autorate}\n"
          , cli_operand  => "a"
          , key_elements => [[id]]
          },

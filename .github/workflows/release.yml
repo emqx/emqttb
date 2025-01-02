@@ -33,7 +33,7 @@ jobs:
         name: Install additional packages
         run: |
           apt-get update
-          apt-get install -y texinfo
+          apt-get install -y texinfo install-info
 
       - name: Build
         shell: bash

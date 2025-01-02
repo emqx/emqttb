@@ -38,6 +38,7 @@ docs: doc/info/emqttb.info doc/html/index.html
 
 doc/info/emqttb.info: $(TEXINFO)
 	texi2any -I doc/lee --info -o $@ $<
+	install-info $@ doc/info/dir
 
 doc/html/index.html: $(TEXINFO)
 # -c MATHJAX_CONFIGURATION="$(MATHJAX_OPTS)"

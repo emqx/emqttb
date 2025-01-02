@@ -3,6 +3,12 @@
 @setfilename emqttb.info
 @settitle EMQTTB
 @c %**end of header
+
+@dircategory EMQTTB: an MQTT load generator.
+@direntry
+* EMQTTB: (emqttb).
+@end direntry
+
 @copying
 A scriptable autotuning MQTT load generator.
 
@@ -32,33 +38,51 @@ Copyright @copyright{} 2022-2025 EMQ Technologies Co., Ltd. All Rights Reserved.
   @insertcopying
 @end ifnottex
 
-@include intro.texi
+@node Introduction
+@chapter Introduction
+  @include intro.texi
 
 @node Invokation
 @chapter Invokation
-  @node CLI
-  @section CLI Arguments
-  @lowersections
-    @include cli_param.texi
-  @raisesections
+EMQTTB executable accepts named CLI arguments (such as @option{--foo} or -f positional arguments and actions. Actions are special CLI arguments that start with @@ character (e.g. @option{@@pub}). Actions correspond to different load-generation scenarios, such as @option{@@pub} and @option{@@sub}, client group configurations (@option{@@g}) and autorates (@option{@@g}).
 
-  @node OS Environment Variables
-  @section OS Environment Variables
-  @lowersections
-    @include os_env.texi
-  @raisesections
+Each CLI action defines its own scope of named and positional CLI arguments. Positional arguments are always specified after named arguments within the scope. There is also a global scope of arguments that don’t belong to any action. Global arguments are specified before the very first action.
+
+Example:
+
+@example
+emqttb --foo --bar 1 positional1 positional2 @@action1 --foo 1 positional1 @@action2 ...
+       |___________| |_____________________|          |_________________|
+       |regular args    positional args    |            action1 scope
+       |___________________________________|
+                 global scope
+@end example
+
+Flag negation:
+
+Boolean flag arguments can be set to false by adding @code{no-} prefix, for example @option{--no-pushgw}.
+
+Short boolean flags can be set to false using @code{+} sigil instead of @code{-}.
+
+@node CLI
+@section CLI Arguments
+@lowersections
+  @include cli_param.texi
+@raisesections
+
+@node OS Environment Variables
+@section OS Environment Variables
+@lowersections
+  @include os_env.texi
+@raisesections
+
+@node Autorate
+@chapter Autorate
+  @include autorate_descr.texi
 
 @node All Values
 @chapter All Configurable Values
   @include value.texi
-
-@node Autorate
-@chapter List of autorate variables
-  @include autorate.texi
-
-@node Metrics
-@chapter List of metrics
-  @include metric.texi
 
 @node Index
   @unnumbered Index

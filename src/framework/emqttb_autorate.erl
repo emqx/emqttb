@@ -131,7 +131,7 @@ model() ->
         #{ oneliner    => "ID of the autorate configuration"
          , doc         => "Autorate identifier.
                            This value must be equal to one of the elements returned by @code{emqttb @@ls autorate} command.
-                           Full list is also available in FIXME <<autorate>>
+                           Full list is also available in @ref{Autorate List}.
                            "
          , type        => atom()
          , default     => default
@@ -144,7 +144,7 @@ model() ->
          , doc         => "This parameter specifies ID of the metric that senses pressure on the SUT and serves as the process variable (PV).
                            Its value must be equal to one of the metric IDs returned by @code{emqttb @@ls metric} command.
 
-                           Full list can be also found in FIXME <<metrics>>.
+                           Full list can be also found in @ref{Metrics List}.
                            "
          , type        => lee:model_key()
          , cli_operand => "pvar"
@@ -223,7 +223,7 @@ model() ->
        #{ enabled =>
             {[value, cli_param],
              #{ oneliner    => "Enable SCRAM"
-              , doc         => "@doc-scram"
+              , doc         => "@xref{SCRAM}\n"
               , type        => boolean()
               , default     => false
               , cli_operand => "olp"

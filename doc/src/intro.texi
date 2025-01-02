@@ -1,5 +1,15 @@
-@node Introduction
-@chapter Introduction
+@node Concepts
+@section Concepts: Worker, Group, Scenario...
+
+@b{Worker} is a process that corresponds to a single MQTT client.
+
+@b{Behavior} is a callback module containing functions that workers run in a loop.
+
+@b{Group} is a supervised colletion of workers running the same behavior and sharing the same configuration. Group manager controls the number of workers, restarts failed workers and implements ramp up/down logic.
+
+@b{Scenario} is a callback module that creates several worker groups and manupulates group configuration using autorate.
+
+@b{Autorate} a process that adjusts group parameters (such as number of workers in the group, or worker configuration) based on constants or dynamic parameters, e.g. available RAM or CPU load, observed latency and so on.
 
 @node Topic Patterns
 @section Topic Patterns
