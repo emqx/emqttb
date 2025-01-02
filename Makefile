@@ -2,16 +2,6 @@ REBAR ?= $(CURDIR)/rebar3
 REBAR_URL ?= https://s3.amazonaws.com/rebar3/rebar3
 TEXINFO := doc/src/emqttb.texi doc/lee/cli_params.texi doc/lee/os_env.texi doc/lee/value.texi
 
-define MATHJAX_OPTS
-loader: {\
-    load: ['[tex]/physics'],\
-    versionWarnings: false\
-},\
-tex: {\
-  packages: {'[+]': ['physics']}\
-}
-endef
-
 .PHONY: all
 all: $(REBAR)
 	$(REBAR) do compile, dialyzer, xref, eunit, ct
@@ -41,7 +31,6 @@ doc/info/emqttb.info: $(TEXINFO)
 	install-info $@ doc/info/dir
 
 doc/html/index.html: $(TEXINFO)
-# -c MATHJAX_CONFIGURATION="$(MATHJAX_OPTS)"
 	texi2any -I doc/lee --html -c INFO_JS_DIR=js -c HTML_MATH=mathjax -o doc/html/ $<
 
 $(TEXINFO): scripts/docgen.escript compile
