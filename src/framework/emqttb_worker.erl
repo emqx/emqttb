@@ -67,8 +67,8 @@
 
 -spec start(module(), pid(), non_neg_integer()) -> pid().
 start(Behavior, Group, Number) ->
-  Options = [],
-  spawn_opt(?MODULE, entrypoint, [Behavior, Group, Number], Options).
+  Options = [{min_heap_size, 10}],
+  erlang:spawn_opt(?MODULE, entrypoint, [Behavior, Group, Number], Options).
 
 -spec init_per_group(module(), emqttb:group(), term()) -> term().
 init_per_group(Module, GroupID, Opts) ->
@@ -217,6 +217,7 @@ loop(State) ->
     Msg ->
       try apply(behavior(), handle_message, [my_settings(), State, Msg]) of
         {ok, NewState} ->
+          erlang:garbage_collect(),
           loop(NewState);
         {exit, NewState} ->
           terminate(NewState, normal);
