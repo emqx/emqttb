@@ -42,10 +42,6 @@
 
 -type prototype() :: {?MODULE, config()}.
 
--type sequence() :: {_From :: binary(), _To :: binary(), _Topic :: binary()}.
-
--define(seq_tab, emqttb_behavior_sub_seq_tab).
-
 %%================================================================================
 %% API
 %%================================================================================
@@ -132,7 +128,7 @@ init_per_group(_Group,
   NStreams = emqttb_metrics:from_model(MetricsModelKey ++ [n_streams]),
   emqttb_metrics:gauge_set(NStreams, 0),
   Conf = maps:merge(Defaults, Opts),
-  ensure_sequence_table(),
+  emqttb_msg_payload:ensure_sequence_table(),
   Conf#{ conn_opstat => emqttb_metrics:opstat_from_model(MetricsModelKey ++ [conn_latency])
        , sub_opstat => emqttb_metrics:opstat_from_model(MetricsModelKey ++ [sub_latency])
        , e2e_latency => emqttb_metrics:from_model(MetricsModelKey ++ [e2e_latency])
@@ -160,27 +156,8 @@ init(SubOpts0 = #{ topic := T
   emqttb_metrics:call_with_counter(SubOpstat, emqtt, subscribe, [Conn, emqttb_worker:format_topic(T), QoS]),
   Conn.
 
-handle_message(#{ parse_metadata := ParseMetadata, verify_sequence := VerifySequence,
-                  sub_counter := SubCnt, e2e_latency := E2ELatency
-                } = Conf,
-               Conn,
-               {publish, #{client_pid := Pid, payload := Payload, topic := Topic}}
-              ) when Pid =:= Conn ->
-  emqttb_metrics:counter_inc(SubCnt, 1),
-  case ParseMetadata of
-    true ->
-      {Id, SeqNo, TS} = emqttb_behavior_pub:parse_metadata(Payload),
-      Dt = os:system_time(microsecond) - TS,
-      emqttb_metrics:rolling_average_observe(E2ELatency, Dt),
-      case VerifySequence of
-        true ->
-          verify_sequence(Conf, Id, Topic, SeqNo);
-        false ->
-          ok
-      end;
-    false ->
-      ok
-  end,
+handle_message(Conf, Conn, {publish, Msg = #{client_pid := Pid}}) when Pid =:= Conn ->
+  emqttb_msg_payload:on_receive_message(Conf, Msg),
   {ok, Conn};
 handle_message(_, Conn, _) ->
   {ok, Conn}.
@@ -192,35 +169,3 @@ terminate(_Shared, Conn) ->
 %%================================================================================
 %% Internal functions
 %%================================================================================
-
-verify_sequence(#{ number_of_gaps := NGaps, gap_size := GapSize, number_of_repeats := NRepeats
-                 , repeat_size := RepeatSize, n_streams := NStreams},
-                From, Topic, SeqNo) ->
-  Key = {From, emqttb_worker:my_id(), Topic},
-  case ets:lookup(?seq_tab, Key) of
-    [] ->
-      emqttb_metrics:counter_inc(NStreams, 1),
-      ok;
-    [{_, OldSeqNo}] when SeqNo =:= OldSeqNo + 1 ->
-      ok;
-    [{_, OldSeqNo}] when SeqNo > OldSeqNo ->
-      logger:warning("Gap detected: ~p ~p; ~p", [OldSeqNo, SeqNo, Key]),
-      emqttb_metrics:counter_inc(NGaps, 1),
-      emqttb_metrics:rolling_average_observe(GapSize, SeqNo - OldSeqNo - 1);
-    [{_, OldSeqNo}] ->
-      logger:info("Repeat detected: ~p ~p; ~p", [OldSeqNo, SeqNo, Key]),
-      emqttb_metrics:counter_inc(NRepeats, 1),
-      emqttb_metrics:rolling_average_observe(RepeatSize, OldSeqNo - SeqNo + 1)
-  end,
-  ets:insert(?seq_tab, {Key, SeqNo}).
-
-ensure_sequence_table() ->
-  catch ets:new(?seq_tab,
-                [ named_table
-                , set
-                , public
-                , {write_concurrency, true}
-                , {read_concurrency, true}
-                , {heir, whereis(emqttb_metrics), ?seq_tab}
-                ]),
-  ok.

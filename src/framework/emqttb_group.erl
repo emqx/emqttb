@@ -37,7 +37,8 @@
 
 -type prototype() :: emqttb_behavior_pub:prototype()
                    | emqttb_behavior_sub:prototype()
-                   | emqttb_behavior_conn:prototype().
+                   | emqttb_behavior_conn:prototype()
+                   | emqttb_behavior_pubsub:prototype().
 
 -type group_config() ::
         #{ id            := atom()
