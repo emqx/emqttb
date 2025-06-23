@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2022-2025 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2025 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(emqttb_behavior_pub).
+-module(emqttb_behavior_pubsub).
 
 -behavior(emqttb_worker).
 
@@ -34,7 +34,8 @@
 %% Type declarations
 %%================================================================================
 
--type config() :: #{ topic          := binary()
+-type config() :: #{ pub_topic      := binary()
+                   , sub_topic      := binary()
                    , pubinterval    := lee:model_key()
                    , msg_size       := non_neg_integer()
                    , metrics        := lee:model_key()
@@ -60,12 +61,21 @@ model(Group) ->
        emqttb_metrics:opstat(Group, connect)
    , pub_latency =>
        emqttb_metrics:opstat(Group, publish)
+   , sub_latency =>
+       emqttb_metrics:opstat(Group, subscribe)
    , n_published =>
        {[metric],
         #{ oneliner => "Total number of messages published by the group"
          , id => {emqttb_published_messages, Group}
          , labels => [group]
          , metric_type => counter
+         }}
+   , n_received =>
+       {[metric],
+        #{ oneliner => "Total number of received messages"
+         , id => {emqttb_received_messages, Group}
+         , metric_type => counter
+         , labels => [group]
          }}
    }.
 
@@ -82,19 +92,18 @@ parse_metadata(<<ID:32, SeqNo:64, TS:64, _/binary>>) ->
 %%================================================================================
 
 init_per_group(Group,
-               #{ topic        := Topic
+               #{ pub_topic    := PubTopic
+                , sub_topic    := SubTopic
                 , pubinterval  := PubInterval
                 , msg_size     := MsgSize
                 , qos          := QoS
                 , metrics      := MetricsKey
-                } = Conf) when is_binary(Topic),
+                } = Conf) when is_binary(PubTopic),
+                               is_binary(SubTopic),
                                is_integer(MsgSize) ->
   AddMetadata = maps:get(metadata, Conf, false),
   PubRate = emqttb_autorate:get_counter(emqttb_autorate:from_model(PubInterval)),
-  MetadataSize = case AddMetadata of
-                   true  -> (32 + 64 + 64) div 8;
-                   false -> 0
-                 end,
+  MetadataSize = emqttb_msg_payload:metadata_size(AddMetadata),
   HostShift = maps:get(host_shift, Conf, 0),
   HostSelection = maps:get(host_selection, Conf, random),
   Retain = maps:get(retain, Conf, false),
@@ -105,7 +114,9 @@ init_per_group(Group,
                    false ->
                      message(Size)
                  end,
-  #{ topic => Topic
+  #{ pub_topic => PubTopic
+   , sub_topic => SubTopic
+   , qos => QoS
    , message_prototype => MsgPrototype
    , pub_opts => [{qos, QoS}, {retain, Retain}]
    , pubinterval => PubRate
@@ -116,37 +127,48 @@ init_per_group(Group,
    , clean_start => maps:get(clean_start, Conf, true)
    , pub_opstat => emqttb_metrics:opstat_from_model(MetricsKey ++ [pub_latency])
    , conn_opstat => emqttb_metrics:opstat_from_model(MetricsKey ++ [conn_latency])
+   , sub_optstat => emqttb_metrics:opstat_from_model(MetricsKey ++ [sub_latency])
    , pub_counter => emqttb_metrics:from_model(MetricsKey ++ [n_published])
+   , sub_counter => emqttb_metrics:from_model(MetricsKey ++ [n_received])
    }.
 
-init(PubOpts = #{pubinterval := I, conn_opstat := ConnOpstat,
-                 expiry := Expiry, clean_start := CleanStart}) ->
+init(ClientOpts = #{pubinterval := I, conn_opstat := ConnOpstat,
+                    sub_opstat := SubOpstat,
+                    expiry := Expiry, clean_start := CleanStart,
+                    qos := QoS, sub_topic := SubTopic}) ->
   {SleepTime, N} = emqttb:get_duration_and_repeats(I),
   send_after_rand(SleepTime, {publish, N}),
-  HostShift = maps:get(host_shift, PubOpts, 0),
-  HostSelection = maps:get(host_selection, PubOpts, random),
+  HostShift = maps:get(host_shift, ClientOpts, 0),
+  HostSelection = maps:get(host_selection, ClientOpts, random),
   Props = case Expiry of
             undefined -> #{};
             _         -> #{'Session-Expiry-Interval' => Expiry}
           end,
   {ok, Conn} = emqttb_worker:connect(ConnOpstat, Props#{host_shift => HostShift, host_selection => HostSelection},
-                                    [{clean_start, CleanStart}], [], []),
+                                     [{clean_start, CleanStart}], [], []),
+  emqttb_metrics:call_with_counter(SubOpstat, emqtt, subscribe, [Conn, emqttb_worker:format_topic(SubTopic), QoS]),
   Conn.
 
 handle_message(Shared, Conn, {publish, N1}) ->
-  #{ topic := TP, pubinterval := I, message_prototype := MsgPrototype, pub_opts := PubOpts
+  #{ pub_topic := PubTopic
+   , pubinterval := I
+   , message_prototype := MsgProto
+   , pub_opts := PubOpts
    , pub_counter := PubCounter
    , pub_opstat := PubOpstat
    , metadata := AddMetadata
    } = Shared,
   {SleepTime, N2} = emqttb:get_duration_and_repeats(I),
   send_after(SleepTime, {publish, N2}),
-  Msg = emqttb_msg_payload:make_message(MsgPrototype, AddMetadata),
-  T = emqttb_worker:format_topic(TP),
+  Msg = emqttb_msg_payload:make_message(MsgProto, AddMetadata),
+  T = emqttb_worker:format_topic(PubTopic),
   repeat(N1, fun() ->
                  emqttb_metrics:call_with_counter(PubOpstat, emqtt, publish, [Conn, T, Msg, PubOpts]),
                  emqttb_metrics:counter_inc(PubCounter, 1)
              end),
+  {ok, Conn};
+handle_message(Conf, Conn, {publish, Msg = #{client_pid := Pid}}) when Pid =:= Conn ->
+  emqttb_msg_payload:on_receive_message(Conf, Msg),
   {ok, Conn};
 handle_message(_, Conn, _) ->
   {ok, Conn}.
