@@ -77,7 +77,7 @@ jobs:
           - amzn2
           - amzn2023
     env:
-      EMQX_BUILDER: ghcr.io/emqx/emqx-builder/5.3-6:1.15.7-${{ matrix.otp }}-${{ matrix.os }}
+      EMQX_BUILDER: ghcr.io/emqx/emqx-builder/5.3-13:1.15.7-${{ matrix.otp }}-${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
