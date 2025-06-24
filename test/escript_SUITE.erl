@@ -46,7 +46,7 @@ t_persistent_session(Config) when is_list(Config) ->
   ?assertMatch(0, run("@persistent_session --cycles 1 --pubtime 1ms -P 0 -S 0")).
 
 t_pubsub(Config) when is_list(Config) ->
-  ?assertMatch(0, run("--loiter 0 @pubsub --sub-topic foo --pub-topic bar --sub-qos 0 --pub-qos 0")).
+  ?assertMatch(0, run("--loiter 0 @pubsub --sub-topic foo --pub-topic bar --sub-qos 0 --pub-qos 0 -N 0")).
 
 t_set_group_config(Config) when is_list(Config) ->
   ?assertMatch(0, run("@g -p 9090")),

@@ -148,7 +148,7 @@ model() ->
          , type => emqttb:n_clients()
          , default => 100
          , cli_operand => "num-clients"
-         , cli_short => $n
+         , cli_short => $N
          }}
    , start_n =>
        {[value, cli_param],
