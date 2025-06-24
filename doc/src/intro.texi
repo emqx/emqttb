@@ -23,6 +23,8 @@
   replaced with the group ID
   @item %h
   replaced with the hostname
+  @item %@{rand N@}
+  replaced with a random integer in range 1 @dots{} N
 @end table
 
 

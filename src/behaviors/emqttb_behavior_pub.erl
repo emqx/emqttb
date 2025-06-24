@@ -105,7 +105,7 @@ init_per_group(_Group,
                    false ->
                      message(Size)
                  end,
-  #{ topic => Topic
+  #{ topic => emqttb_worker:split_topic(Topic)
    , message_prototype => MsgPrototype
    , pub_opts => [{qos, QoS}, {retain, Retain}]
    , pubinterval => PubRate
