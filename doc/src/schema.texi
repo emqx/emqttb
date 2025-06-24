@@ -192,5 +192,16 @@
 
 @macro doc-scenario-sub-flapping
   FIXME
+@end macro
 
+@macro doc-scenario-pubsub
+  This scenario starts a group of clients that subscribe to
+  @ref{value/scenarios/pubsub/_/sub/topic} and simultaneously
+  publish messages to @ref{value/scenarios/pubsub/_/pub/topic}.
+
+  It makes sense to combine it with other scenarios, for example:
+
+  @example
+  emqttb @@pubsub --pub-topic 'foo/%n' --sub-topic 'bar/%n' @@pub -t bar/%n'
+  @end example
 @end macro
