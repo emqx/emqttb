@@ -52,18 +52,34 @@
 %%================================================================================
 
 model() ->
-  #{ pub_topic =>
+  #{ group =>
+       {[value, cli_param, pointer],
+        #{ oneliner => "ID of the client group"
+         , type => atom()
+         , default => default
+         , cli_operand => "group"
+         , cli_short => $g
+         , target_node => [groups]
+         }}
+   , metadata =>
+       {[value, cli_param],
+        #{ oneliner    => "Add metadata to the messages"
+         , type        => boolean()
+         , default     => false
+         , cli_operand => "metadata"
+         }}
+   , pub_topic =>
        {[value, cli_param],
         #{ oneliner => "Topic used for publishing"
          , type => binary()
-         , default => <<"pubsub_same/pub">>
+         , default => <<"pubsub_same/pub/%n">>
          , cli_operand => "pub-topic"
          }}
    , sub_topic =>
        {[value, cli_param],
         #{ oneliner => "Topic that clients subscribe to"
          , type => binary()
-         , default => <<"pubsub_same/sub">>
+         , default => <<"pubsub_same/sub/%n">>
          , cli_operaned => "sub_topic"
          }}
    , pub_qos =>
@@ -75,7 +91,11 @@ model() ->
          }}
    , sub_qos =>
        {[value, cli_param],
-
+        #{ oneliner => "QoS of the subscription"
+         , type => emqttb:qos()
+         , default => 1
+         , cli_operand => "sub-qos"
+         }}
    , msg_size =>
        {[value, cli_param],
         #{ oneliner => "Size of the published message in bytes"
@@ -83,6 +103,13 @@ model() ->
          , cli_operand => "size"
          , cli_short => $s
          , default => 256
+         }}
+   , random =>
+       {[value, cli_param],
+        #{ oneliner => "Randomize message contents"
+         , type => boolean()
+         , cli_operand => "random"
+         , default => false
          }}
    , pubinterval =>
        {[value, cli_param, autorate],
@@ -130,14 +157,10 @@ run() ->
 %%================================================================================
 
 subscribe_stage() ->
-  TopicPrefix = topic_prefix(),
-  RandomHosts = my_conf([random_hosts]),
-  HostSelection = case RandomHosts of
-                      true -> random;
-                      false -> round_robin
-                  end,
-  SubOpts = #{ topic          => <<TopicPrefix/binary, "%n">>
-             , qos            => my_conf([sub, qos])
+  SubOpts = #{ pub_topic      => my_conf([pub_topic])
+             , sub_topic      => my_conf([sub_topic])
+             , pub_qos        => my_conf([pub_qos])
+             , sub_qos        => my_conf([sub_qos])
              , expiry         => undefined
              , clean_start    => true
              , host_shift     => 0
@@ -184,6 +207,3 @@ publish_stage() ->
   N = my_conf([num_clients]) div 2,
   {ok, _} = emqttb_group:set_target(?PUB_GROUP, N),
   ok.
-
-topic_prefix() ->
-  <<"pubsub_fwd/">>.

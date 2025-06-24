@@ -36,11 +36,11 @@
 
 -type config() :: #{ pub_topic      := binary()
                    , sub_topic      := binary()
+                   , pub_qos        := emqttb:qos()
+                   , sub_qos        := emqttb:qos()
                    , pubinterval    := lee:model_key()
                    , msg_size       := non_neg_integer()
                    , metrics        := lee:model_key()
-                   , qos            := emqttb:qos()
-                   , retain         => boolean()
                    , metadata       => boolean()
                    , host_shift     => integer()
                    , random         => boolean()
@@ -106,7 +106,6 @@ init_per_group(Group,
   MetadataSize = emqttb_msg_payload:metadata_size(AddMetadata),
   HostShift = maps:get(host_shift, Conf, 0),
   HostSelection = maps:get(host_selection, Conf, random),
-  Retain = maps:get(retain, Conf, false),
   Size = max(0, MsgSize - MetadataSize),
   MsgPrototype = case maps:get(random, Conf, false) of
                    true ->
@@ -118,7 +117,7 @@ init_per_group(Group,
    , sub_topic => SubTopic
    , qos => QoS
    , message_prototype => MsgPrototype
-   , pub_opts => [{qos, QoS}, {retain, Retain}]
+   , pub_opts => [{qos, QoS}, {retain, false}]
    , pubinterval => PubRate
    , metadata => AddMetadata
    , host_shift => HostShift
