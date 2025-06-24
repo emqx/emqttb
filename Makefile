@@ -18,8 +18,15 @@ dialyzer: $(REBAR)
 test: $(REBAR)
 	$(REBAR) do compile, eunit, ct
 
+ifneq ($(CAN_BUILD_DOCS),false)
+release_deps := compile docs
+else
+release_deps := compile
+endif
+
 .PHONY: release
-release: compile docs
+release: $(release_deps)
+	echo $(release_deps)
 	@$(REBAR) as emqttb tar
 	@$(CURDIR)/scripts/rename-package.sh
 
