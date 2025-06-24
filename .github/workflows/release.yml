@@ -20,8 +20,15 @@ jobs:
   docs:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        otp:
+          - "26.2.5.2-1"
+        os:
+          - ubuntu24.04
+
     container:
-      image: ghcr.io/emqx/emqx-builder/5.3-6:1.15.7-26.2.3-1-ubuntu24.04
+      image: ghcr.io/emqx/emqx-builder/5.3-13:1.15.7-${{ matrix.otp }}-${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
@@ -56,7 +63,7 @@ jobs:
       fail-fast: false
       matrix:
         otp:
-          - "26.2.3-1"
+          - "26.2.5.2-1"
         os:
           - ubuntu24.04
           - ubuntu22.04
