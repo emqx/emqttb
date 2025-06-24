@@ -108,8 +108,8 @@ init_per_group(_Group,
                    false ->
                      message(Size)
                  end,
-  #{ pub_topic => PubTopic
-   , sub_topic => SubTopic
+  #{ pub_topic => emqttb_worker:split_topic(PubTopic)
+   , sub_topic => emqttb_worker:split_topic(SubTopic)
    , sub_qos => SubQos
    , message_prototype => MsgPrototype
    , pub_opts => [{qos, PubQoS}, {retain, false}]

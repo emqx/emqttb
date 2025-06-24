@@ -19,7 +19,7 @@
 -export([my_group/0, my_id/0, my_clientid/0, my_hostname/0, my_cfg/1,
          send_after/2, send_after_rand/2, repeat/2,
          connect/2, connect/5,
-         format_topic/1
+         split_topic/1, format_topic/1
         ]).
 
 %% internal exports:
@@ -101,13 +101,30 @@ my_group() ->
 my_id() ->
   get(?MY_ID).
 
--spec format_topic(binary()) -> binary().
+-spec split_topic(binary()) -> [binary() | atom()].
+split_topic(Topic) ->
+  Re = "(%[ngh])|(%{[^%}]+})",
+  Tokens = re:split(Topic, Re, [trim, {return, list}]),
+  lists:map(
+    fun("%n") -> n;
+       ("%g") -> group;
+       ("%h") -> hostname;
+       (Pattern = "%{" ++ Rest) ->
+        case string:lexemes(string:trim(Rest, trailing, "}"), " ") of
+          ["rand", N] ->
+            {rand, list_to_integer(N)};
+          L ->
+            logger:warning("Unknown topic token: ~p", [L]),
+            list_to_binary(Pattern)
+        end;
+       (L) ->
+        list_to_binary(L)
+    end,
+    Tokens).
+
+-spec format_topic([binary() | atom()]) -> binary().
 format_topic(Pattern) ->
-  Group = my_group(),
-  ID = my_id(),
-  Id0 = binary:replace(Pattern, <<"%n">>, integer_to_binary(ID), [global]),
-  Id1 = binary:replace(Id0, <<"%g">>, atom_to_binary(Group), [global]),
-  binary:replace(Id1, <<"%h">>, my_hostname(), [global]).
+  format_topic(Pattern, <<>>).
 
 %% @doc Get group-specific configuration (as opposed to global)
 -spec my_cfg(lee:key()) -> term().
@@ -385,6 +402,23 @@ model() ->
 %%================================================================================
 %% Internal functions
 %%================================================================================
+
+format_topic([], Acc) ->
+  Acc;
+format_topic([Token | Rest], Acc) ->
+  Part = case Token of
+           n ->
+             integer_to_binary(my_id());
+           group ->
+             atom_to_binary(my_group());
+           hostname ->
+             my_hostname();
+           {rand, N} ->
+             integer_to_binary(rand:uniform(N));
+           Const when is_binary(Const) ->
+             Const
+         end,
+  format_topic(Rest, <<Acc/binary, Part/binary>>).
 
 my_settings() ->
   persistent_term:get(?GROUP_BEHAVIOR_SHARED_STATE(group_leader())).

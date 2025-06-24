@@ -112,10 +112,11 @@ model(GroupId) ->
 %%================================================================================
 
 init_per_group(_Group,
-               #{ topic   := Topic
+               #{ topic   := Topic0
                 , qos     := _QoS
                 , metrics := MetricsModelKey
-                } = Opts) when is_binary(Topic) ->
+                } = Opts) when is_binary(Topic0) ->
+  Topic = emqttb_worker:split_topic(Topic0),
   ParseMetadata = maps:get(parse_metadata, Opts, false) orelse
                   maps:get(verify_sequence, Opts, false),
   Defaults = #{ expiry => 0
@@ -138,6 +139,7 @@ init_per_group(_Group,
        , number_of_repeats => emqttb_metrics:from_model(MetricsModelKey ++ [number_of_repeats])
        , repeat_size => emqttb_metrics:from_model(MetricsModelKey ++ [repeat_size])
        , n_streams => NStreams
+       , topic => Topic
        }.
 
 init(SubOpts0 = #{ topic := T
