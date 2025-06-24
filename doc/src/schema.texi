@@ -204,4 +204,13 @@
   @example
   emqttb @@pubsub --pub-topic 'foo/%n' --sub-topic 'bar/%n' @@pub -t bar/%n'
   @end example
+
+  Alternatively, it's possible to use two copies of emqttb that send messages to each other:
+
+  @example
+  emqttb @@pubsub -N 10 --parse-metadata --sub-topic foo/%n --pub-topic bar/%n @@g -i a_%n &
+  emqttb @@pubsub -N 10 --parse-metadata --sub-topic bar/%n --pub-topic foo/%n @@g -i b_%n &
+  @end example
+
+  Note that in this case it's necessary to set client ID template explicitly to avoid collisions.
 @end macro
