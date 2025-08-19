@@ -66,9 +66,12 @@
 %%--------------------------------------------------------------------------------
 
 -spec start(module(), pid(), non_neg_integer()) -> pid().
-start(Behavior, Group, Number) ->
-  Options = [{min_heap_size, 10}],
-  erlang:spawn_opt(?MODULE, entrypoint, [Behavior, Group, Number], Options).
+start(Behavior, GroupLeader, Number) ->
+  Options = case my_cfg(GroupLeader, [lowmem]) of
+              true  -> [{min_heap_size, 10}, {fullsweep_after, 0}];
+              false -> []
+            end,
+  erlang:spawn_opt(?MODULE, entrypoint, [Behavior, GroupLeader, Number], Options).
 
 -spec init_per_group(module(), emqttb:group(), term()) -> term().
 init_per_group(Module, GroupID, Opts) ->
@@ -129,7 +132,12 @@ format_topic(Pattern) ->
 %% @doc Get group-specific configuration (as opposed to global)
 -spec my_cfg(lee:key()) -> term().
 my_cfg(Key) ->
-  ConfKey = ?GROUP_CONF_ID(group_leader()),
+  my_cfg(group_leader(), Key).
+
+%% @doc Get configuration of a group with the given leader
+-spec my_cfg(pid(), lee:key()) -> term().
+my_cfg(GroupLeader, Key) ->
+  ConfKey = ?GROUP_CONF_ID(GroupLeader),
   ConfId = persistent_term:get(ConfKey),
   ?CFG([groups, {ConfId} | Key]).
 
@@ -234,7 +242,6 @@ loop(State) ->
     Msg ->
       try apply(behavior(), handle_message, [my_settings(), State, Msg]) of
         {ok, NewState} ->
-          erlang:garbage_collect(),
           loop(NewState);
         {exit, NewState} ->
           terminate(NewState, normal);
