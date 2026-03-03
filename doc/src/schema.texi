@@ -194,6 +194,16 @@
   FIXME
 @end macro
 
+@macro doc-scenario-sub-unsub-flapping
+  This scenario consists of @code{-N} clients connecting once, then
+  entering a cycle of subscribing to a topic, waiting for a period of
+  time, then unsubscribing and subscribing again.
+
+  @heading Client groups
+  @code{sub_unsub_flapping}
+
+@end macro
+
 @macro doc-scenario-pubsub
   This scenario starts a group of clients that subscribe to
   @ref{value/scenarios/pubsub/_/sub/topic} and simultaneously

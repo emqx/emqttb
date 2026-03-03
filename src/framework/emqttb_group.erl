@@ -38,7 +38,8 @@
 -type prototype() :: emqttb_behavior_pub:prototype()
                    | emqttb_behavior_sub:prototype()
                    | emqttb_behavior_conn:prototype()
-                   | emqttb_behavior_pubsub:prototype().
+                   | emqttb_behavior_pubsub:prototype()
+                   | emqttb_behavior_sub_flapping:prototype().
 
 -type group_config() ::
         #{ id            := atom()
