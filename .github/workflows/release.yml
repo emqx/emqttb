@@ -119,8 +119,8 @@ jobs:
       fail-fast: false
       matrix:
         macos:
-          - macos-13
           - macos-14
+          - macos-15
         otp:
           - "26"
 
