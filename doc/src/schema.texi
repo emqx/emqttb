@@ -224,3 +224,7 @@
 
   Note that in this case it's necessary to set client ID template explicitly to avoid collisions.
 @end macro
+
+@macro doc-scenario-meta
+  This scenario allows to monitor and control emqttb using MQTT.
+@end macro
