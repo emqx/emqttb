@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%%Copyright (c) 2022-2025 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%Copyright (c) 2022-2026 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -162,6 +162,8 @@ run() ->
              , retain      => my_conf([retain])
              , metadata    => my_conf([metadata])
              , metrics     => my_conf_key([metrics])
+             , expiry      => my_conf([expiry])
+             , clean_start => my_conf([clean_start])
              },
   emqttb_group:ensure(#{ id            => ?GROUP
                        , client_config => my_conf([group])
